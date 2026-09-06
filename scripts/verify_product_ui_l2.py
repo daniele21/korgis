@@ -13,8 +13,8 @@ POLICY_PATH = ROOT / ".engineering" / "product-ui-l2.json"
 BASELINE_PATH = ROOT / ".engineering" / "baseline.json"
 UX_PATH = ROOT / "design" / "ux-contract.json"
 PR_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
-EXPECTED_STANDARD_VERSION = "0.9.2"
-EXPECTED_STANDARD_REVISION = "8aa95d10254846e7d63f4bd5c60d61b18d21060c"
+EXPECTED_STANDARD_VERSION = "0.10.0"
+EXPECTED_STANDARD_REVISION = "f392e4ded5cd3ec5efbf806934789c6cb9f10ded"
 EXPECTED_PRODUCT_UI_CONTRACT_VERSION = "0.5.0"
 ALLOWED_MANUAL_STATES = {"pending", "complete", "not-justified"}
 SENSITIVE_FIELD_FRAGMENTS = {
@@ -86,7 +86,7 @@ def main() -> int:
             f"found {standard.get('version')!r}"
         )
     if standard.get("revision") != EXPECTED_STANDARD_REVISION:
-        errors.append("product-ui L2 standard revision does not match the reviewed 0.9.2 baseline")
+        errors.append("product-ui L2 standard revision does not match the reviewed 0.10.0 baseline")
     if baseline.get("target_level") != "L2":
         errors.append("product-ui L2 validator requires target_level L2 when product-ui is adopted")
 
