@@ -1,20 +1,16 @@
 {
   "schema_version": 1,
-  "standard": {
-    "source": "daniele21/repo-template-sw",
-    "version": "0.9.2",
-    "revision": "8aa95d10254846e7d63f4bd5c60d61b18d21060c"
-  },
+  "standard": {"source": "daniele21/repo-template-sw", "version": "0.10.0", "revision": "f392e4ded5cd3ec5efbf806934789c6cb9f10ded"},
   "target_level": "L2",
   "profiles": ["python", "local-ai", "typescript", "macos", "product-ui"],
   "skills": {
-    "plan-workstream": {"source_version": "0.9.0", "customized": true},
-    "structured-change": {"source_version": "0.9.0", "customized": true},
+    "plan-workstream": {"source_version": "0.10.0", "customized": true},
+    "structured-change": {"source_version": "0.10.0", "customized": true},
     "design-product-experience": {"source_version": "0.5.0", "customized": true},
-    "validate-change": {"source_version": "0.9.0", "customized": true},
-    "preflight-change": {"source_version": "0.9.0", "customized": true},
-    "remote-preflight": {"source_version": "0.9.1", "customized": true},
-    "finalize-workstream": {"source_version": "0.1.0", "customized": true},
+    "validate-change": {"source_version": "0.10.0", "customized": true},
+    "preflight-change": {"source_version": "0.10.0", "customized": true},
+    "remote-preflight": {"source_version": "0.10.0", "customized": true},
+    "finalize-workstream": {"source_version": "0.10.0", "customized": true},
     "review-reference-quality": {"source_version": "0.4.0", "customized": true}
   },
   "documentation": {"completed_workstreams": "delete-by-default", "historical_archive": "exception-only"},
@@ -28,95 +24,13 @@
     "l2_evidence_bridge_validation_revision": "de899cc945e1d1c735a2ded91c5da717ce0fe2b0",
     "product_ui_human_evidence_revision": "a29e77c1ce4e65294440cfe4fc47e33c92173096",
     "skill_files": "installed-and-project-customized",
-    "repository_side_l0": {
-      "canonical_commands": "implemented-and-validated",
-      "dependency_locks": "implemented-and-validated",
-      "repository_health": "implemented-and-blocking-in-workflows",
-      "e2e_zero_residue": "implemented-and-validated",
-      "artifact_lifecycle": "implemented-and-validated-through-canonical-build",
-      "security_and_docs": "implemented-and-validated"
-    },
-    "repository_side_l1": {
-      "supply_chain_security": "implemented-and-validated",
-      "persisted_state_recovery": "implemented-and-validated",
-      "lifecycle_failure_contracts": "implemented-and-validated",
-      "performance_resource_budgets": "implemented-and-validated",
-      "release_rollback_and_fresh_install": "implemented-and-validated",
-      "privacy_safe_e2e_evidence": "implemented-and-validated",
-      "specialist_fitness_functions": "implemented-and-blocking-in-full-validation"
-    },
-    "repository_side_l2": {
-      "architecture_fitness": "implemented-and-validated",
-      "resource_memory_regression": "implemented-and-validated",
-      "performance_regression": "implemented-and-validated",
-      "pressure_fault_injection": "implemented-and-validated",
-      "lifecycle_repeatability": "implemented-and-validated",
-      "e2e_failure_retry_recovery": "implemented-and-validated",
-      "built_surface_e2e": "implemented-and-validated-through-fresh-installed-wheel",
-      "complexity_dependency_review": "implemented-and-validated",
-      "reproducible_evidence_identity": "implemented-and-validated",
-      "repository_policy_and_docs_drift": "implemented-and-blocking",
-      "real_evidence_bridge": "implemented-and-blocking-in-full-validation",
-      "evidence_bridge_acceptance": "passed-on-de899cc945e1d1c735a2ded91c5da717ce0fe2b0",
-      "specialist_fitness_functions": "implemented-and-blocking-in-full-validation",
-      "integration_acceptance": "passed-on-d528b6c5b676e705e7ccf24800929da6d5534203"
-    },
-    "template_0_8": {
-      "product_experience_decision_order": "adopted",
-      "publication_preflight_contract": "historical-superseded-by-staged-delivery",
-      "execution_capability_classification": "adopted",
-      "blast_radius_validation_profiles": "adopted",
-      "remote_automated_fallback": "github-pr-workflows",
-      "environment_aware_e2e_contract": "adopted",
-      "documentation_impact_contract": "adopted",
-      "template_revision": "6677c5349d64ea6d935f1b460d03a47c236821bc"
-    },
-    "development_velocity_0_9_1": {
-      "staged_delivery": "adopted",
-      "risk_to_gate_selection": "adopted",
-      "profiles_as_shorthand": "adopted",
-      "exact_head_evidence_reuse": "adopted",
-      "post_merge_tree_equivalent_reuse": "adopted-on-dev",
-      "direct_push_validation": "required-without-equivalent-evidence",
-      "risk_based_ui_evidence": "adopted",
-      "automatic_pr_workflow_consolidation": "adopted",
-      "repository_health": "structural-fast-path",
-      "l1_l2_specialists": "full-gate",
-      "template_revision": "3c6f7aaf48c47595596d1aa4854af8727e9273a7"
-    },
-    "development_velocity_0_9_2": {
-      "automated_integration_before_dev": "adopted",
-      "real_environment_integration_blocking": false,
-      "apple_silicon_release_gate": "adopted",
-      "material_ui_integration_full_media": "adopted",
-      "template_revision": "8aa95d10254846e7d63f4bd5c60d61b18d21060c"
-    },
-    "product_ui_l2": {
-      "contract_and_design_source": "implemented-and-validated",
-      "brand_and_semantic_tokens": "implemented-and-validated",
-      "accessibility_automation": "implemented-and-validated",
-      "adaptive_layout_contract": "implemented-and-validated",
-      "critical_journey_e2e_mapping": "implemented-and-validated",
-      "design_system_drift_control": "implemented-and-blocking-in-repository-health",
-      "privacy_safe_research_contract": "implemented-and-validated",
-      "human_evidence_bridge": "implemented-and-validated",
-      "significant_ux_change_review": "implemented-and-validated",
-      "visual_regression": "deferred-until-stable-high-risk-surface-justifies-pixel-contract",
-      "repository_guardrail_acceptance": "passed-on-89d360698234016ddfe1f3fff0bacbc4f9bb7852",
-      "manual_accessibility_evidence": "accepted-2026-08-31",
-      "representative_user_usability_evidence": "accepted-2026-08-31",
-      "evidence_summary": "docs/evidence/product-ui-evidence-summary-2026-08-31.json"
-    },
-    "accepted_deviations": {
-      "canonical_branch_protection": {"status": "owner-deferred", "reason": "branch protection is intentionally excluded from the current adoption scope; repository CI and health gates remain active"}
-    },
-    "pending_empirical_evidence": {
-      "thinking_on_off_target_mac": "accepted-2026-08-31",
-      "evaluation_repeat_target_mac": "accepted-2026-08-31",
-      "apple_silicon_reclamation": "accepted-descriptive-2026-08-31",
-      "resource_policy_smoke": "accepted-2026-08-31",
-      "product_ui_manual_accessibility": "accepted-2026-08-31",
-      "product_ui_representative_user_usability": "accepted-2026-08-31"
-    }
+    "repository_side_l0": {"canonical_commands": "implemented-and-validated", "dependency_locks": "implemented-and-validated", "repository_health": "implemented-and-blocking-in-workflows", "e2e_zero_residue": "implemented-and-validated", "artifact_lifecycle": "implemented-and-validated-through-canonical-build", "security_and_docs": "implemented-and-validated"},
+    "repository_side_l1": {"supply_chain_security": "implemented-and-validated", "persisted_state_recovery": "implemented-and-validated", "lifecycle_failure_contracts": "implemented-and-validated", "performance_resource_budgets": "implemented-and-validated", "release_rollback_and_fresh_install": "implemented-and-validated", "privacy_safe_e2e_evidence": "implemented-and-validated", "specialist_fitness_functions": "implemented-and-blocking-in-full-validation"},
+    "repository_side_l2": {"architecture_fitness": "implemented-and-validated", "resource_memory_regression": "implemented-and-validated", "performance_regression": "implemented-and-validated", "pressure_fault_injection": "implemented-and-validated", "lifecycle_repeatability": "implemented-and-validated", "e2e_failure_retry_recovery": "implemented-and-validated", "built_surface_e2e": "implemented-and-validated-through-fresh-installed-wheel", "complexity_dependency_review": "implemented-and-validated", "reproducible_evidence_identity": "implemented-and-validated", "repository_policy_and_docs_drift": "implemented-and-blocking", "real_evidence_bridge": "implemented-and-blocking-in-full-validation", "evidence_bridge_acceptance": "passed-on-de899cc945e1d1c735a2ded91c5da717ce0fe2b0", "specialist_fitness_functions": "implemented-and-blocking-in-full-validation", "integration_acceptance": "passed-on-d528b6c5b676e705e7ccf24800929da6d5534203"},
+    "development_velocity_0_9_2": {"automated_integration_before_dev": "adopted", "real_environment_integration_blocking": false, "apple_silicon_release_gate": "adopted", "material_ui_integration_full_media": "adopted", "template_revision": "8aa95d10254846e7d63f4bd5c60d61b18d21060c"},
+    "development_velocity_0_10_0": {"bounded_agent_reporting": "adopted", "schema2_context_routes": "adopted", "two-failed-repair_diagnostic_pivot": "adopted", "resume_checkpoint": "adopted", "template_revision": "f392e4ded5cd3ec5efbf806934789c6cb9f10ded"},
+    "product_ui_l2": {"contract_and_design_source": "implemented-and-validated", "brand_and_semantic_tokens": "implemented-and-validated", "accessibility_automation": "implemented-and-validated", "adaptive_layout_contract": "implemented-and-validated", "critical_journey_e2e_mapping": "implemented-and-validated", "design_system_drift_control": "implemented-and-blocking-in-repository-health", "privacy_safe_research_contract": "implemented-and-validated", "human_evidence_bridge": "implemented-and-validated", "significant_ux_change_review": "implemented-and-validated", "visual_regression": "deferred-until-stable-high-risk-surface-justifies-pixel-contract", "repository_guardrail_acceptance": "passed-on-89d360698234016ddfe1f3fff0bacbc4f9bb7852", "manual_accessibility_evidence": "accepted-2026-08-31", "representative_user_usability_evidence": "accepted-2026-08-31", "evidence_summary": "docs/evidence/product-ui-evidence-summary-2026-08-31.json"},
+    "accepted_deviations": {"canonical_branch_protection": {"status": "owner-deferred", "reason": "branch protection is intentionally excluded from the current adoption scope; repository CI and health gates remain active"}},
+    "pending_empirical_evidence": {"thinking_on_off_target_mac": "accepted-2026-08-31", "evaluation_repeat_target_mac": "accepted-2026-08-31", "apple_silicon_reclamation": "accepted-descriptive-2026-08-31", "resource_policy_smoke": "accepted-2026-08-31", "product_ui_manual_accessibility": "accepted-2026-08-31", "product_ui_representative_user_usability": "accepted-2026-08-31"}
   }
 }
