@@ -141,3 +141,20 @@ def test_builtin_registry_exposes_q4km_local_benchmark_models(
         assert entry["params"]["ctx_size"] == 8192
         assert entry["params"]["enable_thinking"] is False
         assert len(entry["sha256"]) == 64
+
+
+def test_builtin_registry_exposes_tiny_qwen35_runtime_smoke_model(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    entry = load_registry()["models"]["qwen3.5-0.8b-smoke-q4"]
+
+    assert entry["model_id"] == "Qwen/Qwen3.5-0.8B"
+    assert entry["quantization"] == "Q4_0"
+    assert entry["backend"] == "llama_server"
+    assert entry["size_gb"] == 0.563
+    assert entry["thinking_mode"] == "switchable"
+    assert entry["params"]["ctx_size"] == 2048
+    assert entry["params"]["enable_thinking"] is False
+    assert entry["sha256"] == "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf"
