@@ -1,0 +1,194 @@
+name: Qwen3.5 Tiny Real Runtime Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/qwen35-tiny-runtime-smoke
+    paths:
+      - ".github/workflows/qwen35-tiny-runtime-smoke.yml"
+      - "src/local_llm_server/models_registry.yaml"
+      - "tests/real_runtime/smoke_runtime.py"
+      - "tests/test_registry_validation.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qwen35-tiny-runtime-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.8.13"
+  MODEL_KEY: "qwen3.5-0.8b-smoke-q4"
+  MODEL_FILE: "Qwen3.5-0.8B-Q4_0.gguf"
+  MODEL_FILE_SHA256: "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf"
+  LLAMA_CPP_TAG: "b11063"
+  LLAMA_CPP_ARCHIVE_SHA256: "39476232e3b79b31b7960beacaa3a17aa49c1694511da91c25aa125feaa1ad15"
+
+jobs:
+  real-runtime-smoke:
+    name: Tiny Qwen3.5 / Korgis real inference
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv and project
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install "uv==${UV_VERSION}"
+          uv sync --frozen --extra dev --no-install-package llama-cpp-python
+
+      - name: Validate tiny model registry contract
+        run: uv run --no-sync pytest tests/test_registry_validation.py -q
+
+      - name: Restore tiny GGUF cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local-llm/models/Qwen3.5-0.8B-Q4_0.gguf
+          key: qwen35-0.8b-q4-${{ env.MODEL_FILE_SHA256 }}
+
+      - name: Install pinned llama.cpp CPU runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/llama-cpp"
+          archive="${RUNNER_TEMP}/llama-cpp.tar.gz"
+          url="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_CPP_TAG}/llama-${LLAMA_CPP_TAG}-bin-ubuntu-x64.tar.gz"
+          mkdir -p "${root}"
+          curl --fail --location --retry 3 --retry-delay 2 "${url}" --output "${archive}"
+          echo "${LLAMA_CPP_ARCHIVE_SHA256}  ${archive}" | sha256sum --check -
+          tar -xzf "${archive}" -C "${root}"
+          bin="$(find "${root}" -type f -name llama-server -print -quit)"
+          test -n "${bin}"
+          chmod +x "${bin}"
+          bin_dir="$(dirname "${bin}")"
+          echo "LLAMA_SERVER_BIN=${bin}" >> "${GITHUB_ENV}"
+          echo "LD_LIBRARY_PATH=${bin_dir}:${root}/lib" >> "${GITHUB_ENV}"
+          "${bin}" --version
+
+      - name: Download and verify Qwen3.5-0.8B GGUF
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --no-sync local-llm download "${MODEL_KEY}"
+          model_path="${HOME}/.local-llm/models/${MODEL_FILE}"
+          test -f "${model_path}"
+          echo "${MODEL_FILE_SHA256}  ${model_path}" | sha256sum --check -
+
+      - name: Start Korgis with real tiny GGUF
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/qwen35-tiny-smoke
+          nohup uv run --no-sync local-llm serve \
+            --model "${MODEL_KEY}" \
+            --backend llama_server \
+            --llama-server-bin "${LLAMA_SERVER_BIN}" \
+            --ctx-size 2048 \
+            --n-threads 2 \
+            --startup-timeout 180 \
+            --host 127.0.0.1 \
+            --port 1235 \
+            --no-download \
+            > .artifacts/qwen35-tiny-smoke/korgis.log 2>&1 &
+          echo "$!" > .artifacts/qwen35-tiny-smoke/korgis.pid
+
+      - name: Wait for Korgis readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          pid="$(cat .artifacts/qwen35-tiny-smoke/korgis.pid)"
+          for _ in $(seq 1 180); do
+            if curl --fail --silent --show-error http://127.0.0.1:1235/health \
+              > .artifacts/qwen35-tiny-smoke/health.json; then
+              exit 0
+            fi
+            if ! kill -0 "${pid}" 2>/dev/null; then
+              echo "Korgis exited before readiness."
+              tail -n 200 .artifacts/qwen35-tiny-smoke/korgis.log || true
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "Timed out waiting for Korgis."
+          tail -n 200 .artifacts/qwen35-tiny-smoke/korgis.log || true
+          exit 1
+
+      - name: Run real HTTP inference smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error http://127.0.0.1:1235/v1/models \
+            | python -m json.tool > .artifacts/qwen35-tiny-smoke/models.json
+          curl --fail --silent --show-error http://127.0.0.1:1235/v1/runtime/identity \
+            | python -m json.tool > .artifacts/qwen35-tiny-smoke/runtime-identity.json
+
+          uv run --no-sync python tests/real_runtime/smoke_runtime.py \
+            --base-url http://127.0.0.1:1235 \
+            --model "${MODEL_KEY}" \
+            | tee .artifacts/qwen35-tiny-smoke/smoke.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path(".artifacts/qwen35-tiny-smoke")
+          report = json.loads((root / "smoke.json").read_text())
+          identity = json.loads((root / "runtime-identity.json").read_text())
+
+          assert report["ok"] is True
+          assert report["runtime_key"] == "qwen3.5-0.8b-smoke-q4"
+          assert report["identity_protocol"] == "local-llm-identity-v1"
+          assert report["runtime_name"] == "llama_server"
+          assert report["response_characters"] > 0
+          assert report["token_usage_observed"] is True
+
+          model = identity["models"]["qwen3.5-0.8b-smoke-q4"]["model"]
+          assert model["id"] == "Qwen/Qwen3.5-0.8B"
+          assert model["quantization"] == "Q4_0"
+          assert model["artifact_digest"] == (
+              "sha256:57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf"
+          )
+          PY
+
+      - name: Stop Korgis and verify shutdown
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          pid_file=.artifacts/qwen35-tiny-smoke/korgis.pid
+          if [[ -f "${pid_file}" ]]; then
+            pid="$(cat "${pid_file}")"
+            kill -TERM "${pid}" 2>/dev/null || true
+            for _ in $(seq 1 30); do
+              if ! kill -0 "${pid}" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+          fi
+          if curl --fail --silent --max-time 2 http://127.0.0.1:1235/health >/dev/null 2>&1; then
+            echo "Korgis is still listening after shutdown."
+            exit 1
+          fi
+
+      - name: Upload bounded real-runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen35-tiny-runtime-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/qwen35-tiny-smoke/**
+          if-no-files-found: warn
+          retention-days: 3
