@@ -59,6 +59,9 @@ models:
       ctx_size: 8192
       startup_timeout: 300
       max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
       enable_thinking: false
       show_thinking: false
     tags: [reasoning, qwen, local-benchmark, small, 4b]
@@ -77,6 +80,9 @@ models:
       ctx_size: 8192
       startup_timeout: 300
       max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
       enable_thinking: false
       show_thinking: false
     tags: [reasoning, qwen, local-benchmark, 9b]
