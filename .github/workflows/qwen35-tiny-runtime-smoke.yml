@@ -167,6 +167,154 @@ jobs:
           )
           PY
 
+      - name: Checkout pinned Jev-vs-LLM benchmark harness
+        uses: actions/checkout@v4
+        with:
+          repository: daniele21/experiments
+          ref: 654b88d33f180d20aaedbccbc14dd6e9f2714430
+          path: .benchmark/experiments
+          persist-credentials: false
+
+      - name: Run the real decision benchmark smoke suite through Korgis
+        shell: bash
+        env:
+          KORGIS_BASE_URL: http://127.0.0.1:1235/v1
+          KORGIS_MAX_OUTPUT_TOKENS: "2048"
+          BENCHMARK_TIMEOUT_SECONDS: "180"
+          BENCHMARK_LOCATION: github-actions-ubuntu-cpu
+        run: |
+          set -euo pipefail
+          bench_root=".benchmark/experiments/experiments/jev-vs-llm"
+          cd "${bench_root}"
+          uv sync --extra dev
+
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          import pandas as pd
+
+          from jev_bench.metrics import calibration_summary, summarize
+          from jev_bench.providers.korgis import KorgisProvider
+          from jev_bench.report import build_report
+          from jev_bench.runner import run_all
+
+          model = "qwen3.5-0.8b-smoke-q4"
+          provider = KorgisProvider(model=model, seed=42)
+          rows = run_all(provider, scaling_repeats=1)
+
+          out = Path("../../../../.artifacts/qwen35-tiny-smoke")
+          out.mkdir(parents=True, exist_ok=True)
+
+          raw_path = out / "benchmark-raw.csv"
+          summary_path = out / "benchmark-summary.csv"
+          calibration_path = out / "benchmark-calibration.csv"
+          scaling_path = out / "benchmark-scaling.csv"
+          report_path = out / "benchmark-report.html"
+
+          rows.to_csv(raw_path, index=False)
+          summary = summarize(rows)
+          summary.to_csv(summary_path, index=False)
+
+          calibration = calibration_summary(rows)
+          calibration.to_csv(calibration_path, index=False)
+
+          scaling = rows[rows["experiment"].eq("03-parallel-scaling")].copy()
+          if not scaling.empty:
+              scaling = (
+                  scaling.groupby("question_count", as_index=False)
+                  .agg(
+                      valid=("valid", "all"),
+                      latency_ms=("latency_ms", "median"),
+                      input_tokens=("input_tokens", "mean"),
+                      output_tokens=("output_tokens", "mean"),
+                  )
+                  .sort_values("question_count")
+              )
+          scaling.to_csv(scaling_path, index=False)
+
+          build_report(raw_path, report_path)
+
+          print("\n=== BENCHMARK SUMMARY ===")
+          print(
+              summary[
+                  [
+                      "experiment",
+                      "n_requests",
+                      "valid_rate",
+                      "accuracy",
+                      "intermediate_accuracy",
+                      "latency_p50_ms",
+                      "latency_p95_ms",
+                      "mean_input_tokens",
+                      "mean_output_tokens",
+                  ]
+              ].to_string(index=False)
+          )
+
+          print("\n=== CALIBRATION ===")
+          if calibration.empty:
+              print("No calibration rows")
+          else:
+              print(calibration.to_string(index=False))
+
+          print("\n=== SCALING ===")
+          print(scaling.to_string(index=False))
+
+          assert set(summary["experiment"]) == {
+              "01-routing",
+              "02-calibration",
+              "03-parallel-scaling",
+              "04-workflow",
+              "05-hybrid-agent",
+          }
+          assert len(rows) > 0
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path(".artifacts/qwen35-tiny-smoke")
+          summary = pd.read_csv(root / "benchmark-summary.csv")
+          scaling = pd.read_csv(root / "benchmark-scaling.csv")
+
+          lines = [
+              "## Qwen3.5-0.8B through Korgis — benchmark smoke",
+              "",
+              "| Experiment | Requests | Valid rate | Accuracy | Intermediate accuracy | p50 latency |",
+              "| --- | ---: | ---: | ---: | ---: | ---: |",
+          ]
+          for row in summary.itertuples(index=False):
+              acc = "—" if pd.isna(row.accuracy) else f"{row.accuracy:.1%}"
+              interm = (
+                  "—"
+                  if pd.isna(row.intermediate_accuracy)
+                  else f"{row.intermediate_accuracy:.1%}"
+              )
+              lines.append(
+                  f"| {row.experiment} | {int(row.n_requests)} | "
+                  f"{row.valid_rate:.1%} | {acc} | {interm} | "
+                  f"{row.latency_p50_ms:.0f} ms |"
+              )
+
+          lines += [
+              "",
+              "### 1→32 decision scaling",
+              "",
+              "| Questions/request | Valid | Latency | Input tokens | Output tokens |",
+              "| ---: | :---: | ---: | ---: | ---: |",
+          ]
+          for row in scaling.itertuples(index=False):
+              lines.append(
+                  f"| {int(row.question_count)} | {'✅' if row.valid else '❌'} | "
+                  f"{row.latency_ms:.0f} ms | {row.input_tokens:.0f} | {row.output_tokens:.0f} |"
+              )
+
+          Path(root / "benchmark-summary.md").write_text("\n".join(lines) + "\n")
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+
       - name: Stop Korgis and verify shutdown
         if: always()
         shell: bash
