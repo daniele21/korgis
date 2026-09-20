@@ -45,6 +45,48 @@ models:
       enable_thinking: true
     tags: [reasoning, small, 4b]
 
+  qwen3.5-4b-q4km:
+    filename: "Qwen3.5-4B-Q4_K_M.gguf"
+    url: "https://huggingface.co/lmstudio-community/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf"
+    model_id: "Qwen/Qwen3.5-4B"
+    quantization: "Q4_K_M"
+    sha256: "25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c"
+    size_gb: 2.71
+    lmstudio_path: "lmstudio-community/Qwen3.5-4B-GGUF"
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
+      enable_thinking: false
+      show_thinking: false
+    tags: [reasoning, qwen, local-benchmark, small, 4b]
+
+  qwen3.5-9b-q4km:
+    filename: "Qwen3.5-9B-Q4_K_M.gguf"
+    url: "https://huggingface.co/lmstudio-community/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf"
+    model_id: "Qwen/Qwen3.5-9B"
+    quantization: "Q4_K_M"
+    sha256: "cd76ec205963b3b33350093e6904d9de16c4e666fd104e1f632d25c7f15f2a13"
+    size_gb: 5.63
+    lmstudio_path: "lmstudio-community/Qwen3.5-9B-GGUF"
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
+      enable_thinking: false
+      show_thinking: false
+    tags: [reasoning, qwen, local-benchmark, 9b]
+
   qwen3-vl-4b:
     model_id: "mlx-community/Qwen3-VL-4B-Instruct-4bit"
     lmstudio_path: "lmstudio-community/Qwen3-VL-4B-Instruct-MLX-4bit"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from local_llm_server.registry import validate_registry
+from local_llm_server.registry import load_registry, validate_registry
 
 
 def _registry(models, *, default_model="one", startup_models=None):
@@ -113,3 +113,31 @@ def test_registry_validation_rejects_runtime_load_field_as_request_domain():
 
     with pytest.raises(ValueError, match="n_ubatch"):
         validate_registry(registry)
+
+
+
+def test_builtin_registry_exposes_q4km_local_benchmark_models(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+
+    expected = {
+        "qwen3.5-4b-q4km": ("Qwen/Qwen3.5-4B", 2.71),
+        "qwen3.5-9b-q4km": ("Qwen/Qwen3.5-9B", 5.63),
+        "nemotron-nano-4b": ("nvidia/nemotron-3-nano-4b", 2.5),
+    }
+    for key, (model_id, size_gb) in expected.items():
+        entry = registry["models"][key]
+        assert entry["model_id"] == model_id
+        assert entry["quantization"] == "Q4_K_M"
+        assert entry["size_gb"] == size_gb
+        assert entry["thinking_mode"] == "switchable"
+
+    for key in ("qwen3.5-4b-q4km", "qwen3.5-9b-q4km"):
+        entry = registry["models"][key]
+        assert entry["backend"] == "llama_server"
+        assert entry["params"]["ctx_size"] == 8192
+        assert entry["params"]["enable_thinking"] is False
+        assert len(entry["sha256"]) == 64
