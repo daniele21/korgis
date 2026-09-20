@@ -171,7 +171,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: daniele21/experiments
-          ref: 9c9af2c1a7e45b015b1330023977b635f99439ac
+          ref: 330165a09be6678a5d058f2def6bf1c5c72e8d7e
           path: .benchmark/experiments
           persist-credentials: false
 
