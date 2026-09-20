@@ -124,23 +124,29 @@ def test_builtin_registry_exposes_q4km_local_benchmark_models(
     registry = load_registry()
 
     expected = {
-        "qwen3.5-4b-q4km": ("Qwen/Qwen3.5-4B", 2.71),
-        "qwen3.5-9b-q4km": ("Qwen/Qwen3.5-9B", 5.63),
-        "nemotron-nano-4b": ("nvidia/nemotron-3-nano-4b", 2.5),
+        "qwen3.5-4b-q4km": ("Qwen/Qwen3.5-4B", 2.71, "switchable"),
+        "qwen3.5-9b-q4km": ("Qwen/Qwen3.5-9B", 5.63, "switchable"),
+        "nemotron-nano-4b": ("nvidia/nemotron-3-nano-4b", 2.5, "switchable"),
+        "minicpm3-4b-q4km": ("openbmb/MiniCPM3-4B", 2.47, "none"),
     }
-    for key, (model_id, size_gb) in expected.items():
+    for key, (model_id, size_gb, thinking_mode) in expected.items():
         entry = registry["models"][key]
         assert entry["model_id"] == model_id
         assert entry["quantization"] == "Q4_K_M"
         assert entry["size_gb"] == size_gb
-        assert entry["thinking_mode"] == "switchable"
+        assert entry["thinking_mode"] == thinking_mode
 
-    for key in ("qwen3.5-4b-q4km", "qwen3.5-9b-q4km"):
+    for key in ("qwen3.5-4b-q4km", "qwen3.5-9b-q4km", "minicpm3-4b-q4km"):
         entry = registry["models"][key]
         assert entry["backend"] == "llama_server"
         assert entry["params"]["ctx_size"] == 8192
         assert entry["params"]["enable_thinking"] is False
         assert len(entry["sha256"]) == 64
+
+    assert (
+        registry["models"]["minicpm3-4b-q4km"]["sha256"]
+        == "64913247e927414ecf47fd3e9ea8e3f0c9acae293f583dfa7e24b8872e20fa4c"
+    )
 
 
 def test_builtin_registry_exposes_tiny_qwen35_runtime_smoke_model(
