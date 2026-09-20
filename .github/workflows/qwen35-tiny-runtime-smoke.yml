@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/qwen35-tiny-runtime-smoke.yml"
       - "src/local_llm_server/models_registry.yaml"
+      - "uv.lock"
       - "tests/real_runtime/smoke_runtime.py"
       - "tests/test_registry_validation.py"
       - "docs/qwen35-tiny-runtime-smoke.md"
