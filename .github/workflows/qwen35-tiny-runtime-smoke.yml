@@ -10,6 +10,9 @@ on:
       - "src/local_llm_server/models_registry.yaml"
       - "tests/real_runtime/smoke_runtime.py"
       - "tests/test_registry_validation.py"
+      - "docs/qwen35-tiny-runtime-smoke.md"
+      - "docs/README.md"
+      - "docs/current-state.md"
 
 permissions:
   contents: read
