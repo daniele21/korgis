@@ -45,6 +45,27 @@ models:
       enable_thinking: true
     tags: [reasoning, small, 4b]
 
+  qwen3.5-0.8b-smoke-q4:
+    filename: "Qwen3.5-0.8B-Q4_0.gguf"
+    url: "https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf"
+    model_id: "Qwen/Qwen3.5-0.8B"
+    quantization: "Q4_0"
+    sha256: "57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf"
+    size_gb: 0.563
+    lmstudio_path: "ggml-org/Qwen3.5-0.8B-GGUF"
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 2048
+      startup_timeout: 180
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      default_top_p: 0.8
+      default_top_k: 20
+      enable_thinking: false
+      show_thinking: false
+    tags: [qwen, smoke, tiny, 0.8b]
+
   qwen3.5-4b-q4km:
     filename: "Qwen3.5-4B-Q4_K_M.gguf"
     url: "https://huggingface.co/lmstudio-community/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf"
