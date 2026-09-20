@@ -28,6 +28,7 @@ Read in this order when operating/integrating the product:
 4. [`runtime-status-reference.md`](runtime-status-reference.md) — mutable runtime telemetry semantics.
 5. [`runtime-identity-api.md`](runtime-identity-api.md) — path-free `local-llm-identity-v1` execution identity and evidence rules.
 6. [`troubleshooting.md`](troubleshooting.md) — operational/integration diagnosis.
+7. [`qwen35-tiny-runtime-smoke.md`](qwen35-tiny-runtime-smoke.md) — low-cost hosted real-inference smoke using a pinned Qwen3.5-0.8B GGUF.
 
 Swagger at `/docs` is the executable schema for the checked-out revision; the references above own cross-endpoint semantics and safe usage.
 
@@ -37,6 +38,7 @@ Swagger at `/docs` is the executable schema for the checked-out revision; the re
 | --- | --- |
 | What is this project/why/for whom? | README identity sections; detailed product intent in [`implementation-plan.md`](implementation-plan.md) |
 | What must a person do to install/configure/run/use it now? | README usage summary plus the operational references in **Use the server** |
+| How do I prove the hosted GGUF serving path with a tiny real model? | [`qwen35-tiny-runtime-smoke.md`](qwen35-tiny-runtime-smoke.md) |
 | What is the current architecture/trust/resource flow? | [`architecture.md`](architecture.md) |
 | What architectural direction/migration remains? | [`architecture-evolution-plan.md`](architecture-evolution-plan.md) |
 | What is integrated, blocked or executable next? | [`current-state.md`](current-state.md) |
