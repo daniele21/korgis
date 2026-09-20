@@ -1,6 +1,12 @@
 # Qwen3.5 tiny real-runtime smoke
 
-Status: active  
+Status: active
+Document type: operational-guide
+Owner: developer experience
+Canonical scope: operations.qwen35-tiny-runtime-smoke
+Read when: verifying a low-cost real GGUF inference path in hosted CI or reproducing the tiny runtime smoke locally
+Last reviewed: 2026-09-20
+
 Purpose: low-cost real inference validation for Korgis' GGUF serving path.
 
 ## What this test proves
