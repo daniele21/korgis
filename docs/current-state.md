@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-20
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -22,7 +22,7 @@ Runtime hardening remains fail-conservative: routing/accounting persists until t
 
 Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by default. Explicit executable selection is authoritative. Local LLM Server maps admitted concurrency to `--parallel`; llama.cpp owns runtime-local batching/KV. Automatic pressure eviction remains disabled.
 
-Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
+Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. A separate non-blocking hosted real-runtime smoke can now load the pinned Qwen3.5-0.8B Q4_0 GGUF through managed `llama_server`, verify runtime identity, execute one real HTTP completion and confirm clean shutdown; this is functional compatibility evidence, not target-device performance evidence. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
 
 ## Accepted real evidence
 
