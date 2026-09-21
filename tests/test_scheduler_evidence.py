@@ -53,6 +53,7 @@ def test_disabled_scheduler_evidence_is_explicit_not_fake_zero():
         assert payload["global"]["enabled"] is False
         assert payload["global"]["inflight"] is None
         assert payload["global"]["queued"] is None
+        assert payload["global"]["workloads"] == []
 
     asyncio.run(scenario())
 
@@ -79,6 +80,8 @@ def test_scheduler_evidence_reports_aggregate_running_and_queued_without_request
         assert runtime_payload["queued"] == 1
         assert runtime_payload["max_running"] == 1
         assert runtime_payload["queue_capacity"] == 2
+        assert runtime_payload["queued_by_workload"] == {"standard": 1}
+        assert runtime_payload["running_by_workload"] == {"standard": 1}
         rendered = str(payload)
         assert "private-running-id" not in rendered
         assert "private-queued-id" not in rendered
@@ -123,9 +126,12 @@ def test_global_governor_evidence_is_aggregate_and_privacy_safe():
         assert payload["global"]["enabled"] is True
         assert payload["global"]["inflight"] == 1
         assert payload["global"]["queued"] == 1
-        assert payload["global"]["fairness"] == "runtime_round_robin"
+        assert payload["global"]["fairness"] == "priority_aging_runtime_round_robin"
         assert payload["global"]["runtimes"] == [
             {"runtime_key": "demo", "queued": 1, "running": 1}
+        ]
+        assert payload["global"]["workloads"] == [
+            {"workload_class": "standard", "queued": 1, "running": 1}
         ]
         rendered = str(payload)
         assert "private-global-running" not in rendered
@@ -166,6 +172,8 @@ def test_admin_control_plane_exposes_scheduler_and_global_governor_source(tmp_pa
     assert payload["policy"]["global_queue_capacity"] == 5
     assert payload["policy"]["default_queue_timeout_ms"] == 250
     assert payload["policy"]["timeout_scope"] == "pre_execution_admission_wait_only"
+    assert payload["policy"]["global_fairness"] == "priority_aging_runtime_round_robin"
+    assert payload["policy"]["workload_default"] == "standard"
     assert payload["global"]["enabled"] is True
     assert payload["global"]["max_running"] == 2
     assert payload["runtimes"][0]["runtime_key"] == "demo"
