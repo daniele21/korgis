@@ -51,7 +51,7 @@ def test_environment_can_enable_global_governor_without_runtime_queue():
     assert settings.global_queue_capacity == 5
     assert settings.timeout_seconds_for_headers({}) == 0.3
     public = settings.to_public_dict()
-    assert public["global_fairness"] == "runtime_round_robin"
+    assert public["global_fairness"] == "priority_aging_runtime_round_robin"
 
 
 def test_request_header_explicitly_overrides_default_admission_timeout():
