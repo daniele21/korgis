@@ -9,6 +9,17 @@ from local_llm_server.core.contracts import ErrorCode, InferenceError
 from local_llm_server.global_execution_governor import GlobalExecutionGovernor
 
 
+class _Clock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds: float):
+        self.now += seconds
+
+
 def _wait_until(predicate, *, timeout: float = 1.0) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -178,3 +189,66 @@ def test_public_snapshot_contains_no_request_identity_or_content():
     assert "input_text" not in rendered
     assert "model-a" in rendered
     governor.release("private-request-id")
+
+
+def test_global_priority_selects_interactive_work_before_background_work():
+    governor = GlobalExecutionGovernor(max_running=1, queue_capacity=3)
+    governor.acquire("a", "running", runtime_max_running=1)
+    governor.submit(
+        "b",
+        "background",
+        runtime_max_running=1,
+        workload_class="background",
+    )
+    governor.submit(
+        "c",
+        "interactive",
+        runtime_max_running=1,
+        workload_class="interactive",
+    )
+
+    governor.release("running")
+    by_workload = {
+        item["workload_class"]: item
+        for item in governor.snapshot().workloads
+    }
+    assert by_workload["interactive"]["running"] == 1
+    assert by_workload["background"]["queued"] == 1
+
+    governor.release("interactive")
+    governor.release("background")
+    assert governor.snapshot().inflight == 0
+
+
+def test_global_priority_aging_prevents_background_starvation():
+    clock = _Clock()
+    governor = GlobalExecutionGovernor(
+        max_running=1,
+        queue_capacity=3,
+        clock=clock,
+    )
+    governor.acquire("a", "running", runtime_max_running=1)
+    governor.submit(
+        "b",
+        "background",
+        runtime_max_running=1,
+        workload_class="background",
+    )
+    clock.advance(31)
+    governor.submit(
+        "c",
+        "interactive",
+        runtime_max_running=1,
+        workload_class="interactive",
+    )
+
+    governor.release("running")
+    by_workload = {
+        item["workload_class"]: item
+        for item in governor.snapshot().workloads
+    }
+    assert by_workload["background"]["running"] == 1
+    assert by_workload["interactive"]["queued"] == 1
+
+    governor.release("background")
+    governor.release("interactive")
