@@ -128,3 +128,32 @@ def test_snapshot_exposes_states_without_request_content():
     assert snapshot["state"] == "queued"
     assert "request" not in snapshot
     assert "hello" not in str(snapshot)
+
+
+def test_higher_priority_workload_overtakes_earlier_lower_priority_request():
+    clock = _Clock()
+    scheduler = BoundedScheduler(3, clock=clock)
+    scheduler.submit("background", _request(), workload_class="background")
+    clock.advance(0.1)
+    scheduler.submit("interactive", _request(), workload_class="interactive")
+
+    selected = scheduler.next()
+    assert selected is not None
+    assert selected.request_id == "interactive"
+    assert selected.workload_class.value == "interactive"
+
+    next_selected = scheduler.next()
+    assert next_selected is not None
+    assert next_selected.request_id == "background"
+
+
+def test_aging_lets_old_background_work_overtake_fresh_interactive_work():
+    clock = _Clock()
+    scheduler = BoundedScheduler(3, clock=clock)
+    scheduler.submit("background", _request(), workload_class="background")
+    clock.advance(31)
+    scheduler.submit("interactive", _request(), workload_class="interactive")
+
+    selected = scheduler.next()
+    assert selected is not None
+    assert selected.request_id == "background"
