@@ -109,6 +109,7 @@ class ResidentRuntimeExecutor:
                     1,
                     int(runtime.cfg.get("max_concurrent_requests") or 1),
                 ),
+                workload_class="batch",
             )
             global_acquired = True
             try:
