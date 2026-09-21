@@ -16,6 +16,11 @@ from enum import Enum
 from typing import Any, Callable
 
 from .core.contracts import ErrorCode, InferenceError
+from .scheduler_policy import (
+    WorkloadClass,
+    effective_workload_priority,
+    normalize_workload_class,
+)
 
 
 _OWNER_ATTRIBUTE = "_local_llm_global_execution_governor"
@@ -36,6 +41,7 @@ class _Waiter:
     runtime_max_running: int
     submitted_at: float
     deadline_at: float | None
+    workload_class: WorkloadClass = WorkloadClass.STANDARD
     state: GlobalExecutionState = GlobalExecutionState.QUEUED
     started_at: float | None = None
     finished_at: float | None = None
@@ -51,6 +57,7 @@ class GlobalExecutionPermit:
     submitted_at: float
     started_at: float
     deadline_at: float | None
+    workload_class: WorkloadClass
 
     @property
     def wait_ms(self) -> float:
@@ -64,6 +71,7 @@ class GlobalExecutionSnapshot:
     inflight: int
     queued: int
     runtimes: tuple[dict[str, object], ...]
+    workloads: tuple[dict[str, object], ...]
 
     def to_public_dict(self) -> dict[str, object]:
         return {
@@ -72,8 +80,9 @@ class GlobalExecutionSnapshot:
             "queue_capacity": self.queue_capacity,
             "inflight": self.inflight,
             "queued": self.queued,
-            "fairness": "runtime_round_robin",
+            "fairness": "priority_aging_runtime_round_robin",
             "runtimes": [dict(item) for item in self.runtimes],
+            "workloads": [dict(item) for item in self.workloads],
         }
 
 
@@ -109,6 +118,7 @@ class GlobalExecutionGovernor:
         *,
         runtime_max_running: int,
         timeout_seconds: float | None = None,
+        workload_class: str | WorkloadClass = WorkloadClass.STANDARD,
     ) -> None:
         """Register a waiter synchronously so cancellation can always find it."""
         if not runtime_key.strip():
@@ -125,6 +135,7 @@ class GlobalExecutionGovernor:
                 details={},
             )
 
+        resolved_workload_class = normalize_workload_class(workload_class)
         now = self.clock()
         with self._condition:
             if request_id in self._waiters:
@@ -150,6 +161,7 @@ class GlobalExecutionGovernor:
                 runtime_max_running=runtime_max_running,
                 submitted_at=now,
                 deadline_at=(now + timeout_seconds) if timeout_seconds is not None else None,
+                workload_class=resolved_workload_class,
             )
             self._runtime_queues.setdefault(runtime_key, deque()).append(request_id)
             self._schedule_runtime_locked(runtime_key)
@@ -171,6 +183,7 @@ class GlobalExecutionGovernor:
                         submitted_at=waiter.submitted_at,
                         started_at=waiter.started_at,
                         deadline_at=waiter.deadline_at,
+                        workload_class=waiter.workload_class,
                     )
                 if waiter.state is GlobalExecutionState.EXPIRED:
                     self._discard_waiter_locked(request_id, waiter)
@@ -210,6 +223,7 @@ class GlobalExecutionGovernor:
         *,
         runtime_max_running: int,
         timeout_seconds: float | None = None,
+        workload_class: str | WorkloadClass = WorkloadClass.STANDARD,
     ) -> GlobalExecutionPermit:
         """Synchronous convenience wrapper used by non-async execution paths."""
         self.submit(
@@ -217,6 +231,7 @@ class GlobalExecutionGovernor:
             request_id,
             runtime_max_running=runtime_max_running,
             timeout_seconds=timeout_seconds,
+            workload_class=workload_class,
         )
         return self.wait(request_id)
 
@@ -264,9 +279,14 @@ class GlobalExecutionGovernor:
             self._expire_queued_locked(now)
             self._admit_available_locked(now)
             queued_by_runtime: Counter[str] = Counter()
+            queued_by_workload: Counter[str] = Counter()
+            running_by_workload: Counter[str] = Counter()
             for waiter in self._waiters.values():
                 if waiter.state is GlobalExecutionState.QUEUED:
                     queued_by_runtime[waiter.runtime_key] += 1
+                    queued_by_workload[waiter.workload_class.value] += 1
+                elif waiter.state is GlobalExecutionState.RUNNING:
+                    running_by_workload[waiter.workload_class.value] += 1
             runtime_keys = sorted(set(queued_by_runtime) | set(self._runtime_inflight))
             runtimes = tuple(
                 {
@@ -277,12 +297,22 @@ class GlobalExecutionGovernor:
                 for runtime_key in runtime_keys
                 if queued_by_runtime[runtime_key] or self._runtime_inflight[runtime_key]
             )
+            workloads = tuple(
+                {
+                    "workload_class": workload.value,
+                    "queued": queued_by_workload[workload.value],
+                    "running": running_by_workload[workload.value],
+                }
+                for workload in WorkloadClass
+                if queued_by_workload[workload.value] or running_by_workload[workload.value]
+            )
             return GlobalExecutionSnapshot(
                 max_running=self.max_running,
                 queue_capacity=self.queue_capacity,
                 inflight=self._inflight,
                 queued=sum(queued_by_runtime.values()),
                 runtimes=runtimes,
+                workloads=workloads,
             )
 
     def _queued_count_locked(self) -> int:
@@ -303,52 +333,93 @@ class GlobalExecutionGovernor:
 
     def _admit_available_locked(self, now: float) -> None:
         while self._inflight < self.max_running and self._runtime_order:
-            candidates = len(self._runtime_order)
-            admitted = False
-            for _ in range(candidates):
-                runtime_key = self._runtime_order.popleft()
-                self._runtime_in_order.discard(runtime_key)
+            selected_runtime: str | None = None
+            selected_waiter: _Waiter | None = None
+            selected_priority: int | None = None
+            empty_runtimes: list[str] = []
+
+            for runtime_key in tuple(self._runtime_order):
                 queue = self._runtime_queues.get(runtime_key)
                 if queue is None:
+                    empty_runtimes.append(runtime_key)
                     continue
-
-                selected = self._next_queued_locked(queue, now)
-                if selected is None:
-                    self._runtime_queues.pop(runtime_key, None)
+                candidate = self._best_queued_locked(queue, now)
+                if candidate is None:
+                    empty_runtimes.append(runtime_key)
                     continue
-
-                if self._runtime_inflight[runtime_key] >= selected.runtime_max_running:
-                    self._schedule_runtime_locked(runtime_key)
+                if self._runtime_inflight[runtime_key] >= candidate.runtime_max_running:
                     continue
+                priority = effective_workload_priority(
+                    candidate.workload_class,
+                    submitted_at=candidate.submitted_at,
+                    now=now,
+                )
+                if selected_priority is None or priority > selected_priority:
+                    selected_runtime = runtime_key
+                    selected_waiter = candidate
+                    selected_priority = priority
 
-                queue.popleft()
-                if queue:
-                    self._schedule_runtime_locked(runtime_key)
-                else:
-                    self._runtime_queues.pop(runtime_key, None)
-                selected.state = GlobalExecutionState.RUNNING
-                selected.started_at = now
-                self._inflight += 1
-                self._runtime_inflight[runtime_key] += 1
-                admitted = True
+            for runtime_key in empty_runtimes:
+                self._drop_runtime_from_order_locked(runtime_key)
+                self._runtime_queues.pop(runtime_key, None)
+
+            if selected_runtime is None or selected_waiter is None:
                 break
-            if not admitted:
-                break
 
-    def _next_queued_locked(self, queue: deque[str], now: float) -> _Waiter | None:
-        while queue:
-            request_id = queue[0]
+            queue = self._runtime_queues[selected_runtime]
+            self._drop_runtime_from_order_locked(selected_runtime)
+            try:
+                queue.remove(selected_waiter.request_id)
+            except ValueError:
+                continue
+
+            if self._best_queued_locked(queue, now) is not None:
+                self._schedule_runtime_locked(selected_runtime)
+            else:
+                self._runtime_queues.pop(selected_runtime, None)
+
+            selected_waiter.state = GlobalExecutionState.RUNNING
+            selected_waiter.started_at = now
+            self._inflight += 1
+            self._runtime_inflight[selected_runtime] += 1
+
+    def _best_queued_locked(self, queue: deque[str], now: float) -> _Waiter | None:
+        selected: _Waiter | None = None
+        selected_priority: int | None = None
+        for request_id in list(queue):
             waiter = self._waiters.get(request_id)
             if waiter is None or waiter.state is not GlobalExecutionState.QUEUED:
-                queue.popleft()
+                try:
+                    queue.remove(request_id)
+                except ValueError:
+                    pass
                 continue
             if waiter.expired(now):
                 waiter.state = GlobalExecutionState.EXPIRED
                 waiter.finished_at = now
-                queue.popleft()
+                try:
+                    queue.remove(request_id)
+                except ValueError:
+                    pass
                 continue
-            return waiter
-        return None
+            priority = effective_workload_priority(
+                waiter.workload_class,
+                submitted_at=waiter.submitted_at,
+                now=now,
+            )
+            if selected_priority is None or priority > selected_priority:
+                selected = waiter
+                selected_priority = priority
+        return selected
+
+    def _drop_runtime_from_order_locked(self, runtime_key: str) -> None:
+        if runtime_key not in self._runtime_in_order:
+            return
+        try:
+            self._runtime_order.remove(runtime_key)
+        except ValueError:
+            pass
+        self._runtime_in_order.discard(runtime_key)
 
     def _release_running_locked(self, runtime_key: str) -> None:
         self._inflight = max(0, self._inflight - 1)
