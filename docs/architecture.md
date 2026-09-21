@@ -5,7 +5,7 @@ Document type: architecture
 Owner: runtime-and-platform
 Canonical scope: current.architecture
 Read when: changing runtime boundaries, composition roots, resource ownership, trust/data flow or backend integration
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-21
 
 This document owns the **current integrated architecture** of Local LLM Server. [`architecture-evolution-plan.md`](architecture-evolution-plan.md) remains the target/migration document; [`current-state.md`](current-state.md) owns operational progress and evidence blockers.
 
@@ -87,13 +87,14 @@ The in-process engine path and process-isolated worker/evidence path have differ
 ## Resource and scheduling boundary
 
 - `resource_manager.py` owns the single configured memory budget/headroom ledger, resident/transient reservation, admission, accounting and release.
-- `request_scheduler.py` composes optional per-runtime FIFO admission with optional global execution admission for supported HTTP inference; it does not own backend batching or memory accounting.
-- `global_execution_governor.py` owns the optional bounded cross-runtime execution pool and runtime round-robin fairness. It mirrors each runtime's configured concurrency only as an eligibility bound so global slots are not consumed by work that would immediately block on the runtime semaphore; the semaphore remains the final per-runtime safeguard.
+- `request_scheduler.py` composes optional per-runtime priority-aware admission with optional global execution admission for supported HTTP inference. Missing workload metadata defaults to `standard`; it does not own backend batching or memory accounting.
+- `scheduler_policy.py` owns the workload-class vocabulary (`interactive`, `standard`, `batch`, `background`), base priorities and deterministic wait aging. Aging raises effective priority one point per queued second so lower-priority work eventually competes with fresh higher-priority work.
+- `global_execution_governor.py` owns the optional bounded cross-runtime execution pool. It selects the highest effective workload priority, uses runtime round-robin to break equal-priority ties, and mirrors each runtime's configured concurrency only as an eligibility bound so global slots are not consumed by work that would immediately block on the runtime semaphore; the semaphore remains the final per-runtime safeguard.
 - first-class resident transcription consumes the same attached global governor before transient-memory reservation and runtime lease, so chat/vision and ASR participate in one cross-runtime execution bound.
 - `residency_eviction.py` owns deterministic explicit LRU/TTL candidate selection.
 - `residency_pressure.py` owns pressure-policy evaluation and hysteresis.
 
-Global execution admission is explicit and opt-in; the control plane does not silently reduce server concurrency. Per-runtime queueing remains independently opt-in. When both are configured, one pre-execution timeout budget spans both waits. Requests waiting only for execution capacity do not reserve transient memory. Streaming requests retain acquired execution slots until their response body completes or is cancelled.
+Global execution admission is explicit and opt-in; the control plane does not silently reduce server concurrency. Per-runtime queueing remains independently opt-in. Workload priority affects only queued admission: it never preempts already-running inference and does not replace backend-native batching. When both admission layers are configured, one pre-execution timeout budget spans both waits. Requests waiting only for execution capacity do not reserve transient memory. Streaming requests retain acquired execution slots until their response body completes or is cancelled.
 
 Automatic pressure-triggered eviction remains disabled. The accepted representative-device evidence demonstrates repeated multi-model ownership/accounting and bounded shutdown behavior but deliberately does not provide an automatic-eviction recommendation or reclamation/production-safety claim. Any future pressure-triggered automatic action therefore requires a separate explicit evidence and policy decision. Resource-policy code must never silently substitute a different model or evict an actively leased runtime as an admission side effect. Global execution admission does not imply that an already-running in-process backend can always be interrupted.
 
