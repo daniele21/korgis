@@ -14,6 +14,11 @@ from enum import Enum
 from typing import Callable
 
 from .core.contracts import ErrorCode, InferenceError, InferenceRequest
+from .scheduler_policy import (
+    WorkloadClass,
+    effective_workload_priority,
+    normalize_workload_class,
+)
 
 
 class QueueState(str, Enum):
@@ -52,6 +57,7 @@ class ScheduledRequest:
     request: InferenceRequest
     submitted_at: float
     deadline_at: float | None
+    workload_class: WorkloadClass = WorkloadClass.STANDARD
     state: QueueState = QueueState.QUEUED
     cancellation: CancellationToken = field(default_factory=CancellationToken)
     admitted_at: float | None = None
@@ -87,12 +93,14 @@ class BoundedScheduler:
         request: InferenceRequest,
         *,
         timeout_seconds: float | None = None,
+        workload_class: str | WorkloadClass = WorkloadClass.STANDARD,
     ) -> ScheduledRequest:
         if not request_id.strip():
             raise ValueError("request_id must be non-empty")
         if timeout_seconds is not None and timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be > 0")
 
+        resolved_workload_class = normalize_workload_class(workload_class)
         now = self.clock()
         with self._lock:
             if request_id in self._requests:
@@ -107,6 +115,7 @@ class BoundedScheduler:
                     request=request,
                     submitted_at=now,
                     deadline_at=(now + timeout_seconds) if timeout_seconds is not None else None,
+                    workload_class=resolved_workload_class,
                     state=QueueState.REJECTED,
                     finished_at=now,
                 )
@@ -123,6 +132,7 @@ class BoundedScheduler:
                 request=request,
                 submitted_at=now,
                 deadline_at=(now + timeout_seconds) if timeout_seconds is not None else None,
+                workload_class=resolved_workload_class,
             )
             self._requests[request_id] = scheduled
             self._queue.append(request_id)
@@ -132,21 +142,12 @@ class BoundedScheduler:
         now = self.clock()
         with self._lock:
             self._expire_queued(now)
-            while self._queue:
-                request_id = self._queue.popleft()
-                scheduled = self._requests[request_id]
-                if scheduled.state is not QueueState.QUEUED:
-                    continue
-                if scheduled.cancellation.cancelled:
-                    self._transition_terminal(scheduled, QueueState.CANCELLED, now)
-                    continue
-                if scheduled.expired(now):
-                    self._transition_terminal(scheduled, QueueState.EXPIRED, now)
-                    continue
-                scheduled.state = QueueState.ADMITTED
-                scheduled.admitted_at = now
-                return scheduled
-            return None
+            scheduled = self._next_queued(now)
+            if scheduled is None:
+                return None
+            scheduled.state = QueueState.ADMITTED
+            scheduled.admitted_at = now
+            return scheduled
 
     def start(self, request_id: str) -> ScheduledRequest:
         now = self.clock()
@@ -212,6 +213,7 @@ class BoundedScheduler:
                 {
                     "request_id": item.request_id,
                     "state": item.state.value,
+                    "workload_class": item.workload_class.value,
                     "submitted_at": item.submitted_at,
                     "deadline_at": item.deadline_at,
                     "admitted_at": item.admitted_at,
@@ -221,6 +223,43 @@ class BoundedScheduler:
                 }
                 for item in sorted(self._requests.values(), key=lambda value: value.submitted_at)
             )
+
+    def _next_queued(self, now: float) -> ScheduledRequest | None:
+        self._compact_queue()
+        selected: ScheduledRequest | None = None
+        selected_priority: int | None = None
+        for request_id in list(self._queue):
+            scheduled = self._requests[request_id]
+            if scheduled.cancellation.cancelled:
+                self._transition_terminal(scheduled, QueueState.CANCELLED, now)
+                continue
+            if scheduled.expired(now):
+                self._transition_terminal(scheduled, QueueState.EXPIRED, now)
+                continue
+            priority = effective_workload_priority(
+                scheduled.workload_class,
+                submitted_at=scheduled.submitted_at,
+                now=now,
+            )
+            if selected_priority is None or priority > selected_priority:
+                selected = scheduled
+                selected_priority = priority
+
+        self._compact_queue()
+        if selected is not None:
+            try:
+                self._queue.remove(selected.request_id)
+            except ValueError:
+                return None
+        return selected
+
+    def _compact_queue(self) -> None:
+        self._queue = deque(
+            request_id
+            for request_id in self._queue
+            if request_id in self._requests
+            and self._requests[request_id].state is QueueState.QUEUED
+        )
 
     def _expire_queued(self, now: float) -> None:
         for request_id in list(self._queue):

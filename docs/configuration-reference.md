@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: runtime configuration
 Canonical scope: operations.configuration
 Read when: choosing server/runtime settings, diagnosing unexpected effective configuration, or preparing reproducible runs
-Last reviewed: 2026-08-30
+Last reviewed: 2026-09-21
 
 Local LLM Server resolves runtime configuration from multiple sources. This reference documents the supported precedence and the settings that materially affect serving behavior and execution identity.
 
@@ -53,16 +53,20 @@ Request admission is explicitly opt-in and is configured independently from per-
 
 | Environment | Fallback | Meaning |
 | --- | --- | --- |
-| `LOCAL_LLM_REQUEST_QUEUE_CAPACITY` | `null` | bounded FIFO wait capacity for each resident runtime before execution admission |
+| `LOCAL_LLM_REQUEST_QUEUE_CAPACITY` | `null` | bounded priority-aware wait capacity for each resident runtime before execution admission |
 | `LOCAL_LLM_QUEUE_TIMEOUT_MS` | `null` | deadline for the complete pre-execution wait; requires a per-runtime queue and/or global governor |
 | `LOCAL_LLM_GLOBAL_MAX_RUNNING` | `null` | aggregate number of executions that may hold a global compute slot across resident runtimes |
 | `LOCAL_LLM_GLOBAL_QUEUE_CAPACITY` | `null` | bounded aggregate wait capacity for the global execution governor |
 
-`LOCAL_LLM_GLOBAL_MAX_RUNNING` and `LOCAL_LLM_GLOBAL_QUEUE_CAPACITY` must be configured together. The global governor uses runtime round-robin fairness and also respects each runtime's `max_concurrent_requests` as an eligibility bound so global slots are not consumed by work that would immediately block on that runtime's semaphore. The runtime semaphore remains the final per-runtime safeguard, and backend-native batching remains backend-owned.
+`LOCAL_LLM_GLOBAL_MAX_RUNNING` and `LOCAL_LLM_GLOBAL_QUEUE_CAPACITY` must be configured together. The global governor uses priority aging with runtime round-robin as the tie-break/fairness rule and also respects each runtime's `max_concurrent_requests` as an eligibility bound so global slots are not consumed by work that would immediately block on that runtime's semaphore. The runtime semaphore remains the final per-runtime safeguard, and backend-native batching remains backend-owned.
 
 The optional request header `x-local-llm-queue-timeout-ms` overrides `LOCAL_LLM_QUEUE_TIMEOUT_MS` for that HTTP request. The timeout covers the combined pre-execution wait rather than restarting between the per-runtime queue and global governor; it is not an end-to-end inference timeout.
 
-Transient request memory is reserved only after execution admission, so queued requests do not claim transient RAM. When the global governor is configured, first-class chat/vision HTTP execution, resident transcription and evaluation samples share the same aggregate execution owner. Global admission does not create a second memory budget or enable automatic pressure eviction.
+When request admission is enabled, `x-local-llm-workload-class` can classify chat inference as `interactive`, `standard`, `batch` or `background`. Missing headers default to `standard`, preserving the behavior of existing clients. Base priorities are 30, 20, 10 and 0 respectively. Every second spent queued adds one effective priority point; therefore older low-priority work eventually competes with fresh higher-priority work instead of starving indefinitely. Equal effective priority preserves FIFO inside one runtime and uses runtime round-robin globally. Invalid workload classes fail with HTTP 400 before backend execution.
+
+The response echoes the validated class in `x-local-llm-workload-class`. Workload priority changes only pre-execution admission; it does not preempt already-running inference, change backend-native batching or reserve additional memory.
+
+Transient request memory is reserved only after execution admission, so queued requests do not claim transient RAM. When the global governor is configured, first-class chat/vision HTTP execution, resident transcription and evaluation samples share the same aggregate execution owner. Evaluation execution is classified as `batch`; transcription keeps the default `standard` class. Global admission does not create a second memory budget or enable automatic pressure eviction.
 
 ## Default generation settings
 

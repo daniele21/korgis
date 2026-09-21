@@ -388,3 +388,96 @@ def test_streaming_body_holds_global_permit_until_iterator_finishes():
         assert governor.snapshot().inflight == 0
 
     asyncio.run(scenario())
+
+
+def test_invalid_workload_class_fails_before_route():
+    async def scenario():
+        app, _ = _app(capacity=1)
+        route_calls = 0
+
+        @app.post("/v1/chat/completions")
+        async def chat():
+            nonlocal route_calls
+            route_calls += 1
+            return JSONResponse({"ok": True})
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/v1/chat/completions",
+                json=_request_payload("demo"),
+                headers={"x-local-llm-workload-class": "urgent"},
+            )
+            assert response.status_code == 400
+            assert response.json()["detail"]["code"] == "invalid_request"
+            assert route_calls == 0
+
+    asyncio.run(scenario())
+
+
+def test_http_workload_class_prioritizes_interactive_request_globally():
+    async def scenario():
+        app, _ = _app(
+            models=("a", "b", "c"),
+            capacity=None,
+            global_max_running=1,
+            global_queue_capacity=3,
+        )
+        first_started = asyncio.Event()
+        first_release = asyncio.Event()
+        execution_order: list[tuple[str, str]] = []
+
+        @app.post("/v1/chat/completions")
+        async def chat(request: Request):
+            model = request.state.prepared_inference_request.canonical.model
+            workload = request.state.scheduler_workload_class
+            execution_order.append((model, workload))
+            if model == "a":
+                first_started.set()
+                await first_release.wait()
+            return JSONResponse({"model": model})
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            first = asyncio.create_task(
+                client.post("/v1/chat/completions", json=_request_payload("a"))
+            )
+            await asyncio.wait_for(first_started.wait(), timeout=1)
+
+            background = asyncio.create_task(
+                client.post(
+                    "/v1/chat/completions",
+                    json=_request_payload("b"),
+                    headers={"x-local-llm-workload-class": "background"},
+                )
+            )
+            while app.state.global_execution_governor.snapshot().queued != 1:
+                await asyncio.sleep(0.002)
+
+            interactive = asyncio.create_task(
+                client.post(
+                    "/v1/chat/completions",
+                    json=_request_payload("c"),
+                    headers={"x-local-llm-workload-class": "interactive"},
+                )
+            )
+            while app.state.global_execution_governor.snapshot().queued != 2:
+                await asyncio.sleep(0.002)
+
+            first_release.set()
+            first_response, background_response, interactive_response = await asyncio.gather(
+                first,
+                background,
+                interactive,
+            )
+
+        assert [first_response.status_code, background_response.status_code, interactive_response.status_code] == [200, 200, 200]
+        assert execution_order == [
+            ("a", "standard"),
+            ("c", "interactive"),
+            ("b", "background"),
+        ]
+        assert interactive_response.headers["x-local-llm-workload-class"] == "interactive"
+        assert background_response.headers["x-local-llm-workload-class"] == "background"
+
+    asyncio.run(scenario())

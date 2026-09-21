@@ -4,6 +4,8 @@ import pytest
 
 from local_llm_server.scheduler_policy import (
     RequestSchedulerSettings,
+    WorkloadClass,
+    effective_workload_priority,
     scheduler_settings_from_env,
 )
 
@@ -49,7 +51,7 @@ def test_environment_can_enable_global_governor_without_runtime_queue():
     assert settings.global_queue_capacity == 5
     assert settings.timeout_seconds_for_headers({}) == 0.3
     public = settings.to_public_dict()
-    assert public["global_fairness"] == "runtime_round_robin"
+    assert public["global_fairness"] == "priority_aging_runtime_round_robin"
 
 
 def test_request_header_explicitly_overrides_default_admission_timeout():
@@ -85,3 +87,41 @@ def test_invalid_timeout_header_is_rejected_instead_of_becoming_no_timeout():
         settings.timeout_seconds_for_headers(
             {"x-local-llm-queue-timeout-ms": "0"}
         )
+
+
+def test_workload_class_defaults_to_standard_and_accepts_supported_header():
+    settings = RequestSchedulerSettings(queue_capacity=2)
+    assert settings.workload_class_for_headers({}) is WorkloadClass.STANDARD
+    assert settings.workload_class_for_headers(
+        {"x-local-llm-workload-class": "interactive"}
+    ) is WorkloadClass.INTERACTIVE
+
+    public = settings.to_public_dict()
+    assert public["workload_default"] == "standard"
+    assert public["workload_priorities"] == {
+        "interactive": 30,
+        "standard": 20,
+        "batch": 10,
+        "background": 0,
+    }
+    assert public["priority_aging_seconds"] == 1.0
+
+
+def test_invalid_workload_class_is_rejected():
+    settings = RequestSchedulerSettings(queue_capacity=2)
+    with pytest.raises(ValueError, match="must be one of"):
+        settings.workload_class_for_headers(
+            {"x-local-llm-workload-class": "urgent-ish"}
+        )
+
+
+def test_workload_priority_aging_eventually_prevents_starvation():
+    assert effective_workload_priority(
+        WorkloadClass.BACKGROUND,
+        submitted_at=0.0,
+        now=31.0,
+    ) > effective_workload_priority(
+        WorkloadClass.INTERACTIVE,
+        submitted_at=31.0,
+        now=31.0,
+    )

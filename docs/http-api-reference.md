@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-08-15
+Last reviewed: 2026-09-21
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
@@ -112,6 +112,18 @@ Consumers should primarily rely on standard OpenAI-compatible fields:
 
 The server may include provider-specific convenience/evidence fields in addition to the OpenAI-compatible response. Integrations that require reproducible semantics should explicitly document any such field they consume instead of treating all extras as stable API.
 
+### Workload scheduling headers
+
+When request admission is enabled, callers may classify a chat request with:
+
+```text
+x-local-llm-workload-class: interactive | standard | batch | background
+```
+
+The default is `standard`. Higher-priority classes can overtake lower-priority queued work, while one priority point per second of queue wait prevents indefinite starvation. Equal effective priority remains FIFO within a runtime and uses runtime round-robin across runtimes. This is admission policy only: Korgis does not interrupt an already-running backend request to service a newer high-priority request.
+
+The validated class is echoed in the response header `x-local-llm-workload-class`. An unsupported class returns HTTP 400 before inference. Queue timeout remains independently controlled by `x-local-llm-queue-timeout-ms`.
+
 ### Streaming
 
 Set:
@@ -187,7 +199,7 @@ These routes exist only when `--enable-admin-api` is active.
 | `DELETE` | `/api/v1/models/{model}` | unload an idle runtime |
 | `GET` | `/api/v1/resources` | resource budget and accounting evidence |
 | `GET` | `/api/v1/evidence` | privacy-safe runtime/task evidence |
-| `GET` | `/api/v1/scheduler` | queue/admission evidence |
+| `GET` | `/api/v1/scheduler` | queue/admission and aggregate workload-class evidence |
 | `GET` | `/api/v1/policies` | effective policy evidence |
 | `GET` | `/api/v1/residency` | pin/eviction eligibility state |
 | `POST` | `/api/v1/residency/pin` | pin or unpin a runtime |
