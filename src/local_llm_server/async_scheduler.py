@@ -9,6 +9,7 @@ import asyncio
 from dataclasses import dataclass
 from .core.contracts import ErrorCode, InferenceError, InferenceRequest
 from .scheduler import BoundedScheduler, QueueState, ScheduledRequest
+from .scheduler_policy import WorkloadClass
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,11 +53,13 @@ class AsyncRuntimeGate:
         request: InferenceRequest,
         *,
         timeout_seconds: float | None = None,
+        workload_class: str | WorkloadClass = WorkloadClass.STANDARD,
     ) -> ScheduledRequest:
         scheduled = self.scheduler.submit(
             request_id,
             request,
             timeout_seconds=timeout_seconds,
+            workload_class=workload_class,
         )
         try:
             while True:
