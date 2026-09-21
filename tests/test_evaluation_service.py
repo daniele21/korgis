@@ -138,6 +138,11 @@ def test_evaluation_waits_for_global_slot_before_transient_memory():
     worker = threading.Thread(target=run)
     worker.start()
     _wait_until(lambda: governor.snapshot().queued == 1)
+    by_workload = {
+        item["workload_class"]: item
+        for item in governor.snapshot().workloads
+    }
+    assert by_workload["batch"]["queued"] == 1
     assert engine.calls == 0
     assert resources.snapshot(kind=ReservationKind.TRANSIENT) == ()
 
