@@ -66,7 +66,7 @@ When request admission is enabled, `x-local-llm-workload-class` can classify cha
 
 The response echoes the validated class in `x-local-llm-workload-class`. Workload priority changes only pre-execution admission; it does not preempt already-running inference, change backend-native batching or reserve additional memory.
 
-Transient request memory is reserved only after execution admission, so queued requests do not claim transient RAM. When the global governor is configured, first-class chat/vision HTTP execution, resident transcription and evaluation samples share the same aggregate execution owner. Global admission does not create a second memory budget or enable automatic pressure eviction.
+Transient request memory is reserved only after execution admission, so queued requests do not claim transient RAM. When the global governor is configured, first-class chat/vision HTTP execution, resident transcription and evaluation samples share the same aggregate execution owner. Evaluation execution is classified as `batch`; transcription keeps the default `standard` class. Global admission does not create a second memory budget or enable automatic pressure eviction.
 
 ## Default generation settings
 
