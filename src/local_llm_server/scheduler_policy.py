@@ -1,20 +1,75 @@
-"""Explicit product settings for request queue and global execution admission.
+"""Explicit product settings for request scheduling and global execution admission.
 
 Queueing remains opt-in. A configured timeout applies only while waiting for
 pre-execution admission (per-runtime queue and/or global governor); it is not
-presented as an end-to-end inference deadline.
+presented as an end-to-end inference deadline. Workload classes are optional:
+requests default to standard so clients that do not opt in retain the existing
+scheduling behavior.
 """
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from enum import Enum
 from typing import Mapping
+
 
 _QUEUE_CAPACITY_ENV = "LOCAL_LLM_REQUEST_QUEUE_CAPACITY"
 _QUEUE_TIMEOUT_ENV = "LOCAL_LLM_QUEUE_TIMEOUT_MS"
 _QUEUE_TIMEOUT_HEADER = "x-local-llm-queue-timeout-ms"
+_WORKLOAD_CLASS_HEADER = "x-local-llm-workload-class"
 _GLOBAL_MAX_RUNNING_ENV = "LOCAL_LLM_GLOBAL_MAX_RUNNING"
 _GLOBAL_QUEUE_CAPACITY_ENV = "LOCAL_LLM_GLOBAL_QUEUE_CAPACITY"
+_PRIORITY_AGING_SECONDS = 1.0
+
+
+class WorkloadClass(str, Enum):
+    INTERACTIVE = "interactive"
+    STANDARD = "standard"
+    BATCH = "batch"
+    BACKGROUND = "background"
+
+
+_WORKLOAD_BASE_PRIORITY = {
+    WorkloadClass.INTERACTIVE: 30,
+    WorkloadClass.STANDARD: 20,
+    WorkloadClass.BATCH: 10,
+    WorkloadClass.BACKGROUND: 0,
+}
+
+
+def normalize_workload_class(
+    value: str | WorkloadClass | None,
+) -> WorkloadClass:
+    if value is None:
+        return WorkloadClass.STANDARD
+    if isinstance(value, WorkloadClass):
+        return value
+    normalized = str(value).strip().lower()
+    try:
+        return WorkloadClass(normalized)
+    except ValueError as exc:
+        allowed = ", ".join(item.value for item in WorkloadClass)
+        raise ValueError(
+            f"{_WORKLOAD_CLASS_HEADER} must be one of: {allowed}"
+        ) from exc
+
+
+def workload_base_priority(workload_class: str | WorkloadClass) -> int:
+    resolved = normalize_workload_class(workload_class)
+    return _WORKLOAD_BASE_PRIORITY[resolved]
+
+
+def effective_workload_priority(
+    workload_class: str | WorkloadClass,
+    *,
+    submitted_at: float,
+    now: float,
+) -> int:
+    """Return class priority plus deterministic wait aging."""
+    waited = max(0.0, now - submitted_at)
+    aging_points = int(waited / _PRIORITY_AGING_SECONDS)
+    return workload_base_priority(workload_class) + aging_points
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +124,9 @@ class RequestSchedulerSettings:
             return None
         return self.default_queue_timeout_ms / 1000.0
 
+    def workload_class_for_headers(self, headers: Mapping[str, str]) -> WorkloadClass:
+        return normalize_workload_class(headers.get(_WORKLOAD_CLASS_HEADER))
+
     def to_public_dict(self) -> dict[str, object]:
         return {
             "enabled": self.enabled,
@@ -78,11 +136,20 @@ class RequestSchedulerSettings:
             "global_max_running": self.global_max_running,
             "global_queue_capacity": self.global_queue_capacity,
             "global_fairness": (
-                "runtime_round_robin" if self.global_governor_enabled else None
+                "priority_aging_runtime_round_robin"
+                if self.global_governor_enabled
+                else None
             ),
             "default_queue_timeout_ms": self.default_queue_timeout_ms,
             "request_timeout_header": _QUEUE_TIMEOUT_HEADER,
             "timeout_scope": "pre_execution_admission_wait_only",
+            "workload_class_header": _WORKLOAD_CLASS_HEADER,
+            "workload_default": WorkloadClass.STANDARD.value,
+            "workload_priorities": {
+                item.value: _WORKLOAD_BASE_PRIORITY[item]
+                for item in WorkloadClass
+            },
+            "priority_aging_seconds": _PRIORITY_AGING_SECONDS,
         }
 
 
