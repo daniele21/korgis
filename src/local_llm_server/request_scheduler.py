@@ -1,8 +1,9 @@
 """Product HTTP admission before transient memory and runtime leases.
 
-Canonical request policy prepares the request first. Optional per-runtime FIFO
-admission preserves existing local queue semantics, then the optional global
-execution governor bounds aggregate work fairly across runtimes. Neither layer
+Canonical request policy prepares the request first. Optional per-runtime
+priority admission preserves FIFO within equal workload priority, then the
+optional global execution governor bounds aggregate work with priority aging
+and runtime fairness. Neither layer
 replaces backend batching, transient-memory accounting or the final runtime
 semaphore. Streaming requests retain every acquired execution slot until their
 body iterator finishes.
@@ -34,6 +35,7 @@ from .scheduler_policy import RequestSchedulerSettings, scheduler_settings_from_
 _INFERENCE_PATHS = frozenset({"/v1/chat/completions", "/api/v1/chat"})
 _QUEUE_WAIT_HEADER = "x-local-llm-queue-wait-ms"
 _GLOBAL_WAIT_HEADER = "x-local-llm-global-wait-ms"
+_WORKLOAD_CLASS_RESPONSE_HEADER = "x-local-llm-workload-class"
 
 
 @dataclass(slots=True)
@@ -43,7 +45,7 @@ class _GateEntry:
 
 
 class RuntimeGateRegistry:
-    """Own one optional FIFO admission gate per current runtime residency."""
+    """Own one optional priority-aware admission gate per current runtime residency."""
 
     def __init__(self, settings: RequestSchedulerSettings) -> None:
         if not settings.runtime_queue_enabled or settings.queue_capacity is None:
@@ -119,6 +121,7 @@ def install_request_scheduler(
 
         try:
             timeout_seconds = resolved.timeout_seconds_for_headers(request.headers)
+            workload_class = resolved.workload_class_for_headers(request.headers)
         except ValueError as exc:
             return JSONResponse(
                 status_code=400,
@@ -132,6 +135,7 @@ def install_request_scheduler(
                 },
             )
 
+        request.state.scheduler_workload_class = workload_class.value
         admission_started = time.monotonic()
         deadline = (
             admission_started + timeout_seconds
@@ -160,6 +164,7 @@ def install_request_scheduler(
                         gate_request_id,
                         canonical,
                         timeout_seconds=remaining,
+                        workload_class=workload_class,
                     )
                     local_acquired = True
                 except InferenceError as exc:
@@ -201,6 +206,7 @@ def install_request_scheduler(
                             int(runtime.cfg.get("max_concurrent_requests") or 1),
                         ),
                         timeout_seconds=remaining,
+                        workload_class=workload_class,
                     )
                     permit = await asyncio.to_thread(governor.wait, global_request_id)
                 except InferenceError as exc:
@@ -265,6 +271,7 @@ def install_request_scheduler(
                 raise
 
             response.headers[_QUEUE_WAIT_HEADER] = f"{queue_wait_ms:.3f}"
+            response.headers[_WORKLOAD_CLASS_RESPONSE_HEADER] = workload_class.value
             if permit is not None:
                 response.headers[_GLOBAL_WAIT_HEADER] = f"{permit.wait_ms:.3f}"
             if canonical.stream is True and hasattr(response, "body_iterator"):
