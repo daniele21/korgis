@@ -248,11 +248,11 @@ def resolve_registry_model(
             return ResolvedModel(
                 str(path), path, "explicit",
                 _is_complete_local(
-                    path,
-                    resolved_backend,
-                    multimodal=multimodal,
-                    expected_quantization_bits=expected_quantization_bits,
-                ),
+                path,
+                resolved_backend,
+                multimodal=multimodal,
+                expected_quantization_bits=expected_quantization_bits,
+            ),
             )
         cached = _cached_huggingface_snapshot(
             reference,
@@ -416,7 +416,6 @@ def resolve_diffusers_runtime_path(
     return path
 
 
-
 def resolve_mflux_image_runtime_path(
     reference: str,
     *,
@@ -445,7 +444,11 @@ def resolve_mflux_image_runtime_path(
         cached,
         expected_quantization_bits=expected_quantization_bits,
     ):
-        logger.info("Using complete Hugging Face MFlux cache for %s: %s", reference, cached)
+        logger.info(
+            "Using complete Hugging Face MFlux cache for %s: %s",
+            reference,
+            cached,
+        )
         return cached
     if no_download:
         raise FileNotFoundError(
@@ -461,7 +464,10 @@ def resolve_mflux_image_runtime_path(
             "Install with: python -m pip install -r requirements/image-mlx.txt"
         ) from exc
 
-    logger.info("Downloading Hugging Face MFlux image model before backend startup: %s", reference)
+    logger.info(
+        "Downloading Hugging Face MFlux image model before backend startup: %s",
+        reference,
+    )
     try:
         path = Path(snapshot_download(repo_id=reference))
     except Exception as exc:
