@@ -37,35 +37,37 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 | QI-4 | Registry entry + docs/package profile | registry, optional requirements, API/config docs | QI-1, QI-2 | yes | DONE |
 | QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | DONE |
 | QI-6 | Image editing / RGBA follow-up | future image contract | QI-7 | no | BLOCKED |
-| QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | ACTIVE |
-| QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7 | no | BLOCKED |
+| QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | DONE |
+| QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7, QI-9 | no | BLOCKED |
+| QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | ACTIVE |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-7`
+`QI-9`
 
 Acceptance:
 
-- `qwen-image-2.1-mflux-q8` is a distinct registry/runtime identity from the BF16 Diffusers baseline;
-- the backend loads MFlux-saved Q8 checkpoints with `quantize=None`, preserving stored checkpoint quantization;
-- checkpoint completeness validates indexed shards, processor files and expected Q8 metadata;
-- generated images keep the existing `/v1/images/generations` contract and report actual seed/quantization metadata;
-- resident-server semantics remain reusable across different prompts; MFlux low-RAM callbacks that delete the text encoder are not enabled;
-- model weights have an explicit lower-bound resource estimate while peak/overhead remain unavailable until representative hardware evidence;
-- deterministic tests use fake MFlux models and never download/load the real checkpoint.
+- image requests are canonicalized before admission using the same request preparation used by the route;
+- `/v1/images/generations` participates in optional per-runtime queueing and the global execution governor;
+- queued image work reserves no transient memory;
+- active image requests use the same `ResourceManager` ledger as resident runtimes and other admitted requests;
+- configured transient estimates can reject overcommit before the image backend is invoked;
+- missing transient image-memory evidence remains `unknown`; Korgis does not invent a pixel-to-RAM formula;
+- runtime lease/concurrency remains the final backend-local safeguard after scheduler/resource admission.
 
 Validation:
 
-- `uv run --frozen pytest tests/test_registry_validation.py tests/test_config_multimodal.py tests/test_model_sources_mflux_image.py tests/test_mflux_image_engine.py -q`
+- `uv run --frozen pytest tests/test_image_generation_request.py tests/test_image_http_admission.py tests/test_image_generation_api.py tests/test_request_scheduler.py tests/test_request_resource_admission.py -q`
 - `uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82`
 
 ## Integration points
 
 - `TaskType.IMAGE_GENERATION` and `CapabilityDescriptor` are the canonical task/capability boundary.
 - `DiffusersImageEngine.generate_image(...)` and `MFluxImageEngine.generate_image(...)` implement the same backend-neutral image route contract.
-- `ProductRuntimeManager.lease_runtime(...)` remains the lifecycle/concurrency owner.
+- Canonical HTTP policy prepares image requests before `request_scheduler` and `request_resource_admission`.
+- `ProductRuntimeManager.lease_runtime(...)` remains the final lifecycle/concurrency owner.
 - `POST /v1/images/generations` is the public application-facing boundary used by experiments.
 
 ## Durable documentation destinations
