@@ -177,6 +177,8 @@ def validate_registry(registry: dict[str, Any]) -> None:
         for field_name in (
             "ctx_size", "max_kv_size", "max_concurrent_requests",
             "llama_server_port", "mlx_vlm_server_port", "startup_timeout",
+            "image_width", "image_height", "image_num_inference_steps",
+            "image_max_inference_steps", "image_max_pixels",
         ):
             if field_name in params:
                 value = params[field_name]
