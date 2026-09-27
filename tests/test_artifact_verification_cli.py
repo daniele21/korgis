@@ -43,9 +43,11 @@ def test_verify_model_artifact_hashes_once_and_persists_receipt(monkeypatch, tmp
     assert str(tmp_path) not in rendered
 
 
-def test_verify_model_artifact_refuses_multi_file_directory(monkeypatch, tmp_path):
+def test_verify_model_artifact_hashes_multi_file_directory(monkeypatch, tmp_path):
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
+    (snapshot / "weights.bin").write_bytes(b"weights")
+    (snapshot / "config.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(
         "local_llm_server.artifact_verification.load_registry",
         lambda: {
@@ -59,16 +61,18 @@ def test_verify_model_artifact_refuses_multi_file_directory(monkeypatch, tmp_pat
             str(snapshot), snapshot, "managed", True
         ),
     )
+    store = ArtifactVerificationStore(tmp_path / "receipts")
 
-    try:
-        verify_model_artifact(
-            "demo",
-            store=ArtifactVerificationStore(tmp_path / "receipts"),
-        )
-    except ValueError as exc:
-        assert "single-file" in str(exc)
-    else:
-        raise AssertionError("expected directory verification to fail closed")
+    receipt = verify_model_artifact("demo", store=store)
+
+    assert receipt.artifact_kind == "directory"
+    assert len(receipt.manifest_files) == 2
+    assert store.valid_for_artifact("org/demo", snapshot) == receipt
+    summary = public_verification_summary(receipt)
+    assert summary["artifact_kind"] == "directory"
+    assert summary["file_count"] == 2
+    assert summary["size_bytes"] == len(b"weights") + len(b"{}")
+    assert str(tmp_path) not in json.dumps(summary)
 
 
 def test_cli_source_exposes_verify_artifact_command():
