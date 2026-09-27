@@ -3,7 +3,7 @@
 Status: active
 Owner: runtime-and-platform
 Canonical scope: current.resource-regression
-Last reviewed: 2026-09-28
+Last reviewed: 2026-09-27
 
 L2 hosted CI proves only configured/Python-owned resource-ledger behavior that is stable without a model or accelerator. `.engineering/resource-regression.json` maps each claim to an exact test and preserves explicit non-claims.
 
