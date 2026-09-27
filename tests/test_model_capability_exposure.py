@@ -95,3 +95,36 @@ def test_list_models_preserves_explicit_capability_provenance(monkeypatch, tmp_p
             "step": 0.05,
         }
     ]
+
+
+def test_list_models_exposes_image_generation_output_capability(monkeypatch, tmp_path: Path):
+    registry = {
+        "models_dir": tmp_path,
+        "models": {
+            "image-model": {
+                "model_id": "org/image-model",
+                "backend": "diffusers_image",
+                "tasks": ["image_generation"],
+                "input_modalities": ["text"],
+                "output_modalities": ["image"],
+            }
+        },
+    }
+    monkeypatch.setattr("local_llm_server.registry.load_registry", lambda: registry)
+    monkeypatch.setattr(
+        "local_llm_server.model_sources.resolve_registry_model",
+        lambda key, entry, models_dir, backend=None: SimpleNamespace(
+            downloaded=False,
+            model_path="org/image-model",
+            source_type="huggingface",
+            mmproj_path=None,
+        ),
+    )
+
+    [model] = local_llm_server.list_models()
+
+    assert model["capability_source"] == "explicit"
+    assert model["capabilities"]["tasks"] == ["image_generation"]
+    assert model["capabilities"]["input_modalities"] == ["text"]
+    assert model["capabilities"]["output_modalities"] == ["image"]
+    assert model["capabilities"]["features"] == []
