@@ -24,7 +24,11 @@ from .transient_resource import (
     reserve_transient_resource,
 )
 
-_INFERENCE_PATHS = frozenset({"/v1/chat/completions", "/api/v1/chat"})
+_INFERENCE_PATHS = frozenset({
+    "/v1/chat/completions",
+    "/api/v1/chat",
+    "/v1/images/generations",
+})
 _RESOURCE_HEADER = "x-local-llm-transient-reserved-bytes"
 
 
