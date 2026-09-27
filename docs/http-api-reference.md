@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-08-15
+Last reviewed: 2026-09-28
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
@@ -246,5 +246,16 @@ The first vertical slice supports `n=1` and `b64_json`. Optional Korgis request 
 defaults for that request. The response keeps the OpenAI image-list shape under `data[]` and
 adds a bounded `korgis` evidence object with runtime key, backend, dimensions, seed, latency
 and effective generation metadata.
+
+Image requests pass through the same optional HTTP admission layers as chat/VLM requests:
+canonical capability policy, per-runtime queue/global execution governor, transient-memory
+admission and finally the runtime lease. When enabled, successful responses can therefore expose
+`x-local-llm-queue-wait-ms`, `x-local-llm-global-wait-ms` and
+`x-local-llm-transient-reserved-bytes` under the same semantics as other inference endpoints.
+Queued image work does not reserve transient memory.
+
+Transient image memory is configuration/evidence driven. If no trustworthy request estimate is
+configured, the transient envelope remains unknown and execution is not presented as having a
+measured or derived memory requirement.
 
 Image editing and RGBA-specific public contracts are not part of this first slice.
