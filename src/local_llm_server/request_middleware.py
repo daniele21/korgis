@@ -1,8 +1,8 @@
 """FastAPI request-policy middleware for the public inference entrypoints.
 
-The middleware canonicalizes and validates chat requests before the historical
-route creates backend kwargs. It is deliberately installed by product entry
-points rather than duplicating policy inside each backend.
+The middleware canonicalizes and validates public inference requests before
+scheduler/resource admission and backend execution. It is deliberately installed
+by product entry points rather than duplicating policy inside each backend.
 """
 from __future__ import annotations
 
@@ -93,9 +93,8 @@ def install_request_policy(application: FastAPI) -> FastAPI:
                 content={"detail": public_error_detail(exc)},
             )
 
-        # The current route still builds backend kwargs for compatibility, but
-        # downstream integration can consume this canonical object without
-        # translating the HTTP body a second time.
+        # Downstream admission consumes the canonical request regardless of
+        # whether the final route is chat or image generation.
         request.state.prepared_inference_request = prepared
         request.state.runtime_capabilities = descriptor
         return await call_next(request)
