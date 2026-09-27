@@ -11,6 +11,7 @@ from typing import Any, Literal
 SourceType = Literal["explicit", "lmstudio", "managed", "huggingface", "unresolved"]
 _MLX_BACKENDS = {"mlx", "mlx_vlm_server"}
 _DIFFUSERS_BACKENDS = {"diffusers_image"}
+_MFLUX_IMAGE_BACKENDS = {"mflux_image"}
 logger = logging.getLogger("local-llm.model_sources")
 
 
@@ -100,6 +101,45 @@ def is_complete_diffusers_model(path: Path) -> bool:
     return True
 
 
+def _indexed_weight_component_complete(path: Path) -> bool:
+    index_path = path / "model.safetensors.index.json"
+    if not index_path.is_file():
+        return False
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        weight_map = index.get("weight_map")
+        shards = set(weight_map.values()) if isinstance(weight_map, dict) else set()
+    except (OSError, ValueError, TypeError):
+        return False
+    return bool(shards) and all(
+        isinstance(shard, str)
+        and Path(shard).name == shard
+        and (path / shard).is_file()
+        for shard in shards
+    )
+
+
+def is_complete_mflux_image_model(path: Path) -> bool:
+    """Return whether *path* is a complete MFlux-saved Qwen image checkpoint."""
+    if not path.is_dir():
+        return False
+    for component in ("transformer", "text_encoder", "vae"):
+        if not _indexed_weight_component_complete(path / component):
+            return False
+
+    processor = path / "processor"
+    if not processor.is_dir():
+        return False
+    return any(
+        (processor / name).is_file()
+        for name in (
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "vocab.json",
+        )
+    )
+
+
 def _looks_like_local_path(reference: str) -> bool:
     expanded = Path(reference).expanduser()
     return (
@@ -114,6 +154,8 @@ def _is_complete_local(path: Path, backend: str, *, multimodal: bool) -> bool:
         return is_complete_mlx_model(path, multimodal=multimodal)
     if backend in _DIFFUSERS_BACKENDS:
         return is_complete_diffusers_model(path)
+    if backend in _MFLUX_IMAGE_BACKENDS:
+        return is_complete_mflux_image_model(path)
     return path.is_file()
 
 
@@ -293,4 +335,53 @@ def resolve_diffusers_runtime_path(
         ) from exc
     if not is_complete_diffusers_model(path):
         raise RuntimeError(f"Downloaded Diffusers snapshot is incomplete: {path}")
+    return path
+
+
+
+def resolve_mflux_image_runtime_path(
+    reference: str,
+    *,
+    no_download: bool,
+) -> Path:
+    """Resolve/download a complete MFlux image checkpoint before runtime startup."""
+    if _looks_like_local_path(reference):
+        path = Path(reference).expanduser().resolve()
+        if is_complete_mflux_image_model(path):
+            return path
+        raise FileNotFoundError(
+            f"MFlux image model directory is missing or incomplete: {path}"
+        )
+
+    cached = _cached_huggingface_snapshot(
+        reference,
+        backend="mflux_image",
+        multimodal=False,
+    )
+    if cached is not None:
+        logger.info("Using complete Hugging Face MFlux cache for %s: %s", reference, cached)
+        return cached
+    if no_download:
+        raise FileNotFoundError(
+            f"Model '{reference}' is not fully cached and --no-download is set. "
+            "Run 'local-llm download <model>' first."
+        )
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "MFlux image model downloads require the optional MLX image dependencies. "
+            "Install with: python -m pip install -r requirements/image-mlx.txt"
+        ) from exc
+
+    logger.info("Downloading Hugging Face MFlux image model before backend startup: %s", reference)
+    try:
+        path = Path(snapshot_download(repo_id=reference))
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to download Hugging Face MFlux image model '{reference}': {exc}"
+        ) from exc
+    if not is_complete_mflux_image_model(path):
+        raise RuntimeError(f"Downloaded MFlux image snapshot is incomplete: {path}")
     return path
