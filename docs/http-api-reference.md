@@ -36,6 +36,7 @@ Administrative routes are disabled unless the server is launched with `--enable-
 | `GET` | `/v1/runtime/identity` | stable, versioned, path-free execution identity |
 | `GET` | `/v1/models` | OpenAI-compatible resident model discovery |
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat completion and SSE streaming |
+| `POST` | `/v1/images/generations` | OpenAI-shaped local text-to-image generation for explicit image-generation runtimes |
 | `POST` | `/v1/audio/transcriptions` | first-class multipart audio-to-text for explicit ASR runtimes |
 | `GET` | `/` | Local LLM Studio |
 | `GET` | `/example` | copy-ready integration examples |
@@ -220,3 +221,30 @@ Need exact current schema?          -> /docs
 ```
 
 For AI Performance Lab specifically, inference, identity and status are three independent contracts; none should be inferred from another.
+
+
+## `POST /v1/images/generations`
+
+This endpoint is a first-class image-generation task. It does not reuse chat semantics and it
+fails before backend invocation when the selected runtime does not explicitly declare
+`image_generation`, text input and image output.
+
+Minimal request:
+
+```json
+{
+  "model": "qwen-image-2.1",
+  "prompt": "A red cube on a clean white background",
+  "size": "1024x1024",
+  "response_format": "b64_json",
+  "seed": 42
+}
+```
+
+The first vertical slice supports `n=1` and `b64_json`. Optional Korgis request fields
+`num_inference_steps`, `guidance_scale` and `output_format` override the selected runtime
+defaults for that request. The response keeps the OpenAI image-list shape under `data[]` and
+adds a bounded `korgis` evidence object with runtime key, backend, dimensions, seed, latency
+and effective generation metadata.
+
+Image editing and RGBA-specific public contracts are not part of this first slice.

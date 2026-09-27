@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from .completion_metrics import install_completion_metrics
 from .control_plane_api import install_product_api
 from .identity_api import install_identity_api
+from .image_generation_api import install_image_generation_api
 from .policy_evidence import install_policy_evidence_api
 from .reasoning_http import install_reasoning_boundary
 from .request_middleware import install_request_policy
@@ -50,6 +51,7 @@ def install_product_http_stack(
     install_reasoning_boundary(application)
     install_studio_ui_routes(application)
     install_product_api(application, evaluation_root=evaluation_root)
+    install_image_generation_api(application)
     install_identity_api(application)
     install_residency_api(application)
     install_policy_evidence_api(application)

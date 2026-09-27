@@ -40,6 +40,19 @@ _BACKEND_CONFIG_CAPABILITIES: dict[str, tuple[str, ...]] = {
     "llama_server": ("ctx_size", "timeout", "max_concurrent_requests"),
     "mlx": ("max_kv_size",),
     "mlx_vlm_server": ("timeout", "max_concurrent_requests", "max_kv_size"),
+    "diffusers_image": (
+        "timeout",
+        "max_concurrent_requests",
+        "image_device",
+        "image_dtype",
+        "image_width",
+        "image_height",
+        "image_num_inference_steps",
+        "image_max_inference_steps",
+        "image_max_pixels",
+        "image_guidance_scale",
+        "image_output_format",
+    ),
 }
 
 

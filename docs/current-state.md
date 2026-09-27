@@ -46,7 +46,10 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
 
 ## Active workstreams
 
-None. New workstreams should be opened only for a new bounded capability or evidence objective.
+- Qwen Image 2.1 local generation: first-class `image_generation` capability, Diffusers-backed
+  resident runtime and `/v1/images/generations` API are under integration validation.
+  Deterministic tests do not establish Apple Silicon performance or reclamation claims.
+  See `docs/workstreams/qwen-image-2-1.md`.
 
 ## Durable references
 

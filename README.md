@@ -42,12 +42,13 @@ You can:
 
 - run GGUF and MLX models through supported local backends;
 - keep multiple runtimes resident behind one HTTP server;
-- use text, vision-language and transcription capabilities when the selected runtime supports them;
+- use text, vision-language, transcription and local image-generation capabilities when the selected runtime supports them;
 - load, inspect, pin and unload runtimes from the browser control plane;
 - enforce explicit resource budgets and bounded request admission;
 - inspect runtime identity, resource state, scheduler state and diagnostics;
 - run reproducible evaluations and compare compatible evidence;
-- call text generation through an OpenAI-compatible API.
+- call text generation through an OpenAI-compatible API;
+- generate local images through `/v1/images/generations` with an explicit image-generation runtime.
 
 Korgis does not replace inference engines such as `llama.cpp` or MLX. It manages the lifecycle, policy, resources and evidence around them.
 
@@ -183,6 +184,8 @@ Current limits still matter:
 - support claims are tied to tested models, backends, hardware and procedures;
 - automatic pressure-triggered eviction remains disabled;
 - post-stop memory deltas are observations, not a general reclamation or production-safety guarantee;
+- the current Qwen Image 2.1 built-in baseline uses the official BF16 Diffusers pipeline and is
+  resource-heavy; no lightweight/quantized Apple profile is claimed yet;
 - new hardware, performance, cancellation, thermal or cross-device claims need matching representative evidence.
 
 See [`docs/current-state.md`](docs/current-state.md) for the exact current state.

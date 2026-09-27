@@ -141,3 +141,38 @@ def test_builtin_registry_exposes_q4km_local_benchmark_models(
         assert entry["params"]["ctx_size"] == 8192
         assert entry["params"]["enable_thinking"] is False
         assert len(entry["sha256"]) == 64
+
+
+def test_registry_validation_accepts_image_generation_runtime():
+    validate_registry(
+        _registry(
+            {
+                "image": {
+                    "model_id": "Qwen/Qwen-Image-2.1",
+                    "backend": "diffusers_image",
+                    "tasks": ["image_generation"],
+                    "input_modalities": ["text"],
+                    "output_modalities": ["image"],
+                    "params": {"max_concurrent_requests": 1},
+                }
+            },
+            default_model="image",
+        )
+    )
+
+
+def test_builtin_registry_exposes_qwen_image_generation_capability(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["qwen-image-2.1"]
+
+    assert entry["model_id"] == "Qwen/Qwen-Image-2.1"
+    assert entry["backend"] == "diffusers_image"
+    assert entry["size_gb"] == 33.12
+    assert entry["tasks"] == ["image_generation"]
+    assert entry["input_modalities"] == ["text"]
+    assert entry["output_modalities"] == ["image"]
+    assert entry["params"]["max_concurrent_requests"] == 1

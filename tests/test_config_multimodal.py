@@ -144,3 +144,24 @@ def test_lmstudio_model_can_be_listed_as_downloaded(monkeypatch, tmp_path):
     assert qwen["path"] == str(local_model)
     assert qwen["downloaded"] is True
     assert qwen["source"] == "lmstudio"
+
+
+def test_qwen_image_config_is_explicit_and_image_only(monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    cfg = build_config(model="qwen-image-2.1")
+
+    assert cfg["backend"] == "diffusers_image"
+    assert cfg["tasks"] == ["image_generation"]
+    assert cfg["input_modalities"] == ["text"]
+    assert cfg["output_modalities"] == ["image"]
+    assert cfg["image_device"] == "auto"
+    assert cfg["image_dtype"] == "bfloat16"
+    assert cfg["image_width"] == 1024
+    assert cfg["image_height"] == 1024
+    assert cfg["image_num_inference_steps"] == 40
+    assert cfg["image_max_inference_steps"] == 100
+    assert cfg["image_max_pixels"] == 4194304
+    assert cfg["image_output_format"] == "png"
+    assert cfg["max_concurrent_requests"] == 1
+    assert cfg["model_path"] == "Qwen/Qwen-Image-2.1"

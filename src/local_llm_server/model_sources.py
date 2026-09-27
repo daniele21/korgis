@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 SourceType = Literal["explicit", "lmstudio", "managed", "huggingface", "unresolved"]
 _MLX_BACKENDS = {"mlx", "mlx_vlm_server"}
+_DIFFUSERS_BACKENDS = {"diffusers_image"}
 logger = logging.getLogger("local-llm.model_sources")
 
 
@@ -52,6 +53,53 @@ def is_complete_mlx_model(path: Path, *, multimodal: bool = False) -> bool:
     return bool(shards) and all((path / str(shard)).is_file() for shard in shards)
 
 
+def is_complete_diffusers_model(path: Path) -> bool:
+    """Return whether *path* looks like a complete local Diffusers snapshot."""
+    if not path.is_dir() or not (path / "model_index.json").is_file():
+        return False
+    try:
+        index = json.loads((path / "model_index.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return False
+
+    component_names = [
+        str(name)
+        for name, value in index.items()
+        if not str(name).startswith("_")
+        and isinstance(value, list)
+        and len(value) >= 2
+    ]
+    if not component_names:
+        return False
+    if any(not (path / name).exists() for name in component_names):
+        return False
+
+    weight_class_markers = (
+        "Model",
+        "Transformer",
+        "Autoencoder",
+        "UNet",
+        "ForConditionalGeneration",
+    )
+    weighted_components = [
+        str(name)
+        for name, value in index.items()
+        if not str(name).startswith("_")
+        and isinstance(value, list)
+        and len(value) >= 2
+        and any(marker in str(value[1]) for marker in weight_class_markers)
+    ]
+    if not weighted_components:
+        return False
+    for name in weighted_components:
+        component = path / name
+        if not any(component.rglob("*.safetensors")) and not any(
+            component.rglob("*.bin")
+        ):
+            return False
+    return True
+
+
 def _looks_like_local_path(reference: str) -> bool:
     expanded = Path(reference).expanduser()
     return (
@@ -64,6 +112,8 @@ def _looks_like_local_path(reference: str) -> bool:
 def _is_complete_local(path: Path, backend: str, *, multimodal: bool) -> bool:
     if backend in _MLX_BACKENDS:
         return is_complete_mlx_model(path, multimodal=multimodal)
+    if backend in _DIFFUSERS_BACKENDS:
+        return is_complete_diffusers_model(path)
     return path.is_file()
 
 
@@ -195,4 +245,52 @@ def resolve_mlx_runtime_path(
         ) from exc
     if not is_complete_mlx_model(path, multimodal=multimodal):
         raise RuntimeError(f"Downloaded MLX snapshot is incomplete: {path}")
+    return path
+
+
+def resolve_diffusers_runtime_path(
+    reference: str,
+    *,
+    no_download: bool,
+) -> Path:
+    """Resolve/download a Diffusers repository before image backend startup."""
+    if _looks_like_local_path(reference):
+        path = Path(reference).expanduser().resolve()
+        if is_complete_diffusers_model(path):
+            return path
+        raise FileNotFoundError(
+            f"Diffusers model directory is missing or incomplete: {path}"
+        )
+
+    cached = _cached_huggingface_snapshot(
+        reference,
+        backend="diffusers_image",
+        multimodal=False,
+    )
+    if cached is not None:
+        logger.info("Using complete Hugging Face cache for %s: %s", reference, cached)
+        return cached
+    if no_download:
+        raise FileNotFoundError(
+            f"Model '{reference}' is not fully cached and --no-download is set. "
+            "Run 'local-llm download <model>' first."
+        )
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Diffusers image model downloads require the image-generation dependencies. "
+            'Install with: python -m pip install -r requirements/image.txt'
+        ) from exc
+
+    logger.info("Downloading Hugging Face image model before backend startup: %s", reference)
+    try:
+        path = Path(snapshot_download(repo_id=reference))
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to download Hugging Face image model '{reference}': {exc}"
+        ) from exc
+    if not is_complete_diffusers_model(path):
+        raise RuntimeError(f"Downloaded Diffusers snapshot is incomplete: {path}")
     return path

@@ -44,6 +44,15 @@ _ALLOWED_CONFIG_KEYS = frozenset({
     "default_top_k",
     "default_min_p",
     "default_repeat_penalty",
+    "image_device",
+    "image_dtype",
+    "image_width",
+    "image_height",
+    "image_num_inference_steps",
+    "image_max_inference_steps",
+    "image_max_pixels",
+    "image_guidance_scale",
+    "image_output_format",
 })
 
 
