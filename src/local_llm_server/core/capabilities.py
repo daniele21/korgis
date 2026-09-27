@@ -138,11 +138,22 @@ def descriptor_from_registry_entry(entry: Mapping[str, Any]) -> CapabilityDescri
     )
 
     thinking_mode = effective_thinking_mode(entry)
-    features_set: set[CapabilityFeature] = {CapabilityFeature.STREAMING}
+    features_set: set[CapabilityFeature] = set()
     explicit_features = entry.get("features")
     if explicit_features is not None:
-        features_set = {_parse_feature(value) for value in _as_string_list(explicit_features, "features")}
+        features_set = {
+            _parse_feature(value)
+            for value in _as_string_list(explicit_features, "features", allow_empty=True)
+        }
     else:
+        if tasks.intersection(
+            {
+                TaskType.CHAT,
+                TaskType.STRUCTURED_GENERATION,
+                TaskType.VISION_LANGUAGE,
+            }
+        ):
+            features_set.add(CapabilityFeature.STREAMING)
         if TaskType.STRUCTURED_GENERATION in tasks:
             features_set.add(CapabilityFeature.STRUCTURED_OUTPUT)
         if thinking_mode is not ThinkingMode.NONE:
@@ -166,8 +177,19 @@ def validate_capability_descriptor(descriptor: CapabilityDescriptor) -> None:
         raise ValueError("capability descriptor must declare at least one input modality")
     if not descriptor.output_modalities:
         raise ValueError("capability descriptor must declare at least one output modality")
-    if Modality.TEXT not in descriptor.output_modalities:
-        raise ValueError("current product capability descriptors must include text output")
+    text_output_tasks = {
+        TaskType.CHAT,
+        TaskType.STRUCTURED_GENERATION,
+        TaskType.VISION_LANGUAGE,
+        TaskType.TRANSCRIPTION,
+    }
+    if descriptor.tasks.intersection(text_output_tasks) and Modality.TEXT not in descriptor.output_modalities:
+        raise ValueError("text-producing tasks require text output capability")
+    if TaskType.IMAGE_GENERATION in descriptor.tasks:
+        if Modality.TEXT not in descriptor.input_modalities:
+            raise ValueError("image_generation requires text input capability")
+        if Modality.IMAGE not in descriptor.output_modalities:
+            raise ValueError("image_generation requires image output capability")
     if TaskType.VISION_LANGUAGE in descriptor.tasks and Modality.IMAGE not in descriptor.input_modalities:
         raise ValueError("vision_language requires image input capability")
     if TaskType.TRANSCRIPTION in descriptor.tasks and Modality.AUDIO not in descriptor.input_modalities:
@@ -209,8 +231,15 @@ def _legacy_modalities(entry: Mapping[str, Any]) -> list[str]:
     return _as_string_list(value, "modalities")
 
 
-def _as_string_list(value: Any, field_name: str) -> list[str]:
-    if not isinstance(value, (list, tuple, set, frozenset)) or not value:
+def _as_string_list(
+    value: Any,
+    field_name: str,
+    *,
+    allow_empty: bool = False,
+) -> list[str]:
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        raise ValueError(f"{field_name} must be a collection")
+    if not value and not allow_empty:
         raise ValueError(f"{field_name} must be a non-empty collection")
     return [str(item) for item in value]
 
