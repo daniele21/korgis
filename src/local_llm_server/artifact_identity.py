@@ -232,8 +232,6 @@ class ArtifactVerificationReceipt:
         if not path.is_dir():
             return False
         stat = path.stat()
-        if stat.st_mtime_ns != self.mtime_ns:
-            return False
         if self.inode is not None and _optional_stat_int(stat.st_ino) != self.inode:
             return False
         if self.device is not None and _optional_stat_int(stat.st_dev) != self.device:
