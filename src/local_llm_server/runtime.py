@@ -48,6 +48,8 @@ _BACKEND_CONFIG_CAPABILITIES: dict[str, tuple[str, ...]] = {
         "image_width",
         "image_height",
         "image_num_inference_steps",
+        "image_max_inference_steps",
+        "image_max_pixels",
         "image_guidance_scale",
         "image_output_format",
     ),
