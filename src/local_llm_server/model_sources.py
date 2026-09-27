@@ -281,7 +281,7 @@ def resolve_diffusers_runtime_path(
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Diffusers image model downloads require the image-generation dependencies. "
-            'Install with: pip install "local-llm-server[image]"'
+            'Install with: python -m pip install -r requirements/image.txt'
         ) from exc
 
     logger.info("Downloading Hugging Face image model before backend startup: %s", reference)
