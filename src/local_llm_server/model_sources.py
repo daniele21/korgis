@@ -101,31 +101,58 @@ def is_complete_diffusers_model(path: Path) -> bool:
     return True
 
 
-def _indexed_weight_component_complete(path: Path) -> bool:
+def _indexed_weight_component_metadata(path: Path) -> dict[str, Any] | None:
     index_path = path / "model.safetensors.index.json"
     if not index_path.is_file():
-        return False
+        return None
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
         weight_map = index.get("weight_map")
         shards = set(weight_map.values()) if isinstance(weight_map, dict) else set()
     except (OSError, ValueError, TypeError):
-        return False
-    return bool(shards) and all(
+        return None
+    if not shards or not all(
         isinstance(shard, str)
         and Path(shard).name == shard
         and (path / shard).is_file()
         for shard in shards
-    )
+    ):
+        return None
+    metadata = index.get("metadata")
+    return dict(metadata) if isinstance(metadata, dict) else {}
 
 
-def is_complete_mflux_image_model(path: Path) -> bool:
+def mflux_image_quantization_bits(path: Path) -> int | None:
+    """Return one consistent stored MFlux quantization level, or None."""
+    levels: set[int] = set()
+    for component in ("transformer", "text_encoder", "vae"):
+        metadata = _indexed_weight_component_metadata(path / component)
+        if metadata is None:
+            return None
+        raw = metadata.get("quantization_level")
+        try:
+            levels.add(int(raw))
+        except (TypeError, ValueError):
+            return None
+    return next(iter(levels)) if len(levels) == 1 else None
+
+
+def is_complete_mflux_image_model(
+    path: Path,
+    *,
+    expected_quantization_bits: int | None = None,
+) -> bool:
     """Return whether *path* is a complete MFlux-saved Qwen image checkpoint."""
     if not path.is_dir():
         return False
-    for component in ("transformer", "text_encoder", "vae"):
-        if not _indexed_weight_component_complete(path / component):
-            return False
+    stored_bits = mflux_image_quantization_bits(path)
+    if stored_bits is None:
+        return False
+    if (
+        expected_quantization_bits is not None
+        and stored_bits != expected_quantization_bits
+    ):
+        return False
 
     processor = path / "processor"
     if not processor.is_dir():
@@ -343,11 +370,15 @@ def resolve_mflux_image_runtime_path(
     reference: str,
     *,
     no_download: bool,
+    expected_quantization_bits: int | None = None,
 ) -> Path:
     """Resolve/download a complete MFlux image checkpoint before runtime startup."""
     if _looks_like_local_path(reference):
         path = Path(reference).expanduser().resolve()
-        if is_complete_mflux_image_model(path):
+        if is_complete_mflux_image_model(
+            path,
+            expected_quantization_bits=expected_quantization_bits,
+        ):
             return path
         raise FileNotFoundError(
             f"MFlux image model directory is missing or incomplete: {path}"
@@ -382,6 +413,16 @@ def resolve_mflux_image_runtime_path(
         raise RuntimeError(
             f"Failed to download Hugging Face MFlux image model '{reference}': {exc}"
         ) from exc
-    if not is_complete_mflux_image_model(path):
-        raise RuntimeError(f"Downloaded MFlux image snapshot is incomplete: {path}")
+    if not is_complete_mflux_image_model(
+        path,
+        expected_quantization_bits=expected_quantization_bits,
+    ):
+        expected = (
+            f" with Q{expected_quantization_bits} metadata"
+            if expected_quantization_bits is not None
+            else ""
+        )
+        raise RuntimeError(
+            f"Downloaded MFlux image snapshot is incomplete or mismatched{expected}: {path}"
+        )
     return path
