@@ -16,6 +16,8 @@ def test_builtin_qwen_image_evidence_profile_is_typed_and_claim_free():
     assert isinstance(profile, ImageEvidenceProfile)
     assert profile.model == "qwen-image-2.1-mflux-q8"
     assert profile.repetitions == 2
+    assert profile.execution.host == "127.0.0.1"
+    assert profile.execution.port == 1245
     assert profile.workload.width == 1024
     assert profile.workload.height == 1024
     assert profile.workload.num_inference_steps == 40
@@ -38,6 +40,9 @@ profile:
   settle_seconds: 0
   startup_timeout_seconds: 10
   request_timeout_seconds: 10
+  execution:
+    host: 127.0.0.1
+    port: 1245
   workload:
     prompt: test
     width: 512
