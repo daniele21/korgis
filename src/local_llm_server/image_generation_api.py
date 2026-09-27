@@ -41,6 +41,11 @@ def _parse_size(value: str | None, runtime_cfg: dict[str, Any]) -> tuple[int, in
         raise ValueError("size must use integer WIDTHxHEIGHT values") from exc
     if width <= 0 or height <= 0:
         raise ValueError("image width and height must be > 0")
+    max_pixels = int(runtime_cfg.get("image_max_pixels") or 4194304)
+    if width * height > max_pixels:
+        raise ValueError(
+            f"requested image has {width * height} pixels; configured maximum is {max_pixels}"
+        )
     return width, height
 
 
@@ -85,6 +90,35 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
                 },
             ) from exc
 
+        prompt = payload.prompt.strip()
+        if not prompt:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "invalid_request",
+                    "message": "image generation requires a non-empty prompt",
+                    "retryable": False,
+                    "details": {},
+                },
+            )
+        max_steps = int(runtime.cfg.get("image_max_inference_steps") or 100)
+        if (
+            payload.num_inference_steps is not None
+            and payload.num_inference_steps > max_steps
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "invalid_request",
+                    "message": (
+                        "num_inference_steps exceeds configured maximum "
+                        f"{max_steps}"
+                    ),
+                    "retryable": False,
+                    "details": {},
+                },
+            )
+
         options = ImageGenerationOptions(
             width=width,
             height=height,
@@ -96,7 +130,7 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
         canonical = InferenceRequest(
             task=TaskType.IMAGE_GENERATION,
             model=runtime.key,
-            input_text=payload.prompt.strip(),
+            input_text=prompt,
             image_generation=options,
         )
         try:
@@ -123,7 +157,7 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
             )
 
         backend_payload = {
-            "prompt": payload.prompt.strip(),
+            "prompt": prompt,
             "width": width,
             "height": height,
             "seed": payload.seed,
