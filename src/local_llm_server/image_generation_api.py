@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import base64
 import time
+
 from fastapi import FastAPI, HTTPException, Request, status
+
 from .core.contracts import InferenceError
 from .image_generation_request import (
     ImageGenerationRequest,
