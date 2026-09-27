@@ -212,3 +212,23 @@ def test_directory_receipt_invalidates_added_or_removed_files(tmp_path):
 
     original.unlink()
     assert receipt.matches_artifact(snapshot) is False
+
+
+
+def test_legacy_single_file_receipt_payload_remains_backward_compatible(tmp_path):
+    path = tmp_path / "model.gguf"
+    path.write_bytes(b"legacy")
+    receipt = ArtifactVerificationReceipt.for_file(
+        "org/demo",
+        path,
+        sha256=sha256_file(path),
+    )
+    legacy = receipt.private_payload()
+    legacy.pop("artifact_kind")
+    legacy.pop("manifest_files")
+
+    restored = ArtifactVerificationReceipt.from_private_payload(legacy)
+
+    assert restored.artifact_kind == "file"
+    assert restored.manifest_files == ()
+    assert restored.matches_file(path) is True
