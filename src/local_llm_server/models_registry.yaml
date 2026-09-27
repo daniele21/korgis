@@ -105,7 +105,7 @@ models:
   qwen-image-2.1:
     model_id: "Qwen/Qwen-Image-2.1"
     backend: diffusers_image
-    quantization: "BF16"
+    size_gb: 33.12
     thinking_mode: none
     tasks: [image_generation]
     input_modalities: [text]
@@ -121,7 +121,7 @@ models:
       image_output_format: png
       max_concurrent_requests: 1
       startup_timeout: 600
-    tags: [image-generation, qwen, local]
+    tags: [image-generation, qwen, local, bf16]
 
   # voxtral-mini-3b:
   #   filename: "mistralai_Voxtral-Mini-3B-2507-Q4_K_M.gguf"
