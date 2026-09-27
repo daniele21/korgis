@@ -46,12 +46,13 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
 
 ## Active workstreams
 
-- Qwen Image 2.1 local generation: the first-class capability, BF16 Diffusers runtime,
-  MFlux Q8 profile and `/v1/images/generations` API are integrated. The active slice brings
-  image requests through the same canonical HTTP admission path as chat/VLM: optional runtime
-  queue, global execution governor, then shared transient-memory accounting before the final
-  runtime lease. Missing image transient-memory evidence remains unknown rather than inferred.
-  Representative Apple Silicon peak memory, latency, thermal and reclamation claims remain unproven.
+- Qwen Image 2.1 local generation: capability, BF16 Diffusers runtime, MFlux Q8 profile,
+  image HTTP admission and `/v1/images/generations` are integrated. QI-8 now has a versioned
+  representative-device runner and deterministic multi-file checkpoint verification. The runner
+  can retain startup/generation latency, process-RSS/available-memory observations, runtime
+  identity and local output artifacts without serializing prompt text/base64/private paths.
+  **No representative Q8 Mac report has been accepted yet**, so Apple Silicon memory-fit,
+  performance, thermal, reclamation and production-safety claims remain unproven.
   See `docs/workstreams/qwen-image-2-1.md`.
 
 ## Durable references
