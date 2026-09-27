@@ -42,4 +42,8 @@ local-llm = "local_llm_server.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-local_llm_server = ["models_registry.yaml", "static/*"]
+local_llm_server = [
+    "models_registry.yaml",
+    "static/*",
+    "evidence_profiles/*.yaml",
+]
