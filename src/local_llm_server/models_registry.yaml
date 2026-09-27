@@ -123,6 +123,28 @@ models:
       startup_timeout: 600
     tags: [image-generation, qwen, local, bf16]
 
+  qwen-image-2.1-mflux-q8:
+    model_id: "mflux-community/qwen-image-2-1-mflux-q8"
+    backend: mflux_image
+    quantization: "Q8"
+    size_gb: 24.04
+    thinking_mode: none
+    tasks: [image_generation]
+    input_modalities: [text]
+    output_modalities: [image]
+    params:
+      image_width: 1024
+      image_height: 1024
+      image_num_inference_steps: 40
+      image_max_inference_steps: 100
+      image_max_pixels: 4194304
+      image_guidance_scale: 1.0
+      image_output_format: png
+      max_concurrent_requests: 1
+      startup_timeout: 600
+      resource_model_weights_bytes: 24025558302
+    tags: [image-generation, qwen, local, mlx, mflux, q8, apple-silicon]
+
   # voxtral-mini-3b:
   #   filename: "mistralai_Voxtral-Mini-3B-2507-Q4_K_M.gguf"
   #   mmproj_filename: "mmproj-mistralai_Voxtral-Mini-3B-2507-f16.gguf"
