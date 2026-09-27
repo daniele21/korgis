@@ -90,6 +90,7 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `image_width` | `--image-width` | `LOCAL_LLM_IMAGE_WIDTH` | `1024` |
 | `image_height` | `--image-height` | `LOCAL_LLM_IMAGE_HEIGHT` | `1024` |
 | `image_num_inference_steps` | `--image-num-inference-steps` | `LOCAL_LLM_IMAGE_NUM_INFERENCE_STEPS` | `40` |
+| `image_quantization_bits` | `--image-quantization-bits` | `LOCAL_LLM_IMAGE_QUANTIZATION_BITS` | `null` |
 | `image_max_inference_steps` | `--image-max-inference-steps` | `LOCAL_LLM_IMAGE_MAX_INFERENCE_STEPS` | `100` |
 | `image_max_pixels` | `--image-max-pixels` | `LOCAL_LLM_IMAGE_MAX_PIXELS` | `4194304` |
 | `image_guidance_scale` | `--image-guidance-scale` | `LOCAL_LLM_IMAGE_GUIDANCE_SCALE` | `null` |
@@ -202,3 +203,37 @@ local-llm serve --model qwen-image-2.1 --no-download
 `image_device=auto` prefers MPS when available, then CUDA, then CPU. This selection is runtime
 behavior, not a hardware-performance guarantee. Representative Apple Silicon performance and
 memory evidence remains separate from deterministic software validation.
+
+
+### Qwen Image 2.1 MFlux Q8 profile
+
+The Apple/MLX-oriented profile is a separate model key:
+
+```text
+qwen-image-2.1-mflux-q8
+```
+
+It uses `mflux==0.20.0` and the pre-quantized
+`mflux-community/qwen-image-2-1-mflux-q8` checkpoint. Korgis verifies the checkpoint's indexed
+shards and stored `quantization_level=8` metadata; it does not infer Q8 from the repository name.
+
+Install the optional runtime independently from the core lock:
+
+```bash
+python -m pip install -r requirements/image-mlx.txt
+local-llm download qwen-image-2.1-mflux-q8
+local-llm serve --model qwen-image-2.1-mflux-q8 --no-download
+```
+
+The registry records 24.04 GB as artifact/catalog size and 24,025,558,302 bytes as a lower bound
+for the three model-weight components used by MFlux. Those values are not peak runtime memory.
+Backend overhead, activations and real peak unified-memory use remain unavailable until measured.
+
+Korgis deliberately does not enable MFlux's low-RAM callback inside this resident backend. That
+callback deletes the text encoder after prompt encoding, which is valid for a bounded CLI
+generation but would make a long-lived server unable to encode later requests with different
+prompts. The resident runtime prioritizes correct repeated-request semantics.
+
+The model is governed by the upstream Qwen research license. Deterministic CI validates software
+contracts only; it does not establish performance, memory-fit or production-safety claims for a
+specific Mac.
