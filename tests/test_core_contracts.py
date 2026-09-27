@@ -4,7 +4,9 @@ import pytest
 
 from local_llm_server.core import (
     ErrorCode,
+    ImageGenerationOptions,
     InferenceError,
+    InferenceRequest,
     TaskType,
     chat_payload_to_inference_request,
 )
@@ -107,3 +109,24 @@ def test_inference_error_allows_interpreter_traceback_state_updates():
     error.__context__ = None
 
     assert str(error) == "invalid"
+
+
+def test_image_generation_options_are_backend_neutral_and_typed():
+    request = InferenceRequest(
+        task=TaskType.IMAGE_GENERATION,
+        model="qwen-image-2.1",
+        input_text="A clean product photograph",
+        image_generation=ImageGenerationOptions(
+            width=1024,
+            height=1024,
+            num_inference_steps=40,
+            guidance_scale=4.0,
+            seed=42,
+            output_format="png",
+        ),
+    )
+
+    assert request.image_generation.width == 1024
+    assert request.image_generation.height == 1024
+    assert request.image_generation.num_inference_steps == 40
+    assert request.image_generation.seed == 42
