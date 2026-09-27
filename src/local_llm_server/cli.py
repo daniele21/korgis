@@ -6,6 +6,7 @@ Subcommands:
   local-llm models               — list available models
   local-llm download             — download a model without starting the server
   local-llm verify-artifact      — explicitly hash and cache one local model artifact
+  local-llm evidence-image       — run representative local image-generation evidence
   local-llm evidence-reclamation — run isolated repeated lifecycle evidence
   local-llm evidence-review      — review compatible repeated hardware reports
 """
@@ -121,7 +122,7 @@ def main() -> None:
 
     p_verify = sub.add_parser(
         "verify-artifact",
-        help="Explicitly SHA-256 verify one resolved local single-file model artifact.",
+        help="Explicitly SHA-256 verify one resolved local file or directory model artifact.",
     )
     p_verify.add_argument("model", help="Registry key to verify.")
     p_verify.add_argument(
@@ -129,6 +130,28 @@ def main() -> None:
         default=None,
         dest="model_path",
         help="Optional explicit local artifact path for this verification.",
+    )
+
+    p_image_evidence = sub.add_parser(
+        "evidence-image",
+        help="Run a versioned representative image-generation evidence profile.",
+    )
+    p_image_evidence.add_argument(
+        "--profile",
+        required=True,
+        help="Built-in evidence profile ID or explicit YAML profile path.",
+    )
+    p_image_evidence.add_argument(
+        "--output-dir",
+        required=True,
+        dest="output_dir",
+        help="Local evidence directory; representative profiles require it outside the repository.",
+    )
+    p_image_evidence.add_argument(
+        "--model-path",
+        default=None,
+        dest="model_path",
+        help="Optional explicit local model directory override. Private paths are not serialized.",
     )
 
     p_evidence = sub.add_parser(
@@ -226,6 +249,8 @@ def main() -> None:
         _cmd_download(args.model)
     elif args.command == "verify-artifact":
         _cmd_verify_artifact(args.model, model_path=args.model_path)
+    elif args.command == "evidence-image":
+        _cmd_evidence_image(args)
     elif args.command == "evidence-reclamation":
         _cmd_evidence_reclamation(args)
     elif args.command == "evidence-review":
@@ -341,6 +366,29 @@ def _cmd_verify_artifact(model: str, *, model_path: str | None = None) -> None:
         print(f"Artifact verification failed: {exc}", file=sys.stderr)
         sys.exit(1)
     print(json.dumps(public_verification_summary(receipt), indent=2, sort_keys=True))
+
+
+def _cmd_evidence_image(args: argparse.Namespace) -> None:
+    from .image_hardware_evidence import (
+        ImageHardwareEvidenceOptions,
+        execute_image_hardware_evidence,
+    )
+
+    options = ImageHardwareEvidenceOptions(
+        profile=args.profile,
+        output_dir=Path(args.output_dir),
+        model_path=args.model_path,
+    )
+    try:
+        report = execute_image_hardware_evidence(options)
+    except (FileNotFoundError, OSError, RuntimeError, TypeError, ValueError) as exc:
+        print(f"Image evidence run failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    output = options.output_dir.expanduser().resolve() / "image-evidence.json"
+    print(f"Image evidence report written to {output}")
+    if not report.get("complete"):
+        sys.exit(2)
 
 
 def _cmd_evidence_reclamation(args: argparse.Namespace) -> None:

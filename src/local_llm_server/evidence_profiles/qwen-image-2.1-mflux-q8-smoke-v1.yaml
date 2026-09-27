@@ -1,0 +1,33 @@
+schema_version: 1
+profile:
+  id: qwen-image-2.1-mflux-q8-smoke-v1
+  model: qwen-image-2.1-mflux-q8
+  repetitions: 2
+  sample_interval_seconds: 0.25
+  settle_seconds: 2.0
+  startup_timeout_seconds: 900
+  request_timeout_seconds: 900
+  execution:
+    host: 127.0.0.1
+    port: 1245
+  workload:
+    prompt: >-
+      A clean studio photograph of a matte red cube centered on a neutral light-gray
+      background, soft diffused lighting, realistic contact shadow, no text.
+    width: 1024
+    height: 1024
+    num_inference_steps: 40
+    guidance_scale: 1.0
+    seed: 42
+    output_format: png
+  safety:
+    host_safety_margin_gib: 8.0
+    require_macos: true
+    require_apple_silicon: true
+    require_clean_dev_checkout: true
+    require_output_outside_repo: true
+  claims:
+    memory_fit_claim: false
+    performance_claim: false
+    reclamation_safety_claim: false
+    production_safety_claim: false

@@ -55,13 +55,24 @@ class ArtifactVerificationStore:
             return None
         return receipt if receipt.logical_id == logical_id else None
 
-    def valid_for_file(
+    def valid_for_artifact(
         self,
         logical_id: str,
         artifact_path: str | Path,
     ) -> ArtifactVerificationReceipt | None:
         receipt = self.load(logical_id)
-        if receipt is None or not receipt.matches_file(artifact_path):
+        if receipt is None or not receipt.matches_artifact(artifact_path):
+            return None
+        return receipt
+
+    def valid_for_file(
+        self,
+        logical_id: str,
+        artifact_path: str | Path,
+    ) -> ArtifactVerificationReceipt | None:
+        """Backwards-compatible single-file receipt lookup."""
+        receipt = self.valid_for_artifact(logical_id, artifact_path)
+        if receipt is None or receipt.artifact_kind != "file":
             return None
         return receipt
 
@@ -75,15 +86,18 @@ def verified_receipt_for_config(
     *,
     store: ArtifactVerificationStore | None = None,
 ) -> ArtifactVerificationReceipt | None:
-    """Return the ID-2 receipt only when it still matches this exact runtime file."""
+    """Return the ID-2 receipt only when it still matches this exact runtime artifact."""
     logical_id = str(config.get("model_id") or config.get("model") or "").strip()
     model_path = config.get("model_path")
     if not logical_id or not isinstance(model_path, str) or not model_path:
         return None
     artifact = Path(model_path).expanduser()
-    if not artifact.is_file():
+    if not artifact.exists():
         return None
-    return (store or ArtifactVerificationStore()).valid_for_file(logical_id, artifact)
+    return (store or ArtifactVerificationStore()).valid_for_artifact(
+        logical_id,
+        artifact,
+    )
 
 
 def verify_model_artifact(
@@ -92,7 +106,7 @@ def verify_model_artifact(
     model_path: str | None = None,
     store: ArtifactVerificationStore | None = None,
 ) -> ArtifactVerificationReceipt:
-    """Hash one resolved local model file and persist its private receipt."""
+    """Hash one resolved local file or directory model artifact and persist its receipt."""
     registry = load_registry()
     entry = registry["models"].get(model)
     if not isinstance(entry, dict):
@@ -111,18 +125,20 @@ def verify_model_artifact(
         raise FileNotFoundError(
             f"Model '{model}' does not resolve to a complete local artifact."
         )
-    if not artifact.is_file():
-        raise ValueError(
-            "verify-artifact currently supports single-file artifacts only; "
-            "multi-file model directories require a deterministic manifest hash."
-        )
-
     logical_id = str(entry.get("model_id") or model)
-    receipt = ArtifactVerificationReceipt.for_file(
-        logical_id,
-        artifact,
-        sha256=sha256_file(artifact),
-    )
+    if artifact.is_file():
+        receipt = ArtifactVerificationReceipt.for_file(
+            logical_id,
+            artifact,
+            sha256=sha256_file(artifact),
+        )
+    elif artifact.is_dir():
+        receipt = ArtifactVerificationReceipt.for_directory(
+            logical_id,
+            artifact,
+        )
+    else:
+        raise ValueError("resolved model artifact must be a regular file or directory")
     (store or ArtifactVerificationStore()).save(receipt)
     return receipt
 
@@ -134,4 +150,10 @@ def public_verification_summary(receipt: ArtifactVerificationReceipt) -> dict[st
         "sha256": receipt.sha256,
         "size_bytes": receipt.size_bytes,
         "verification": "verified",
+        "artifact_kind": receipt.artifact_kind,
+        "file_count": (
+            len(receipt.manifest_files)
+            if receipt.artifact_kind == "directory"
+            else 1
+        ),
     }

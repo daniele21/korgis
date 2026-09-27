@@ -38,29 +38,32 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 | QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | DONE |
 | QI-6 | Image editing / RGBA follow-up | future image contract | QI-7 | no | BLOCKED |
 | QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | DONE |
-| QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7, QI-9 | no | BLOCKED |
-| QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | ACTIVE |
+| QI-8 | Representative Apple Silicon Q8 evidence | versioned profile, directory verification, real-device smoke/resource observations | QI-7, QI-9 | no | ACTIVE |
+| QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | DONE |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-9`
+`QI-8`
 
 Acceptance:
 
-- image requests are canonicalized before admission using the same request preparation used by the route;
-- `/v1/images/generations` participates in optional per-runtime queueing and the global execution governor;
-- queued image work reserves no transient memory;
-- active image requests use the same `ResourceManager` ledger as resident runtimes and other admitted requests;
-- configured transient estimates can reject overcommit before the image backend is invoked;
-- missing transient image-memory evidence remains `unknown`; Korgis does not invent a pixel-to-RAM formula;
-- runtime lease/concurrency remains the final backend-local safeguard after scheduler/resource admission.
+- multi-file image checkpoints can be explicitly verified through a deterministic manifest SHA-256 without exposing private paths;
+- a valid directory receipt can drive evidence-grade runtime identity just like a single-file receipt;
+- `qwen-image-2.1-mflux-q8-smoke-v1` owns model/workload/repetition/sampling/safety settings in YAML rather than code literals;
+- `local-llm evidence-image` refuses non-representative hosts, dirty/non-`dev` source, in-repo evidence paths, unavailable host-memory observations or configured lower-bound + safety-margin violations;
+- model load and every generation sample process RSS and available memory while the owned Korgis process is alive;
+- generated images are retained as local evidence artifacts with SHA-256 while prompt text/base64/model path/PID stay out of JSON;
+- runtime identity, startup wall time, per-generation wall/backend latency and observed memory extrema are retained separately;
+- `memory_fit_claim`, `performance_claim`, `reclamation_safety_claim` and `production_safety_claim` remain false in the measurement profile;
+- actual representative Mac execution is still required before QI-8 can be marked DONE.
 
 Validation:
 
-- `uv run --frozen pytest tests/test_image_generation_request.py tests/test_image_http_admission.py tests/test_image_generation_api.py tests/test_request_scheduler.py tests/test_request_resource_admission.py -q`
+- `uv run --frozen pytest tests/test_artifact_identity.py tests/test_artifact_verification_cli.py tests/test_artifact_verification_store.py tests/test_evidence_profiles.py tests/test_image_hardware_evidence.py tests/test_identity_api.py -q`
 - `uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82`
+- representative QI-8 execution: `local-llm evidence-image --profile qwen-image-2.1-mflux-q8-smoke-v1 --output-dir <outside-repo-dir>`
 
 ## Integration points
 
@@ -69,6 +72,8 @@ Validation:
 - Canonical HTTP policy prepares image requests before `request_scheduler` and `request_resource_admission`.
 - `ProductRuntimeManager.lease_runtime(...)` remains the final lifecycle/concurrency owner.
 - `POST /v1/images/generations` is the public application-facing boundary used by experiments.
+- `ArtifactVerificationReceipt` supports both single-file artifacts and deterministic multi-file directory manifests.
+- `image_hardware_evidence.py` owns QI-8 orchestration; `evidence_profiles/*.yaml` owns workload/safety configuration.
 
 ## Durable documentation destinations
 

@@ -9,6 +9,7 @@ from local_llm_server.artifact_identity import (
     ArtifactVerificationReceipt,
     VerificationState,
     identify_resolved_artifact,
+    sha256_directory_manifest,
     sha256_file,
 )
 from local_llm_server.model_sources import ResolvedModel
@@ -153,3 +154,81 @@ def test_receipt_rejects_non_sha256_digest(tmp_path):
             path,
             sha256="not-a-digest",
         )
+
+
+
+def test_directory_manifest_digest_is_path_order_independent(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    for root in (first, second):
+        (root / "b").mkdir(parents=True)
+        (root / "a.txt").write_bytes(b"alpha")
+        (root / "b" / "c.bin").write_bytes(b"charlie")
+
+    first_digest, first_size, first_entries = sha256_directory_manifest(first)
+    second_digest, second_size, second_entries = sha256_directory_manifest(second)
+
+    assert first_digest == second_digest
+    assert first_size == second_size == len(b"alpha") + len(b"charlie")
+    assert [entry.relative_path for entry in first_entries] == ["a.txt", "b/c.bin"]
+    assert [entry.digest_payload() for entry in first_entries] == [
+        entry.digest_payload() for entry in second_entries
+    ]
+
+
+def test_directory_receipt_round_trip_and_content_change_invalidation(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "weights.bin").write_bytes(b"weights")
+    (snapshot / "config.json").write_text("{}", encoding="utf-8")
+
+    receipt = ArtifactVerificationReceipt.for_directory("org/demo", snapshot)
+    restored = ArtifactVerificationReceipt.from_private_payload(
+        receipt.private_payload()
+    )
+
+    assert restored == receipt
+    assert restored.artifact_kind == "directory"
+    assert restored.matches_artifact(snapshot) is True
+    assert restored.matches_file(snapshot) is False
+
+    (snapshot / "weights.bin").write_bytes(b"replacement-weights")
+    assert restored.matches_artifact(snapshot) is False
+
+
+def test_directory_receipt_invalidates_added_or_removed_files(tmp_path):
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    original = snapshot / "weights.bin"
+    original.write_bytes(b"weights")
+    receipt = ArtifactVerificationReceipt.for_directory("org/demo", snapshot)
+
+    added = snapshot / "extra.json"
+    added.write_text("{}", encoding="utf-8")
+    assert receipt.matches_artifact(snapshot) is False
+
+    added.unlink()
+    assert receipt.matches_artifact(snapshot) is True
+
+    original.unlink()
+    assert receipt.matches_artifact(snapshot) is False
+
+
+
+def test_legacy_single_file_receipt_payload_remains_backward_compatible(tmp_path):
+    path = tmp_path / "model.gguf"
+    path.write_bytes(b"legacy")
+    receipt = ArtifactVerificationReceipt.for_file(
+        "org/demo",
+        path,
+        sha256=sha256_file(path),
+    )
+    legacy = receipt.private_payload()
+    legacy.pop("artifact_kind")
+    legacy.pop("manifest_files")
+
+    restored = ArtifactVerificationReceipt.from_private_payload(legacy)
+
+    assert restored.artifact_kind == "file"
+    assert restored.manifest_files == ()
+    assert restored.matches_file(path) is True

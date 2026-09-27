@@ -36,6 +36,8 @@ _BACKEND_PACKAGES = {
     "llama_cpp": "llama-cpp-python",
     "mlx": "mlx-lm",
     "mlx_vlm_server": "mlx-vlm",
+    "diffusers_image": "diffusers",
+    "mflux_image": "mflux",
 }
 _LLAMA_SERVER_VERSION = re.compile(
     r"version:\s*(?P<build>\d+)\s*\(`?(?P<commit>[0-9a-fA-F]{7,40})`?\)"

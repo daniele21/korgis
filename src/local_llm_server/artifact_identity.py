@@ -71,13 +71,60 @@ class ArtifactIdentity:
 
 
 @dataclass(frozen=True, slots=True)
-class ArtifactVerificationReceipt:
-    """Local cache receipt for an explicitly hashed single-file artifact.
+class ArtifactManifestFile:
+    """One private file record used by a verified directory manifest."""
 
-    ``artifact_path`` and stat fields are deliberately private/local metadata.
-    Consumers may reuse the strong digest only while ``matches_file`` remains
-    true. Directories and multi-file snapshots require a future manifest design
-    and cannot be represented by this single-file receipt.
+    relative_path: str
+    sha256: str
+    size_bytes: int
+    mtime_ns: int
+    inode: int | None = None
+    device: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.relative_path or self.relative_path.startswith("/"):
+            raise ValueError("manifest relative_path must be non-empty and relative")
+        _validate_sha256(self.sha256)
+        if self.size_bytes < 0 or self.mtime_ns < 0:
+            raise ValueError("manifest file size/mtime must be non-negative")
+
+    def digest_payload(self) -> dict[str, object]:
+        return {
+            "path": self.relative_path,
+            "sha256": self.sha256,
+            "size_bytes": self.size_bytes,
+        }
+
+    def private_payload(self) -> dict[str, object]:
+        return {
+            **self.digest_payload(),
+            "mtime_ns": self.mtime_ns,
+            "inode": self.inode,
+            "device": self.device,
+        }
+
+    @classmethod
+    def from_private_payload(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ArtifactManifestFile":
+        return cls(
+            relative_path=str(payload.get("path") or ""),
+            sha256=str(payload.get("sha256") or "").lower(),
+            size_bytes=int(payload.get("size_bytes", -1)),
+            mtime_ns=int(payload.get("mtime_ns", -1)),
+            inode=_optional_int(payload.get("inode")),
+            device=_optional_int(payload.get("device")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactVerificationReceipt:
+    """Local cache receipt for an explicitly hashed file or directory artifact.
+
+    ``artifact_path``, per-file manifest entries and stat fields are private
+    machine-local metadata. The public contract exposes only the aggregate digest
+    and size while cache reuse remains fail-conservative when local stamps change.
     """
 
     logical_id: str
@@ -87,6 +134,8 @@ class ArtifactVerificationReceipt:
     mtime_ns: int
     inode: int | None = None
     device: int | None = None
+    artifact_kind: str = "file"
+    manifest_files: tuple[ArtifactManifestFile, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.logical_id.strip():
@@ -98,6 +147,12 @@ class ArtifactVerificationReceipt:
             raise ValueError("size_bytes must be >= 0")
         if self.mtime_ns < 0:
             raise ValueError("mtime_ns must be >= 0")
+        if self.artifact_kind not in {"file", "directory"}:
+            raise ValueError("artifact_kind must be file or directory")
+        if self.artifact_kind == "file" and self.manifest_files:
+            raise ValueError("single-file receipt cannot contain directory manifest files")
+        if self.artifact_kind == "directory" and not self.manifest_files:
+            raise ValueError("directory receipt requires at least one manifest file")
 
     @classmethod
     def for_file(
@@ -122,10 +177,47 @@ class ArtifactVerificationReceipt:
             device=_optional_stat_int(stat.st_dev),
         )
 
-    def matches_file(self, artifact_path: str | Path | None = None) -> bool:
-        """Return whether ordinary local replacement/change invalidates reuse."""
+    @classmethod
+    def for_directory(
+        cls,
+        logical_id: str,
+        artifact_path: str | Path,
+    ) -> "ArtifactVerificationReceipt":
+        """Hash one directory as a deterministic path/content manifest."""
+        path = Path(artifact_path).expanduser().resolve()
+        if not path.is_dir():
+            raise ValueError("directory verification receipt requires a directory")
+        digest, size_bytes, manifest_files = sha256_directory_manifest(path)
+        stat = path.stat()
+        return cls(
+            logical_id=logical_id,
+            artifact_path=str(path),
+            sha256=digest,
+            size_bytes=size_bytes,
+            mtime_ns=stat.st_mtime_ns,
+            inode=_optional_stat_int(stat.st_ino),
+            device=_optional_stat_int(stat.st_dev),
+            artifact_kind="directory",
+            manifest_files=manifest_files,
+        )
+
+    def matches_artifact(self, artifact_path: str | Path | None = None) -> bool:
+        """Return whether cached private stamps still describe the verified artifact."""
         path = Path(artifact_path or self.artifact_path).expanduser().resolve()
-        if str(path) != self.artifact_path or not path.is_file():
+        if str(path) != self.artifact_path:
+            return False
+        if self.artifact_kind == "file":
+            return self._matches_file(path)
+        return self._matches_directory(path)
+
+    def matches_file(self, artifact_path: str | Path | None = None) -> bool:
+        """Backwards-compatible single-file receipt check."""
+        if self.artifact_kind != "file":
+            return False
+        return self.matches_artifact(artifact_path)
+
+    def _matches_file(self, path: Path) -> bool:
+        if not path.is_file():
             return False
         stat = path.stat()
         if stat.st_size != self.size_bytes or stat.st_mtime_ns != self.mtime_ns:
@@ -134,6 +226,45 @@ class ArtifactVerificationReceipt:
             return False
         if self.device is not None and _optional_stat_int(stat.st_dev) != self.device:
             return False
+        return True
+
+    def _matches_directory(self, path: Path) -> bool:
+        if not path.is_dir():
+            return False
+        stat = path.stat()
+        if self.inode is not None and _optional_stat_int(stat.st_ino) != self.inode:
+            return False
+        if self.device is not None and _optional_stat_int(stat.st_dev) != self.device:
+            return False
+
+        current = {
+            item.relative_to(path).as_posix(): item
+            for item in sorted(
+                path.rglob("*"),
+                key=lambda candidate: candidate.relative_to(path).as_posix(),
+            )
+            if item.is_file()
+        }
+        if set(current) != {entry.relative_path for entry in self.manifest_files}:
+            return False
+        for entry in self.manifest_files:
+            file_path = current[entry.relative_path]
+            file_stat = file_path.stat()
+            if (
+                file_stat.st_size != entry.size_bytes
+                or file_stat.st_mtime_ns != entry.mtime_ns
+            ):
+                return False
+            if (
+                entry.inode is not None
+                and _optional_stat_int(file_stat.st_ino) != entry.inode
+            ):
+                return False
+            if (
+                entry.device is not None
+                and _optional_stat_int(file_stat.st_dev) != entry.device
+            ):
+                return False
         return True
 
     def private_payload(self) -> dict[str, object]:
@@ -146,6 +277,11 @@ class ArtifactVerificationReceipt:
             "mtime_ns": self.mtime_ns,
             "inode": self.inode,
             "device": self.device,
+            "artifact_kind": self.artifact_kind,
+            "manifest_files": [
+                entry.private_payload()
+                for entry in self.manifest_files
+            ],
         }
 
     @classmethod
@@ -161,6 +297,12 @@ class ArtifactVerificationReceipt:
             mtime_ns=int(payload.get("mtime_ns", -1)),
             inode=_optional_int(payload.get("inode")),
             device=_optional_int(payload.get("device")),
+            artifact_kind=str(payload.get("artifact_kind") or "file"),
+            manifest_files=tuple(
+                ArtifactManifestFile.from_private_payload(entry)
+                for entry in (payload.get("manifest_files") or [])
+                if isinstance(entry, Mapping)
+            ),
         )
 
 
@@ -213,6 +355,49 @@ def sha256_file(path: str | Path, *, chunk_size: int = 1024 * 1024) -> str:
         while chunk := handle.read(chunk_size):
             hasher.update(chunk)
     return hasher.hexdigest()
+
+
+def sha256_directory_manifest(
+    path: str | Path,
+) -> tuple[str, int, tuple[ArtifactManifestFile, ...]]:
+    """Hash a directory deterministically from sorted relative paths and file content."""
+    root = Path(path).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError("directory manifest requires a directory")
+
+    entries: list[ArtifactManifestFile] = []
+    candidates = sorted(
+        root.rglob("*"),
+        key=lambda item: item.relative_to(root).as_posix(),
+    )
+    for file_path in candidates:
+        if not file_path.is_file():
+            continue
+        stat = file_path.stat()
+        entries.append(
+            ArtifactManifestFile(
+                relative_path=file_path.relative_to(root).as_posix(),
+                sha256=sha256_file(file_path),
+                size_bytes=stat.st_size,
+                mtime_ns=stat.st_mtime_ns,
+                inode=_optional_stat_int(stat.st_ino),
+                device=_optional_stat_int(stat.st_dev),
+            )
+        )
+    if not entries:
+        raise ValueError("directory manifest requires at least one regular file")
+
+    canonical = json.dumps(
+        [entry.digest_payload() for entry in entries],
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return (
+        hashlib.sha256(canonical).hexdigest(),
+        sum(entry.size_bytes for entry in entries),
+        tuple(entries),
+    )
 
 
 def _source_reference(key: str, entry: Mapping[str, Any], resolved: ResolvedModel) -> str:

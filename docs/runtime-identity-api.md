@@ -79,7 +79,7 @@ The repositories share only the versioned wire contract:
 
 - `model.id` is the effective resident model ID.
 - `model.revision` is emitted only when explicitly known.
-- `model.artifact_digest` is emitted only from a valid explicit SHA-256 pin and uses the `sha256:<hex>` form.
+- `model.artifact_digest` is emitted from a valid explicit SHA-256 pin or a still-valid local verification receipt and uses the `sha256:<hex>` form. Multi-file model directories use one deterministic manifest digest rather than leaking file paths.
 - `model.artifact_key` is exposed only when the existing artifact-identity/fingerprint path has produced it.
 - `model.quantization` is explicit metadata from resolved configuration/registry. It is not inferred from a filename by the public identity API or by consumers.
 - `runtime.name` is the effective backend.
