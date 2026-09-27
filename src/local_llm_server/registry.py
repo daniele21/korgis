@@ -31,7 +31,7 @@ import yaml
 from .capability_catalog import validate_registry_capability_entry
 
 _BUILTIN_REGISTRY = Path(__file__).parent / "models_registry.yaml"
-_SUPPORTED_BACKENDS = {"llama_cpp", "gguf", "mlx", "llama_server", "mlx_vlm_server"}
+_SUPPORTED_BACKENDS = {"llama_cpp", "gguf", "mlx", "llama_server", "mlx_vlm_server", "diffusers_image"}
 _VALID_MODALITIES = {"text", "image", "audio"}
 _EXTERNAL_REGISTRY_ENV = "LOCAL_LLM_REGISTRY_PATHS"
 
@@ -209,10 +209,19 @@ def validate_registry(registry: dict[str, Any]) -> None:
             errors.append(f"{label}: {exc}")
 
         has_model_source = bool(entry.get("path") or entry.get("filename") or entry.get("model_id"))
-        if backend in {"llama_cpp", "gguf", "llama_server", "mlx", "mlx_vlm_server"} and not has_model_source:
+        if backend in {
+            "llama_cpp",
+            "gguf",
+            "llama_server",
+            "mlx",
+            "mlx_vlm_server",
+            "diffusers_image",
+        } and not has_model_source:
             errors.append(f"{label} needs path, filename, or model_id")
         if backend == "mlx_vlm_server" and not (entry.get("path") or entry.get("model_id")):
             errors.append(f"{label} with mlx_vlm_server needs path or model_id")
+        if backend == "diffusers_image" and not (entry.get("path") or entry.get("model_id")):
+            errors.append(f"{label} with diffusers_image needs path or model_id")
         if backend == "llama_server" and multimodal and not (
             entry.get("mmproj_filename") or params.get("mmproj_path")
         ):
