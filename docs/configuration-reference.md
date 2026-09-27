@@ -175,7 +175,9 @@ The `runtime.config` object is generated from the same non-sensitive allowlist c
 ## Local image-generation runtime
 
 The built-in `qwen-image-2.1` entry uses the `diffusers_image` backend and declares
-`image_generation` with text input and image output. Runtime defaults live in the registry and
+`image_generation` with text input and image output. The current built-in baseline is the
+official BF16 pipeline and records a 33.12 GB weights lower-bound for runtime admission; it is
+deliberately not presented as a lightweight local profile. Runtime defaults live in the registry and
 can be overridden through the CLI/environment settings above. Public requests are rejected when
 they exceed `image_max_pixels` or `image_max_inference_steps`; these are runtime policy bounds,
 not provider hints.
@@ -187,7 +189,8 @@ python -m pip install -r requirements/image.txt
 ```
 
 The image stack is intentionally not part of the default `uv sync --frozen` path, so text/VLM
-users and normal CI do not inherit PyTorch/Diffusers dependencies.
+users and normal CI do not inherit PyTorch/Diffusers dependencies. The dependency profile pins
+the Diffusers source revision used for this integration instead of relying on a moving Git main.
 
 Then download and serve:
 
