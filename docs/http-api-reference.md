@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-09-28
+Last reviewed: 2026-09-27
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
