@@ -431,6 +431,8 @@ class ImageHardwareEvidenceCampaign:
             "completed_at": None,
             "profile": {
                 "id": self.profile.profile_id,
+                "source_kind": self.profile.source_kind,
+                "configuration_sha256": self.profile.configuration_digest(),
                 "model": self.profile.model,
                 "prompt_sha256": hashlib.sha256(
                     self.profile.workload.prompt.encode("utf-8")
@@ -446,6 +448,21 @@ class ImageHardwareEvidenceCampaign:
                     "seed": self.profile.workload.seed,
                     "output_format": self.profile.workload.output_format,
                     "repetitions": self.profile.repetitions,
+                },
+                "safety": {
+                    "host_safety_margin_gib": (
+                        self.profile.safety.host_safety_margin_gib
+                    ),
+                    "require_macos": self.profile.safety.require_macos,
+                    "require_apple_silicon": (
+                        self.profile.safety.require_apple_silicon
+                    ),
+                    "require_clean_dev_checkout": (
+                        self.profile.safety.require_clean_dev_checkout
+                    ),
+                    "require_output_outside_repo": (
+                        self.profile.safety.require_output_outside_repo
+                    ),
                 },
             },
             "source": {},
