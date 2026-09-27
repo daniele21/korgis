@@ -171,6 +171,7 @@ def test_builtin_registry_exposes_qwen_image_generation_capability(
 
     assert entry["model_id"] == "Qwen/Qwen-Image-2.1"
     assert entry["backend"] == "diffusers_image"
+    assert entry["size_gb"] == 33.12
     assert entry["tasks"] == ["image_generation"]
     assert entry["input_modalities"] == ["text"]
     assert entry["output_modalities"] == ["image"]
