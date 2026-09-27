@@ -116,6 +116,8 @@ models:
       image_width: 1024
       image_height: 1024
       image_num_inference_steps: 40
+      image_max_inference_steps: 100
+      image_max_pixels: 4194304
       image_output_format: png
       max_concurrent_requests: 1
       startup_timeout: 600
