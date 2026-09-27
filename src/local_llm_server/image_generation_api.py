@@ -3,50 +3,14 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import Any, Literal
-
 from fastapi import FastAPI, HTTPException, Request, status
-from pydantic import BaseModel, Field
-
-from .core import ImageGenerationOptions, InferenceRequest, TaskType
 from .core.contracts import InferenceError
+from .image_generation_request import (
+    ImageGenerationRequest,
+    prepare_image_generation_request,
+)
 from .request_pipeline import public_error_detail
 from .task_policy import enforce_request_capabilities
-
-
-class ImageGenerationRequest(BaseModel):
-    prompt: str = Field(..., min_length=1)
-    model: str | None = None
-    n: int = Field(default=1, ge=1, le=1)
-    size: str | None = None
-    response_format: Literal["b64_json"] = "b64_json"
-    output_format: Literal["png", "jpeg", "jpg", "webp"] | None = None
-    seed: int | None = None
-    num_inference_steps: int | None = Field(default=None, ge=1)
-    guidance_scale: float | None = None
-
-
-def _parse_size(value: str | None, runtime_cfg: dict[str, Any]) -> tuple[int, int]:
-    if value is None:
-        return (
-            int(runtime_cfg.get("image_width") or 1024),
-            int(runtime_cfg.get("image_height") or 1024),
-        )
-    parts = value.lower().split("x", 1)
-    if len(parts) != 2:
-        raise ValueError("size must use WIDTHxHEIGHT format")
-    try:
-        width, height = (int(part) for part in parts)
-    except ValueError as exc:
-        raise ValueError("size must use integer WIDTHxHEIGHT values") from exc
-    if width <= 0 or height <= 0:
-        raise ValueError("image width and height must be > 0")
-    max_pixels = int(runtime_cfg.get("image_max_pixels") or 4194304)
-    if width * height > max_pixels:
-        raise ValueError(
-            f"requested image has {width * height} pixels; configured maximum is {max_pixels}"
-        )
-    return width, height
 
 
 def install_image_generation_api(application: FastAPI) -> FastAPI:
@@ -78,7 +42,15 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
             ) from exc
 
         try:
-            width, height = _parse_size(payload.size, runtime.cfg)
+            prepared = prepare_image_generation_request(
+                payload,
+                runtime_key=runtime.key,
+                runtime_config=runtime.cfg,
+            )
+            enforce_request_capabilities(
+                prepared.canonical,
+                runtime_config=runtime.cfg,
+            )
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -89,55 +61,6 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
                     "details": {},
                 },
             ) from exc
-
-        prompt = payload.prompt.strip()
-        if not prompt:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "code": "invalid_request",
-                    "message": "image generation requires a non-empty prompt",
-                    "retryable": False,
-                    "details": {},
-                },
-            )
-        max_steps = int(runtime.cfg.get("image_max_inference_steps") or 100)
-        if (
-            payload.num_inference_steps is not None
-            and payload.num_inference_steps > max_steps
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={
-                    "code": "invalid_request",
-                    "message": (
-                        "num_inference_steps exceeds configured maximum "
-                        f"{max_steps}"
-                    ),
-                    "retryable": False,
-                    "details": {},
-                },
-            )
-
-        options = ImageGenerationOptions(
-            width=width,
-            height=height,
-            num_inference_steps=payload.num_inference_steps,
-            guidance_scale=payload.guidance_scale,
-            seed=payload.seed,
-            output_format=payload.output_format,
-        )
-        canonical = InferenceRequest(
-            task=TaskType.IMAGE_GENERATION,
-            model=runtime.key,
-            input_text=prompt,
-            image_generation=options,
-        )
-        try:
-            enforce_request_capabilities(
-                canonical,
-                runtime_config=runtime.cfg,
-            )
         except InferenceError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -156,23 +79,10 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
                 },
             )
 
-        backend_payload = {
-            "prompt": prompt,
-            "width": width,
-            "height": height,
-            "seed": payload.seed,
-            "num_inference_steps": payload.num_inference_steps,
-            "guidance_scale": payload.guidance_scale,
-            "output_format": payload.output_format,
-        }
-        backend_payload = {
-            key: value for key, value in backend_payload.items() if value is not None
-        }
-
         started = time.perf_counter()
         try:
             with manager.lease_runtime(runtime):
-                result = generate(backend_payload)
+                result = generate(dict(prepared.backend_payload))
         except (RuntimeError, ValueError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
