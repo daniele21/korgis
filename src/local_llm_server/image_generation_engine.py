@@ -24,7 +24,7 @@ def _load_torch() -> Any:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Local image generation requires the image extra. "
-            'Install with: pip install "local-llm-server[image]"'
+            'Install with: python -m pip install -r requirements/image.txt'
         ) from exc
     return torch
 
@@ -35,7 +35,7 @@ def _load_pipeline(model_ref: str, *, torch_dtype: Any) -> Any:
     except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Local image generation requires the image extra. "
-            'Install with: pip install "local-llm-server[image]"'
+            'Install with: python -m pip install -r requirements/image.txt'
         ) from exc
     return DiffusionPipeline.from_pretrained(model_ref, torch_dtype=torch_dtype)
 
