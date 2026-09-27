@@ -193,3 +193,79 @@ def test_image_requests_respect_shared_transient_memory_budget() -> None:
         assert resources.snapshot() == ()
 
     asyncio.run(scenario())
+
+
+
+def test_image_requests_use_per_runtime_queue_before_backend() -> None:
+    async def scenario() -> None:
+        resources = ResourceManager(ResourceBudget(limit_bytes=500))
+        manager = ModelRuntimeManager(default_model="image", resource_manager=resources)
+        manager.add(
+            _cfg(request_bytes=60, max_concurrent_requests=1),
+            _ImageEngine(),
+        )
+        app = FastAPI()
+        app.state.runtime_manager = manager
+        install_request_resource_admission(app)
+        install_request_scheduler(
+            app,
+            settings=RequestSchedulerSettings(queue_capacity=1),
+        )
+        install_request_policy(app)
+
+        first_started = asyncio.Event()
+        release_first = asyncio.Event()
+        route_calls = 0
+
+        @app.post("/v1/images/generations")
+        async def image_route(request: Request):
+            nonlocal route_calls
+            assert (
+                request.state.prepared_inference_request.canonical.task
+                is TaskType.IMAGE_GENERATION
+            )
+            route_calls += 1
+            if route_calls == 1:
+                first_started.set()
+                await release_first.wait()
+            return JSONResponse({"ok": True})
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            first = asyncio.create_task(
+                client.post("/v1/images/generations", json=_payload())
+            )
+            await asyncio.wait_for(first_started.wait(), timeout=1)
+
+            second = asyncio.create_task(
+                client.post("/v1/images/generations", json=_payload())
+            )
+            await asyncio.sleep(0.02)
+
+            overflow = await client.post(
+                "/v1/images/generations",
+                json=_payload(),
+            )
+            assert overflow.status_code == 429
+            assert overflow.json()["detail"]["code"] == "resource_exhausted"
+            assert route_calls == 1
+
+            # Only the executing request owns transient memory while the second
+            # request waits in the runtime queue.
+            active = resources.snapshot(kind=ReservationKind.TRANSIENT)
+            assert len(active) == 1
+            assert active[0].accounted_bytes == 60
+
+            release_first.set()
+            first_response, second_response = await asyncio.gather(first, second)
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 200
+        assert float(second_response.headers["x-local-llm-queue-wait-ms"]) > 0
+        assert route_calls == 2
+        assert resources.snapshot() == ()
+
+    asyncio.run(scenario())
