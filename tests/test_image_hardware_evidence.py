@@ -287,3 +287,35 @@ def test_image_hardware_evidence_refuses_insufficient_available_memory(tmp_path)
     checks = report["phases"]["preflight"]["details"]["checks"]
     assert checks["exploratory_host_safety_guard"] is False
     assert "server_start" not in report["phases"]
+
+
+
+def test_image_hardware_evidence_refuses_in_repo_output_without_residue(tmp_path):
+    repo, _output, snapshot, store = _setup(tmp_path)
+    output = repo / "evidence"
+
+    try:
+        execute_image_hardware_evidence(
+            ImageHardwareEvidenceOptions(
+                profile="qwen-image-2.1-mflux-q8-smoke-v1",
+                output_dir=output,
+            ),
+            verification_store=store,
+            observer=_Observer(),
+            server_factory=_FakeServer,
+            config_builder=lambda **_kwargs: _config(snapshot),
+            git_state=lambda: {
+                "revision": "d" * 40,
+                "branch": "dev",
+                "tracked_clean": True,
+                "root": repo,
+            },
+            system=lambda: "Darwin",
+            machine=lambda: "arm64",
+        )
+    except RuntimeError as exc:
+        assert "outside the repository" in str(exc)
+    else:
+        raise AssertionError("expected in-repository evidence output to fail")
+
+    assert not output.exists()
