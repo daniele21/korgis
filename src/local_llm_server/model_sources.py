@@ -389,7 +389,10 @@ def resolve_mflux_image_runtime_path(
         backend="mflux_image",
         multimodal=False,
     )
-    if cached is not None:
+    if cached is not None and is_complete_mflux_image_model(
+        cached,
+        expected_quantization_bits=expected_quantization_bits,
+    ):
         logger.info("Using complete Hugging Face MFlux cache for %s: %s", reference, cached)
         return cached
     if no_download:
