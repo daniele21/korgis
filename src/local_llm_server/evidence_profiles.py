@@ -31,6 +31,18 @@ class ImageEvidenceWorkload:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageEvidenceExecution:
+    host: str
+    port: int
+
+    def __post_init__(self) -> None:
+        if not self.host.strip():
+            raise ValueError("evidence host must be non-empty")
+        if self.port < 1 or self.port > 65535:
+            raise ValueError("evidence port must be between 1 and 65535")
+
+
+@dataclass(frozen=True, slots=True)
 class ImageEvidenceSafety:
     host_safety_margin_gib: float
     require_macos: bool
@@ -52,6 +64,7 @@ class ImageEvidenceProfile:
     settle_seconds: float
     startup_timeout_seconds: float
     request_timeout_seconds: float
+    execution: ImageEvidenceExecution
     workload: ImageEvidenceWorkload
     safety: ImageEvidenceSafety
     claims: Mapping[str, bool]
@@ -105,6 +118,7 @@ def load_image_evidence_profile(
     if payload.get("schema_version") != 1:
         raise ValueError("image evidence profile schema_version must be 1")
     raw = _mapping(payload.get("profile"), "profile")
+    execution = _mapping(raw.get("execution"), "profile.execution")
     workload = _mapping(raw.get("workload"), "profile.workload")
     safety = _mapping(raw.get("safety"), "profile.safety")
     claims = _mapping(raw.get("claims"), "profile.claims")
@@ -117,6 +131,10 @@ def load_image_evidence_profile(
         settle_seconds=_required_float(raw, "settle_seconds"),
         startup_timeout_seconds=_required_float(raw, "startup_timeout_seconds"),
         request_timeout_seconds=_required_float(raw, "request_timeout_seconds"),
+        execution=ImageEvidenceExecution(
+            host=_required_text(execution, "host"),
+            port=_required_int(execution, "port"),
+        ),
         workload=ImageEvidenceWorkload(
             prompt=_required_text(workload, "prompt"),
             width=_required_int(workload, "width"),
