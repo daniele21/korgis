@@ -1,7 +1,7 @@
 # Qwen Image 2.1 Local Generation
 
 Status: active
-Last reviewed: 2026-09-27
+Last reviewed: 2026-09-28
 Owner: Korgis runtime and public inference API
 Read when: implementing or coordinating local image-generation support
 
