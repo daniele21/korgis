@@ -90,6 +90,8 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `image_width` | `--image-width` | `LOCAL_LLM_IMAGE_WIDTH` | `1024` |
 | `image_height` | `--image-height` | `LOCAL_LLM_IMAGE_HEIGHT` | `1024` |
 | `image_num_inference_steps` | `--image-num-inference-steps` | `LOCAL_LLM_IMAGE_NUM_INFERENCE_STEPS` | `40` |
+| `image_max_inference_steps` | `--image-max-inference-steps` | `LOCAL_LLM_IMAGE_MAX_INFERENCE_STEPS` | `100` |
+| `image_max_pixels` | `--image-max-pixels` | `LOCAL_LLM_IMAGE_MAX_PIXELS` | `4194304` |
 | `image_guidance_scale` | `--image-guidance-scale` | `LOCAL_LLM_IMAGE_GUIDANCE_SCALE` | `null` |
 | `image_output_format` | `--image-output-format` | `LOCAL_LLM_IMAGE_OUTPUT_FORMAT` | `png` |
 | `mmproj_path` | `--mmproj-path` | — | `null` |
@@ -174,7 +176,9 @@ The `runtime.config` object is generated from the same non-sensitive allowlist c
 
 The built-in `qwen-image-2.1` entry uses the `diffusers_image` backend and declares
 `image_generation` with text input and image output. Runtime defaults live in the registry and
-can be overridden through the CLI/environment settings above.
+can be overridden through the CLI/environment settings above. Public requests are rejected when
+they exceed `image_max_pixels` or `image_max_inference_steps`; these are runtime policy bounds,
+not provider hints.
 
 Install the optional backend dependencies with:
 
