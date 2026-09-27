@@ -102,6 +102,25 @@ models:
       max_concurrent_requests: 2
     tags: [multimodal, vision, qwen, small, 4b]
 
+  qwen-image-2.1:
+    model_id: "Qwen/Qwen-Image-2.1"
+    backend: diffusers_image
+    quantization: "BF16"
+    thinking_mode: none
+    tasks: [image_generation]
+    input_modalities: [text]
+    output_modalities: [image]
+    params:
+      image_device: auto
+      image_dtype: bfloat16
+      image_width: 1024
+      image_height: 1024
+      image_num_inference_steps: 40
+      image_output_format: png
+      max_concurrent_requests: 1
+      startup_timeout: 600
+    tags: [image-generation, qwen, local]
+
   # voxtral-mini-3b:
   #   filename: "mistralai_Voxtral-Mini-3B-2507-Q4_K_M.gguf"
   #   mmproj_filename: "mmproj-mistralai_Voxtral-Mini-3B-2507-f16.gguf"
