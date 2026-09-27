@@ -5,7 +5,10 @@ from types import SimpleNamespace
 from local_llm_server.product_runtime_manager import ProductRuntimeManager
 from local_llm_server.runtime_evidence import attached_runtime_identity
 from local_llm_server.runtime_identity import BackendIdentity
-from local_llm_server.runtime_identity_capture import capture_verified_runtime_identity
+from local_llm_server.runtime_identity_capture import (
+    capture_verified_runtime_identity,
+    resolve_backend_identity,
+)
 
 
 class _Engine:
