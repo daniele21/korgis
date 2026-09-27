@@ -202,6 +202,9 @@ def test_image_hardware_evidence_retains_artifacts_and_bounded_measurements(tmp_
     )
 
     assert report["complete"] is True
+    assert report["profile"]["source_kind"] == "builtin"
+    assert len(report["profile"]["configuration_sha256"]) == 64
+    assert report["profile"]["safety"]["require_macos"] is True
     assert report["artifact"]["verification"] == "verified"
     assert report["artifact"]["artifact_kind"] == "directory"
     assert report["runtime_identity"]["protocol_version"] == "local-llm-identity-v1"
