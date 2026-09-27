@@ -185,6 +185,7 @@ def test_qwen_image_mflux_q8_config_preserves_quantization_and_resource_evidence
     assert cfg["image_width"] == 1024
     assert cfg["image_height"] == 1024
     assert cfg["image_num_inference_steps"] == 40
+    assert cfg["image_quantization_bits"] == 8
     assert cfg["image_guidance_scale"] == 1.0
     assert cfg["resource_model_weights_bytes"] == 24025558302
     assert cfg["max_concurrent_requests"] == 1
