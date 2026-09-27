@@ -7,6 +7,9 @@ profile:
   settle_seconds: 2.0
   startup_timeout_seconds: 900
   request_timeout_seconds: 900
+  execution:
+    host: 127.0.0.1
+    port: 1245
   workload:
     prompt: >-
       A clean studio photograph of a matte red cube centered on a neutral light-gray
