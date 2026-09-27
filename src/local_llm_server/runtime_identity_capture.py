@@ -51,6 +51,9 @@ def capture_verified_runtime_identity(
     if backend is None or backend.version is None:
         return None
 
+    runtime.verified_artifact_sha256 = sha256
+    runtime.verified_artifact_size_bytes = size_bytes
+
     source_kind = _source_kind(cfg.get("model_source"))
     artifact = ArtifactIdentity(
         logical_id=logical_id,
