@@ -48,15 +48,28 @@ class MFluxImageEngine:
     ) -> None:
         self.cfg = cfg
         reference = str(cfg["model_path"])
+        expected_bits = cfg.get("image_quantization_bits")
+        expected_bits = int(expected_bits) if expected_bits is not None else None
         resolved_model = resolve_mflux_image_runtime_path(
             reference,
             no_download=bool(cfg.get("no_download", False)),
+            expected_quantization_bits=expected_bits,
         )
         self.model_ref = str(resolved_model)
         self.cfg["model_path"] = self.model_ref
         self._seed_factory = seed_factory or _default_seed
         loader = model_loader or _load_mflux_qwen21
         self.model = loader(self.model_ref)
+        actual_bits = getattr(self.model, "bits", None)
+        if (
+            expected_bits is not None
+            and actual_bits is not None
+            and int(actual_bits) != expected_bits
+        ):
+            raise RuntimeError(
+                "MFlux checkpoint quantization does not match configured "
+                f"Q{expected_bits}: loaded Q{actual_bits}"
+            )
 
     def generate_image(self, payload: dict[str, Any]) -> GeneratedImage:
         if self.model is None:
