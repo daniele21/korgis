@@ -64,7 +64,10 @@ def _runtime_identity_payload(runtime: Any) -> dict[str, object]:
         )
 
     snapshot = attached_runtime_identity(runtime)
-    sha256 = _valid_sha256_text(cfg.get("artifact_sha256"))
+    sha256 = _valid_sha256_text(
+        cfg.get("artifact_sha256")
+        or getattr(runtime, "verified_artifact_sha256", None)
+    )
     revision = _optional_text(cfg.get("artifact_revision"))
     quantization = _optional_text(cfg.get("quantization"))
     total_memory_bytes = _positive_int_or_none(cfg.get("hardware_total_memory_bytes"))
