@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from local_llm_server.image_generation_api import install_image_generation_api
 from local_llm_server.image_generation_engine import GeneratedImage
+from local_llm_server.request_middleware import install_request_policy
 from local_llm_server.runtime import ModelRuntimeManager
 
 
@@ -192,3 +193,26 @@ def test_image_generation_route_rejects_excessive_steps():
     assert response.status_code == 400
     assert "configured maximum 50" in response.json()["detail"]["message"]
     assert engine.calls == []
+
+
+
+def test_image_policy_preserves_pydantic_422_for_malformed_body():
+    image_engine = _ImageEngine()
+    manager = ModelRuntimeManager(default_model="qwen-image-2.1")
+    manager.add(_image_cfg(), image_engine)
+    app = FastAPI()
+    app.state.runtime_manager = manager
+    install_image_generation_api(app)
+    install_request_policy(app)
+
+    response = TestClient(app).post(
+        "/v1/images/generations",
+        json={
+            "model": "qwen-image-2.1",
+            "prompt": "A red cube",
+            "n": 2,
+        },
+    )
+
+    assert response.status_code == 422
+    assert image_engine.calls == []
