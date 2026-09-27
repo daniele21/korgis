@@ -64,6 +64,8 @@ def _image_cfg():
         "image_width": 512,
         "image_height": 512,
         "image_num_inference_steps": 20,
+        "image_max_inference_steps": 50,
+        "image_max_pixels": 1048576,
         "image_output_format": "png",
     }
 
@@ -155,4 +157,38 @@ def test_image_generation_route_rejects_invalid_size():
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "invalid_request"
+    assert engine.calls == []
+
+
+def test_image_generation_route_rejects_request_over_pixel_budget():
+    client, engine, _ = _client_with_runtimes()
+
+    response = client.post(
+        "/v1/images/generations",
+        json={
+            "model": "qwen-image-2.1",
+            "prompt": "A red cube",
+            "size": "2048x2048",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "configured maximum" in response.json()["detail"]["message"]
+    assert engine.calls == []
+
+
+def test_image_generation_route_rejects_excessive_steps():
+    client, engine, _ = _client_with_runtimes()
+
+    response = client.post(
+        "/v1/images/generations",
+        json={
+            "model": "qwen-image-2.1",
+            "prompt": "A red cube",
+            "num_inference_steps": 51,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "configured maximum 50" in response.json()["detail"]["message"]
     assert engine.calls == []
