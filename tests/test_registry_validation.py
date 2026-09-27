@@ -215,5 +215,6 @@ def test_builtin_registry_exposes_qwen_image_mflux_q8_profile(
     assert entry["input_modalities"] == ["text"]
     assert entry["output_modalities"] == ["image"]
     assert entry["params"]["image_guidance_scale"] == 1.0
+    assert entry["params"]["image_quantization_bits"] == 8
     assert entry["params"]["resource_model_weights_bytes"] == 24025558302
     assert entry["params"]["max_concurrent_requests"] == 1
