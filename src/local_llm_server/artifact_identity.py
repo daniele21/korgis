@@ -120,12 +120,11 @@ class ArtifactManifestFile:
 
 @dataclass(frozen=True, slots=True)
 class ArtifactVerificationReceipt:
-    """Local cache receipt for an explicitly hashed single-file artifact.
+    """Local cache receipt for an explicitly hashed file or directory artifact.
 
-    ``artifact_path`` and stat fields are deliberately private/local metadata.
-    Consumers may reuse the strong digest only while ``matches_file`` remains
-    true. Directories and multi-file snapshots require a future manifest design
-    and cannot be represented by this single-file receipt.
+    ``artifact_path``, per-file manifest entries and stat fields are private
+    machine-local metadata. The public contract exposes only the aggregate digest
+    and size while cache reuse remains fail-conservative when local stamps change.
     """
 
     logical_id: str
