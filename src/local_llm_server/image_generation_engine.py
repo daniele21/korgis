@@ -1,21 +1,11 @@
 """Diffusers-backed local image generation runtime."""
 from __future__ import annotations
 
-import io
-from dataclasses import dataclass
 from typing import Any, Callable, Iterator
 
+from .image_generation_common import GeneratedImage, encode_image
 from .model_sources import resolve_diffusers_runtime_path
 
-
-@dataclass(frozen=True, slots=True)
-class GeneratedImage:
-    data: bytes
-    mime_type: str
-    width: int
-    height: int
-    seed: int | None
-    metadata: dict[str, Any]
 
 
 def _load_torch() -> Any:
@@ -67,23 +57,6 @@ def _resolve_dtype(torch_module: Any, configured: str) -> Any:
     if attr is None:
         raise ValueError("image_dtype must be one of bfloat16, float16, float32")
     return getattr(torch_module, attr)
-
-
-def _encode_image(image: Any, output_format: str) -> tuple[bytes, str]:
-    normalized = output_format.strip().lower()
-    formats = {
-        "png": ("PNG", "image/png"),
-        "jpeg": ("JPEG", "image/jpeg"),
-        "jpg": ("JPEG", "image/jpeg"),
-        "webp": ("WEBP", "image/webp"),
-    }
-    if normalized not in formats:
-        raise ValueError("image output_format must be png, jpeg, jpg, or webp")
-
-    pillow_format, mime_type = formats[normalized]
-    buffer = io.BytesIO()
-    image.save(buffer, format=pillow_format)
-    return buffer.getvalue(), mime_type
 
 
 class DiffusersImageEngine:
@@ -172,7 +145,7 @@ class DiffusersImageEngine:
             or self.cfg.get("image_output_format")
             or "png"
         )
-        data, mime_type = _encode_image(image, output_format)
+        data, mime_type = encode_image(image, output_format)
         actual_width, actual_height = getattr(image, "size", (width, height))
         return GeneratedImage(
             data=data,
