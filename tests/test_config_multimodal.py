@@ -165,3 +165,26 @@ def test_qwen_image_config_is_explicit_and_image_only(monkeypatch, tmp_path):
     assert cfg["image_output_format"] == "png"
     assert cfg["max_concurrent_requests"] == 1
     assert cfg["model_path"] == "Qwen/Qwen-Image-2.1"
+
+
+def test_qwen_image_mflux_q8_config_preserves_quantization_and_resource_evidence(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    cfg = build_config(model="qwen-image-2.1-mflux-q8")
+
+    assert cfg["backend"] == "mflux_image"
+    assert cfg["model_id"] == "mflux-community/qwen-image-2-1-mflux-q8"
+    assert cfg["model_path"] == "mflux-community/qwen-image-2-1-mflux-q8"
+    assert cfg["quantization"] == "Q8"
+    assert cfg["tasks"] == ["image_generation"]
+    assert cfg["input_modalities"] == ["text"]
+    assert cfg["output_modalities"] == ["image"]
+    assert cfg["image_width"] == 1024
+    assert cfg["image_height"] == 1024
+    assert cfg["image_num_inference_steps"] == 40
+    assert cfg["image_guidance_scale"] == 1.0
+    assert cfg["resource_model_weights_bytes"] == 24025558302
+    assert cfg["max_concurrent_requests"] == 1
