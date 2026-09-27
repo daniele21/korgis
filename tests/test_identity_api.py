@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from local_llm_server.identity_api import _runtime_identity_payload
 from local_llm_server.product_composition import install_product_http_stack
 from local_llm_server.runtime import ModelRuntimeManager
 from local_llm_server.runtime_identity_capture import capture_verified_runtime_identity
