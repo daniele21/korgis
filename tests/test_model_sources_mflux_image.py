@@ -60,7 +60,11 @@ def test_mflux_image_runtime_accepts_complete_local_snapshot(tmp_path: Path):
     model = tmp_path / "model"
     _write_snapshot(model)
 
-    resolved = resolve_mflux_image_runtime_path(str(model), no_download=True)
+    resolved = resolve_mflux_image_runtime_path(
+        str(model),
+        no_download=True,
+        expected_quantization_bits=8,
+    )
 
     assert resolved == model.resolve()
 
@@ -71,3 +75,24 @@ def test_mflux_image_runtime_fails_closed_for_incomplete_snapshot(tmp_path: Path
 
     with pytest.raises(FileNotFoundError, match="missing or incomplete"):
         resolve_mflux_image_runtime_path(str(model), no_download=True)
+
+
+def test_mflux_image_runtime_rejects_quantization_mismatch(tmp_path: Path):
+    model = tmp_path / "model"
+    _write_snapshot(model)
+    for component in ("transformer", "text_encoder", "vae"):
+        index_path = model / component / "model.safetensors.index.json"
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+        payload["metadata"]["quantization_level"] = "4"
+        index_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert not is_complete_mflux_image_model(
+        model,
+        expected_quantization_bits=8,
+    )
+    with pytest.raises(FileNotFoundError, match="missing or incomplete"):
+        resolve_mflux_image_runtime_path(
+            str(model),
+            no_download=True,
+            expected_quantization_bits=8,
+        )
