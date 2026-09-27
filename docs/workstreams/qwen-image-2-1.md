@@ -34,33 +34,37 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 | QI-1 | Canonical image-generation capability contract | `src/local_llm_server/core/*`, capability tests | — | yes | DONE |
 | QI-2 | Diffusers model source + runtime backend | registry/config/model_sources/backend + unit tests | QI-1 contract shape | yes | DONE |
 | QI-3 | OpenAI-compatible image generation HTTP route | modular product API + route tests | QI-1, QI-2 interface | no | DONE |
-| QI-4 | Registry entry + docs/package extra | registry, pyproject/lock, API/config docs | QI-1, QI-2 | yes | ACTIVE |
-| QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | READY |
-| QI-6 | Image editing / RGBA follow-up | future image contract | QI-5 | no | BLOCKED |
+| QI-4 | Registry entry + docs/package profile | registry, optional requirements, API/config docs | QI-1, QI-2 | yes | DONE |
+| QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | DONE |
+| QI-6 | Image editing / RGBA follow-up | future image contract | QI-7 | no | BLOCKED |
+| QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | ACTIVE |
+| QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7 | no | BLOCKED |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-4 + QI-5`
+`QI-7`
 
 Acceptance:
 
-- a registry entry can truthfully declare `image_generation`, text input and image output;
-- the capability descriptor rejects chat for that entry;
-- a fake Diffusers pipeline produces PNG bytes through a dedicated image-generation engine;
-- missing optional image dependencies fail with an actionable install message;
-- no real model is loaded in deterministic tests.
+- `qwen-image-2.1-mflux-q8` is a distinct registry/runtime identity from the BF16 Diffusers baseline;
+- the backend loads MFlux-saved Q8 checkpoints with `quantize=None`, preserving stored checkpoint quantization;
+- checkpoint completeness validates indexed shards, processor files and expected Q8 metadata;
+- generated images keep the existing `/v1/images/generations` contract and report actual seed/quantization metadata;
+- resident-server semantics remain reusable across different prompts; MFlux low-RAM callbacks that delete the text encoder are not enabled;
+- model weights have an explicit lower-bound resource estimate while peak/overhead remain unavailable until representative hardware evidence;
+- deterministic tests use fake MFlux models and never download/load the real checkpoint.
 
 Validation:
 
-- `uv run --frozen pytest tests/test_capabilities.py tests/test_core_contracts.py tests/test_registry_validation.py tests/test_config_multimodal.py tests/test_image_generation_engine.py -q`
+- `uv run --frozen pytest tests/test_registry_validation.py tests/test_config_multimodal.py tests/test_model_sources_mflux_image.py tests/test_mflux_image_engine.py -q`
 - `uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82`
 
 ## Integration points
 
 - `TaskType.IMAGE_GENERATION` and `CapabilityDescriptor` are the canonical task/capability boundary.
-- `DiffusersImageEngine.generate_image(...)` is the backend interface consumed by the public route.
+- `DiffusersImageEngine.generate_image(...)` and `MFluxImageEngine.generate_image(...)` implement the same backend-neutral image route contract.
 - `ProductRuntimeManager.lease_runtime(...)` remains the lifecycle/concurrency owner.
 - `POST /v1/images/generations` is the public application-facing boundary used by experiments.
 
