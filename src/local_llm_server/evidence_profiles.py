@@ -1,6 +1,8 @@
 """Versioned configuration for representative hardware evidence workloads."""
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -58,6 +60,7 @@ class ImageEvidenceSafety:
 @dataclass(frozen=True, slots=True)
 class ImageEvidenceProfile:
     profile_id: str
+    source_kind: str
     model: str
     repetitions: int
     sample_interval_seconds: float
@@ -72,6 +75,8 @@ class ImageEvidenceProfile:
     def __post_init__(self) -> None:
         if not self.profile_id.strip():
             raise ValueError("evidence profile id must be non-empty")
+        if self.source_kind not in {"builtin", "explicit"}:
+            raise ValueError("evidence profile source_kind must be builtin or explicit")
         if not self.model.strip():
             raise ValueError("evidence profile model must be non-empty")
         if self.repetitions < 1:
@@ -95,6 +100,46 @@ class ImageEvidenceProfile:
                 + ", ".join(sorted(enabled))
             )
 
+    def configuration_digest(self) -> str:
+        """Hash the exact effective workload/safety configuration without exposing it."""
+        payload = {
+            "profile_id": self.profile_id,
+            "model": self.model,
+            "repetitions": self.repetitions,
+            "sample_interval_seconds": self.sample_interval_seconds,
+            "settle_seconds": self.settle_seconds,
+            "startup_timeout_seconds": self.startup_timeout_seconds,
+            "request_timeout_seconds": self.request_timeout_seconds,
+            "execution": {
+                "host": self.execution.host,
+                "port": self.execution.port,
+            },
+            "workload": {
+                "prompt": self.workload.prompt,
+                "width": self.workload.width,
+                "height": self.workload.height,
+                "num_inference_steps": self.workload.num_inference_steps,
+                "guidance_scale": self.workload.guidance_scale,
+                "seed": self.workload.seed,
+                "output_format": self.workload.output_format,
+            },
+            "safety": {
+                "host_safety_margin_gib": self.safety.host_safety_margin_gib,
+                "require_macos": self.safety.require_macos,
+                "require_apple_silicon": self.safety.require_apple_silicon,
+                "require_clean_dev_checkout": self.safety.require_clean_dev_checkout,
+                "require_output_outside_repo": self.safety.require_output_outside_repo,
+            },
+            "claims": dict(sorted(self.claims.items())),
+        }
+        canonical = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
 
 def load_image_evidence_profile(
     profile: str | Path,
@@ -102,8 +147,10 @@ def load_image_evidence_profile(
     """Load a built-in profile ID or an explicit YAML path."""
     path = Path(profile).expanduser()
     if path.is_file():
+        source_kind = "explicit"
         payload = _load_yaml(path.read_text(encoding="utf-8"))
     else:
+        source_kind = "builtin"
         filename = str(profile)
         if not filename.endswith(".yaml"):
             filename += ".yaml"
@@ -125,6 +172,7 @@ def load_image_evidence_profile(
 
     return ImageEvidenceProfile(
         profile_id=_required_text(raw, "id"),
+        source_kind=source_kind,
         model=_required_text(raw, "model"),
         repetitions=_required_int(raw, "repetitions"),
         sample_interval_seconds=_required_float(raw, "sample_interval_seconds"),
