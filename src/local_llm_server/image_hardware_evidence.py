@@ -502,6 +502,13 @@ class ImageHardwareEvidenceCampaign:
         self._persist()
 
     def run(self) -> dict[str, Any]:
+        if self.profile.safety.require_output_outside_repo:
+            git = self.git_state()
+            if _is_within(self.output_dir, Path(git["root"])):
+                raise ImageHardwareEvidenceError(
+                    "representative image evidence directory must stay outside "
+                    "the repository checkout"
+                )
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._persist()
         try:
