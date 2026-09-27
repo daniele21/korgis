@@ -15,6 +15,8 @@ def test_builtin_qwen_image_evidence_profile_is_typed_and_claim_free():
 
     assert isinstance(profile, ImageEvidenceProfile)
     assert profile.model == "qwen-image-2.1-mflux-q8"
+    assert profile.source_kind == "builtin"
+    assert len(profile.configuration_digest()) == 64
     assert profile.repetitions == 2
     assert profile.execution.host == "127.0.0.1"
     assert profile.execution.port == 1245
