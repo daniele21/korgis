@@ -35,9 +35,16 @@ def main() -> None:
     p_serve = sub.add_parser("serve", help="Start the LLM server.")
     p_serve.add_argument(
         "--backend",
-        choices=["llama_cpp", "mlx", "llama_server", "mlx_vlm_server", "diffusers_image"],
+        choices=[
+            "llama_cpp",
+            "mlx",
+            "llama_server",
+            "mlx_vlm_server",
+            "diffusers_image",
+            "mflux_image",
+        ],
         default=None,
-        help="Inference backend: llama_cpp/llama_server for GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image for image generation.",
+        help="Inference backend: llama_cpp/llama_server for GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image for generic image generation, mflux_image for MLX image generation.",
     )
     p_serve.add_argument(
         "--model",
@@ -60,7 +67,7 @@ def main() -> None:
         "--model-path",
         default=None,
         dest="model_path",
-        help="Direct model path/ref. GGUF uses a file; MLX/Diffusers use a local model directory or Hugging Face repo.",
+        help="Direct model path/ref. GGUF uses a file; MLX/Diffusers/MFlux use a local model directory or Hugging Face repo.",
     )
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
