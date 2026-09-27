@@ -2,7 +2,7 @@
 
 Status: active procedure
 Owner: local-llm-server
-Read when: executing TH-E1, EV-3, HE-2, RES-2 or RRG-5 on the representative Mac
+Read when: executing TH-E1, EV-3, HE-2, RES-2, RRG-5 or QI-8 on the representative Mac
 Last reviewed: 2026-08-30
 
 This runbook turns hardware-dependent evidence into repeatable commands. Private model paths stay local. Validators emit bounded public-safe summaries and never promote repository maturity or automatic-eviction policy automatically.
@@ -36,7 +36,11 @@ Before HE-2 and preferably before all comparable runs:
 local-llm verify-artifact "$MODEL" --model-path "$MODEL_PATH"
 ```
 
-The receipt remains machine-local. Public evidence may expose only the strong digest/fingerprint and verification grade, never the private path. If the file changes, verification must be repeated.
+The receipt remains machine-local. Single-file artifacts are hashed directly; multi-file model
+directories are hashed through a deterministic manifest of sorted relative paths, file sizes and
+per-file SHA-256 digests. Public evidence may expose only the aggregate digest/size and verification
+grade, never the private path or private manifest stamps. If the verified artifact changes, the
+cached receipt is invalidated.
 
 ## 1. Start the representative runtime
 
@@ -281,6 +285,79 @@ python -m local_llm_server.multi_model_evidence_review \
 A `sufficient_observation_set` means only that the same attributable models/runtime procedure repeatedly exercised identity, transient overlap, cleanup and bounded shutdown successfully. RSS and available-memory deltas remain in the review as raw observations. The reviewer deliberately emits `automatic_eviction_recommendation=not_provided` and `reclamation_safety_claim=false`.
 
 Do not enable automatic pressure eviction solely because the reviewer is sufficient. A future policy decision must inspect the retained memory/pressure observations and define a separate acceptance contract; negative or mixed RRG-5 memory behavior is a valid outcome, not a reason to weaken the procedure.
+
+## QI-8 — Qwen Image 2.1 MFlux Q8 representative observations
+
+QI-8 is separate from the general L2 bundle above. It establishes attributable observations for
+the quantized image-generation runtime; it does **not** convert one Mac run into a generic
+performance or memory-fit claim.
+
+Install the optional MFlux runtime, download the model, and use a clean converged `dev` checkout:
+
+```bash
+python -m pip install -r requirements/image-mlx.txt
+local-llm download qwen-image-2.1-mflux-q8
+
+QI8_DIR="$HOME/.local-llm-server/evidence/$(date +%F)-qwen-image-q8"
+mkdir -p "$QI8_DIR"
+
+local-llm evidence-image \
+  --profile qwen-image-2.1-mflux-q8-smoke-v1 \
+  --output-dir "$QI8_DIR"
+```
+
+The campaign automatically reuses a still-valid artifact receipt or explicitly verifies the
+multi-file checkpoint before server startup. The built-in profile owns the prompt, dimensions,
+steps, seed, repetitions, sampling interval, listener and safety guard; those values are not
+hardcoded in the runner.
+
+The preflight requires:
+
+- macOS on Apple Silicon;
+- clean `dev` source identity;
+- loopback-only listener with the configured port free;
+- an evidence directory outside the repository;
+- measured available host memory;
+- available memory at least equal to the configured resident-memory lower bound plus the profile
+  safety margin.
+
+That last condition is only an **exploratory refusal guard**. The resident lower bound can be
+incomplete, and passing it does not prove that the runtime fits a given memory tier.
+
+The evidence directory contains:
+
+```text
+image-evidence.json
+image-evidence-server.log
+images/
+  generation-01.png
+  generation-02.png
+```
+
+The JSON report retains:
+
+- aggregate verified artifact digest/size/kind and file count;
+- source revision and path-free runtime identity;
+- server startup/load wall time;
+- per-generation wall latency and Korgis-reported backend latency;
+- requested dimensions/steps/seed via the versioned profile identity;
+- generated artifact relative path, byte size and SHA-256;
+- sampled peak Korgis process RSS and minimum available host memory during load/generation;
+- explicit false claim flags for memory fit, performance, reclamation safety and production safety.
+
+The JSON does **not** retain the prompt text, generated base64, private model path, PID or hostname.
+The generated image files and server diagnostic log remain local evidence and should not be
+committed wholesale.
+
+A complete report means only that the configured procedure executed cleanly with attributable
+identity and observations. It does not make the following statements true:
+
+- "Qwen Image 2.1 Q8 fits every Mac with X GB";
+- "this is the expected latency on other Apple chips";
+- "memory returns safely to baseline after unload";
+- "the runtime is production-safe".
+
+Those require a separate acceptance/repetition contract over representative reports.
 
 ## 5. Validate the complete minimum L2 hardware bundle
 
