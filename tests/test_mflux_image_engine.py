@@ -76,6 +76,7 @@ def test_mflux_engine_uses_prequantized_model_and_maps_generation_options(tmp_pa
             "image_num_inference_steps": 40,
             "image_guidance_scale": 1.0,
             "image_output_format": "png",
+            "image_quantization_bits": 8,
         },
         model_loader=loader,
         seed_factory=lambda: 999,
@@ -159,3 +160,20 @@ def test_mflux_engine_rejects_chat(tmp_path: Path):
 
     with pytest.raises(RuntimeError, match="does not support chat"):
         engine.complete({})
+
+
+def test_mflux_engine_fails_when_loaded_bits_disagree_with_config(tmp_path: Path):
+    model_path = tmp_path / "qwen-q8"
+    _write_snapshot(model_path)
+    model = _Model()
+    model.bits = 4
+
+    with pytest.raises(RuntimeError, match="loaded Q4"):
+        MFluxImageEngine(
+            {
+                "model_path": str(model_path),
+                "no_download": True,
+                "image_quantization_bits": 8,
+            },
+            model_loader=lambda _reference: model,
+        )
