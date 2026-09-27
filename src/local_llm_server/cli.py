@@ -35,9 +35,16 @@ def main() -> None:
     p_serve = sub.add_parser("serve", help="Start the LLM server.")
     p_serve.add_argument(
         "--backend",
-        choices=["llama_cpp", "mlx", "llama_server", "mlx_vlm_server", "diffusers_image"],
+        choices=[
+            "llama_cpp",
+            "mlx",
+            "llama_server",
+            "mlx_vlm_server",
+            "diffusers_image",
+            "mflux_image",
+        ],
         default=None,
-        help="Inference backend: llama_cpp/llama_server for GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image for image generation.",
+        help="Inference backend: llama_cpp/llama_server for GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image for generic image generation, mflux_image for MLX image generation.",
     )
     p_serve.add_argument(
         "--model",
@@ -60,7 +67,7 @@ def main() -> None:
         "--model-path",
         default=None,
         dest="model_path",
-        help="Direct model path/ref. GGUF uses a file; MLX/Diffusers use a local model directory or Hugging Face repo.",
+        help="Direct model path/ref. GGUF uses a file; MLX/Diffusers/MFlux use a local model directory or Hugging Face repo.",
     )
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
@@ -80,6 +87,7 @@ def main() -> None:
     p_serve.add_argument("--image-width", type=int, default=None, dest="image_width")
     p_serve.add_argument("--image-height", type=int, default=None, dest="image_height")
     p_serve.add_argument("--image-num-inference-steps", type=int, default=None, dest="image_num_inference_steps")
+    p_serve.add_argument("--image-quantization-bits", type=int, default=None, dest="image_quantization_bits")
     p_serve.add_argument("--image-max-inference-steps", type=int, default=None, dest="image_max_inference_steps")
     p_serve.add_argument("--image-max-pixels", type=int, default=None, dest="image_max_pixels")
     p_serve.add_argument("--image-guidance-scale", type=float, default=None, dest="image_guidance_scale")
@@ -234,7 +242,8 @@ def _cmd_serve(args: argparse.Namespace) -> None:
         "backend", "host", "port", "ctx_size", "max_kv_size", "n_gpu_layers", "n_threads",
         "llama_server_port", "llama_server_bin", "mlx_vlm_server_port", "mmproj_path",
         "image_device", "image_dtype", "image_width", "image_height",
-        "image_num_inference_steps", "image_max_inference_steps", "image_max_pixels",
+        "image_num_inference_steps", "image_quantization_bits",
+        "image_max_inference_steps", "image_max_pixels",
         "image_guidance_scale", "image_output_format",
         "startup_timeout", "max_concurrent_requests", "chat_format", "force_json", "show_thinking", "enable_thinking",
         "no_download", "verbose",

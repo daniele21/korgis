@@ -176,3 +176,45 @@ def test_builtin_registry_exposes_qwen_image_generation_capability(
     assert entry["input_modalities"] == ["text"]
     assert entry["output_modalities"] == ["image"]
     assert entry["params"]["max_concurrent_requests"] == 1
+
+
+def test_registry_validation_accepts_mflux_image_runtime():
+    validate_registry(
+        _registry(
+            {
+                "image": {
+                    "model_id": "mflux-community/example-q8",
+                    "backend": "mflux_image",
+                    "tasks": ["image_generation"],
+                    "input_modalities": ["text"],
+                    "output_modalities": ["image"],
+                    "params": {
+                        "max_concurrent_requests": 1,
+                        "resource_model_weights_bytes": 123,
+                    },
+                }
+            },
+            default_model="image",
+        )
+    )
+
+
+def test_builtin_registry_exposes_qwen_image_mflux_q8_profile(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["qwen-image-2.1-mflux-q8"]
+
+    assert entry["model_id"] == "mflux-community/qwen-image-2-1-mflux-q8"
+    assert entry["backend"] == "mflux_image"
+    assert entry["quantization"] == "Q8"
+    assert entry["size_gb"] == 24.04
+    assert entry["tasks"] == ["image_generation"]
+    assert entry["input_modalities"] == ["text"]
+    assert entry["output_modalities"] == ["image"]
+    assert entry["params"]["image_guidance_scale"] == 1.0
+    assert entry["params"]["image_quantization_bits"] == 8
+    assert entry["params"]["resource_model_weights_bytes"] == 24025558302
+    assert entry["params"]["max_concurrent_requests"] == 1

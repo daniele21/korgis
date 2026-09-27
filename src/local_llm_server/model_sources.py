@@ -11,6 +11,7 @@ from typing import Any, Literal
 SourceType = Literal["explicit", "lmstudio", "managed", "huggingface", "unresolved"]
 _MLX_BACKENDS = {"mlx", "mlx_vlm_server"}
 _DIFFUSERS_BACKENDS = {"diffusers_image"}
+_MFLUX_IMAGE_BACKENDS = {"mflux_image"}
 logger = logging.getLogger("local-llm.model_sources")
 
 
@@ -100,6 +101,72 @@ def is_complete_diffusers_model(path: Path) -> bool:
     return True
 
 
+def _indexed_weight_component_metadata(path: Path) -> dict[str, Any] | None:
+    index_path = path / "model.safetensors.index.json"
+    if not index_path.is_file():
+        return None
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        weight_map = index.get("weight_map")
+        shards = set(weight_map.values()) if isinstance(weight_map, dict) else set()
+    except (OSError, ValueError, TypeError):
+        return None
+    if not shards or not all(
+        isinstance(shard, str)
+        and Path(shard).name == shard
+        and (path / shard).is_file()
+        for shard in shards
+    ):
+        return None
+    metadata = index.get("metadata")
+    return dict(metadata) if isinstance(metadata, dict) else {}
+
+
+def mflux_image_quantization_bits(path: Path) -> int | None:
+    """Return one consistent stored MFlux quantization level, or None."""
+    levels: set[int] = set()
+    for component in ("transformer", "text_encoder", "vae"):
+        metadata = _indexed_weight_component_metadata(path / component)
+        if metadata is None:
+            return None
+        raw = metadata.get("quantization_level")
+        try:
+            levels.add(int(raw))
+        except (TypeError, ValueError):
+            return None
+    return next(iter(levels)) if len(levels) == 1 else None
+
+
+def is_complete_mflux_image_model(
+    path: Path,
+    *,
+    expected_quantization_bits: int | None = None,
+) -> bool:
+    """Return whether *path* is a complete MFlux-saved Qwen image checkpoint."""
+    if not path.is_dir():
+        return False
+    stored_bits = mflux_image_quantization_bits(path)
+    if stored_bits is None:
+        return False
+    if (
+        expected_quantization_bits is not None
+        and stored_bits != expected_quantization_bits
+    ):
+        return False
+
+    processor = path / "processor"
+    if not processor.is_dir():
+        return False
+    return any(
+        (processor / name).is_file()
+        for name in (
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "vocab.json",
+        )
+    )
+
+
 def _looks_like_local_path(reference: str) -> bool:
     expanded = Path(reference).expanduser()
     return (
@@ -109,11 +176,22 @@ def _looks_like_local_path(reference: str) -> bool:
     )
 
 
-def _is_complete_local(path: Path, backend: str, *, multimodal: bool) -> bool:
+def _is_complete_local(
+    path: Path,
+    backend: str,
+    *,
+    multimodal: bool,
+    expected_quantization_bits: int | None = None,
+) -> bool:
     if backend in _MLX_BACKENDS:
         return is_complete_mlx_model(path, multimodal=multimodal)
     if backend in _DIFFUSERS_BACKENDS:
         return is_complete_diffusers_model(path)
+    if backend in _MFLUX_IMAGE_BACKENDS:
+        return is_complete_mflux_image_model(
+            path,
+            expected_quantization_bits=expected_quantization_bits,
+        )
     return path.is_file()
 
 
@@ -122,6 +200,7 @@ def _cached_huggingface_snapshot(
     *,
     backend: str,
     multimodal: bool,
+    expected_quantization_bits: int | None = None,
 ) -> Path | None:
     try:
         from huggingface_hub import snapshot_download
@@ -130,7 +209,16 @@ def _cached_huggingface_snapshot(
         # Cache inspection is deliberately best-effort and offline. Missing
         # optional dependencies and incomplete cache entries both mean absent.
         return None
-    return snapshot if _is_complete_local(snapshot, backend, multimodal=multimodal) else None
+    return (
+        snapshot
+        if _is_complete_local(
+            snapshot,
+            backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
+        )
+        else None
+    )
 
 
 def resolve_registry_model(
@@ -144,6 +232,14 @@ def resolve_registry_model(
     """Resolve a registry entry locally without downloading or contacting the network."""
     resolved_backend = str(backend or entry.get("backend") or "llama_cpp")
     multimodal = bool(entry.get("multimodal", False))
+    params = entry.get("params")
+    expected_quantization_bits = (
+        int(params["image_quantization_bits"])
+        if resolved_backend in _MFLUX_IMAGE_BACKENDS
+        and isinstance(params, dict)
+        and params.get("image_quantization_bits") is not None
+        else None
+    )
 
     if explicit_path is not None:
         reference = str(explicit_path)
@@ -151,10 +247,18 @@ def resolve_registry_model(
             path = Path(reference).expanduser().resolve()
             return ResolvedModel(
                 str(path), path, "explicit",
-                _is_complete_local(path, resolved_backend, multimodal=multimodal),
+                _is_complete_local(
+                path,
+                resolved_backend,
+                multimodal=multimodal,
+                expected_quantization_bits=expected_quantization_bits,
+            ),
             )
         cached = _cached_huggingface_snapshot(
-            reference, backend=resolved_backend, multimodal=multimodal
+            reference,
+            backend=resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
         )
         return ResolvedModel(
             str(cached) if cached else reference,
@@ -168,14 +272,24 @@ def resolve_registry_model(
         path = Path(str(configured_path)).expanduser().resolve()
         return ResolvedModel(
             str(path), path, "explicit",
-            _is_complete_local(path, resolved_backend, multimodal=multimodal),
+            _is_complete_local(
+                    path,
+                    resolved_backend,
+                    multimodal=multimodal,
+                    expected_quantization_bits=expected_quantization_bits,
+                ),
         )
 
     lmstudio_key = entry.get("lmstudio_path")
     if lmstudio_key:
         root = Path.home() / ".lmstudio" / "models" / str(lmstudio_key)
         candidate = root / str(entry["filename"]) if entry.get("filename") else root
-        if _is_complete_local(candidate, resolved_backend, multimodal=multimodal):
+        if _is_complete_local(
+            candidate,
+            resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
+        ):
             mmproj = root / str(entry["mmproj_filename"]) if entry.get("mmproj_filename") else None
             mmproj_ready = mmproj is None or mmproj.is_file()
             if mmproj_ready:
@@ -186,13 +300,19 @@ def resolve_registry_model(
         candidate = models_dir / str(filename)
         mmproj = models_dir / str(entry["mmproj_filename"]) if entry.get("mmproj_filename") else None
         downloaded = _is_complete_local(
-            candidate, resolved_backend, multimodal=multimodal
+            candidate,
+            resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
         ) and (mmproj is None or mmproj.is_file())
         return ResolvedModel(str(candidate), candidate, "managed", downloaded, mmproj)
 
     reference = str(entry.get("model_id") or key)
     cached = _cached_huggingface_snapshot(
-        reference, backend=resolved_backend, multimodal=multimodal
+        reference,
+        backend=resolved_backend,
+        multimodal=multimodal,
+        expected_quantization_bits=expected_quantization_bits,
     )
     return ResolvedModel(
         str(cached) if cached else reference,
@@ -293,4 +413,77 @@ def resolve_diffusers_runtime_path(
         ) from exc
     if not is_complete_diffusers_model(path):
         raise RuntimeError(f"Downloaded Diffusers snapshot is incomplete: {path}")
+    return path
+
+
+def resolve_mflux_image_runtime_path(
+    reference: str,
+    *,
+    no_download: bool,
+    expected_quantization_bits: int | None = None,
+) -> Path:
+    """Resolve/download a complete MFlux image checkpoint before runtime startup."""
+    if _looks_like_local_path(reference):
+        path = Path(reference).expanduser().resolve()
+        if is_complete_mflux_image_model(
+            path,
+            expected_quantization_bits=expected_quantization_bits,
+        ):
+            return path
+        raise FileNotFoundError(
+            f"MFlux image model directory is missing or incomplete: {path}"
+        )
+
+    cached = _cached_huggingface_snapshot(
+        reference,
+        backend="mflux_image",
+        multimodal=False,
+        expected_quantization_bits=expected_quantization_bits,
+    )
+    if cached is not None and is_complete_mflux_image_model(
+        cached,
+        expected_quantization_bits=expected_quantization_bits,
+    ):
+        logger.info(
+            "Using complete Hugging Face MFlux cache for %s: %s",
+            reference,
+            cached,
+        )
+        return cached
+    if no_download:
+        raise FileNotFoundError(
+            f"Model '{reference}' is not fully cached and --no-download is set. "
+            "Run 'local-llm download <model>' first."
+        )
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "MFlux image model downloads require the optional MLX image dependencies. "
+            "Install with: python -m pip install -r requirements/image-mlx.txt"
+        ) from exc
+
+    logger.info(
+        "Downloading Hugging Face MFlux image model before backend startup: %s",
+        reference,
+    )
+    try:
+        path = Path(snapshot_download(repo_id=reference))
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to download Hugging Face MFlux image model '{reference}': {exc}"
+        ) from exc
+    if not is_complete_mflux_image_model(
+        path,
+        expected_quantization_bits=expected_quantization_bits,
+    ):
+        expected = (
+            f" with Q{expected_quantization_bits} metadata"
+            if expected_quantization_bits is not None
+            else ""
+        )
+        raise RuntimeError(
+            f"Downloaded MFlux image snapshot is incomplete or mismatched{expected}: {path}"
+        )
     return path

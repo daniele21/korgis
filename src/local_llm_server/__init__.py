@@ -120,6 +120,7 @@ def download_model(model: str) -> None:
     """Download a model from the registry if not already on disk."""
     from .model_sources import (
         resolve_diffusers_runtime_path,
+        resolve_mflux_image_runtime_path,
         resolve_mlx_runtime_path,
         resolve_registry_model,
     )
@@ -146,6 +147,18 @@ def download_model(model: str) -> None:
         resolve_diffusers_runtime_path(
             resolved.model_path,
             no_download=False,
+        )
+        return
+    if backend == "mflux_image":
+        resolve_mflux_image_runtime_path(
+            resolved.model_path,
+            no_download=False,
+            expected_quantization_bits=(
+                int(entry["params"]["image_quantization_bits"])
+                if isinstance(entry.get("params"), dict)
+                and entry["params"].get("image_quantization_bits") is not None
+                else None
+            ),
         )
         return
     if entry.get("path"):

@@ -553,4 +553,9 @@ def load_llm(cfg: dict[str, Any]) -> Any:
 
         return DiffusersImageEngine(cfg)
 
+    if backend == "mflux_image":
+        from .mflux_image_engine import MFluxImageEngine
+
+        return MFluxImageEngine(cfg)
+
     raise ValueError(f"Unsupported backend: {backend}")

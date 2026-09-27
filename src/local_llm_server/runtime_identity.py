@@ -49,6 +49,7 @@ _ALLOWED_CONFIG_KEYS = frozenset({
     "image_width",
     "image_height",
     "image_num_inference_steps",
+    "image_quantization_bits",
     "image_max_inference_steps",
     "image_max_pixels",
     "image_guidance_scale",
