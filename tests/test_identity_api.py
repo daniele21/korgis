@@ -107,3 +107,26 @@ def test_identity_endpoint_reports_each_resident_runtime_and_default():
     assert payload["default_model"] == "first"
     assert set(payload["models"]) == {"first", "second"}
     assert payload["models"]["second"]["model"]["id"] == "org/second"
+
+
+
+def test_identity_api_uses_verified_runtime_receipt_digest_without_mutating_config():
+    class ReceiptVerifiedRuntime:
+        key = "image"
+        model_id = "mflux-community/demo-q8"
+        cfg = {
+            "model": "image",
+            "model_id": "mflux-community/demo-q8",
+            "backend": "mflux_image",
+            "artifact_sha256": None,
+            "quantization": "Q8",
+        }
+        engine = SimpleNamespace(backend="mflux_image")
+        verified_artifact_sha256 = "d" * 64
+        runtime_identity_snapshot = None
+
+    payload = _runtime_identity_payload(ReceiptVerifiedRuntime())
+
+    assert payload["model"]["artifact_digest"] == "sha256:" + ("d" * 64)
+    assert payload["model"]["verification"] == "verified"
+    assert ReceiptVerifiedRuntime.cfg["artifact_sha256"] is None
