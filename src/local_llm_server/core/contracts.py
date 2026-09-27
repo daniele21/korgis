@@ -16,6 +16,7 @@ class TaskType(str, Enum):
     STRUCTURED_GENERATION = "structured_generation"
     VISION_LANGUAGE = "vision_language"
     TRANSCRIPTION = "transcription"
+    IMAGE_GENERATION = "image_generation"
 
 
 class TerminationReason(str, Enum):
@@ -75,6 +76,16 @@ class GenerationOptions:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageGenerationOptions:
+    width: int | None = None
+    height: int | None = None
+    num_inference_steps: int | None = None
+    guidance_scale: float | None = None
+    seed: int | None = None
+    output_format: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class OutputConstraints:
     format: str | None = None
     json_schema: Mapping[str, Any] | None = None
@@ -87,6 +98,7 @@ class InferenceRequest:
     messages: tuple[Mapping[str, Any], ...] = ()
     input_text: str | None = None
     generation: GenerationOptions = field(default_factory=GenerationOptions)
+    image_generation: ImageGenerationOptions = field(default_factory=ImageGenerationOptions)
     output: OutputConstraints = field(default_factory=OutputConstraints)
     stream: bool = False
     metadata: Mapping[str, Any] = field(default_factory=dict)
