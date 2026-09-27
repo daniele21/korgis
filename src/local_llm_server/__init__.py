@@ -153,6 +153,12 @@ def download_model(model: str) -> None:
         resolve_mflux_image_runtime_path(
             resolved.model_path,
             no_download=False,
+            expected_quantization_bits=(
+                int(entry["params"]["image_quantization_bits"])
+                if isinstance(entry.get("params"), dict)
+                and entry["params"].get("image_quantization_bits") is not None
+                else None
+            ),
         )
         return
     if entry.get("path"):
