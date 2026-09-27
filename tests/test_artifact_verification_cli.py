@@ -82,3 +82,14 @@ def test_cli_source_exposes_verify_artifact_command():
     source = Path(cli.__file__).read_text(encoding="utf-8")
     assert 'sub.add_parser(\n        "verify-artifact"' in source
     assert 'elif args.command == "verify-artifact"' in source
+
+
+
+def test_cli_source_exposes_image_evidence_command():
+    from pathlib import Path
+    import local_llm_server.cli as cli
+
+    source = Path(cli.__file__).read_text(encoding="utf-8")
+    assert '"evidence-image"' in source
+    assert 'elif args.command == "evidence-image"' in source
+    assert "execute_image_hardware_evidence" in source
