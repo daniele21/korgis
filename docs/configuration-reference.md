@@ -85,6 +85,13 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `llama_server_port` | `--llama-server-port` | `LOCAL_LLM_SERVER_PORT` | `8091` |
 | `llama_server_bin` | `--llama-server-bin` | `LOCAL_LLM_SERVER_BIN` | `null` |
 | `mlx_vlm_server_port` | `--mlx-vlm-server-port` | `LOCAL_LLM_MLX_VLM_SERVER_PORT` | `8092` |
+| `image_device` | `--image-device` | `LOCAL_LLM_IMAGE_DEVICE` | `auto` |
+| `image_dtype` | `--image-dtype` | `LOCAL_LLM_IMAGE_DTYPE` | `bfloat16` |
+| `image_width` | `--image-width` | `LOCAL_LLM_IMAGE_WIDTH` | `1024` |
+| `image_height` | `--image-height` | `LOCAL_LLM_IMAGE_HEIGHT` | `1024` |
+| `image_num_inference_steps` | `--image-num-inference-steps` | `LOCAL_LLM_IMAGE_NUM_INFERENCE_STEPS` | `40` |
+| `image_guidance_scale` | `--image-guidance-scale` | `LOCAL_LLM_IMAGE_GUIDANCE_SCALE` | `null` |
+| `image_output_format` | `--image-output-format` | `LOCAL_LLM_IMAGE_OUTPUT_FORMAT` | `png` |
 | `mmproj_path` | `--mmproj-path` | — | `null` |
 
 Paths and executable locations are private deployment details and are intentionally excluded from the public execution-identity response.
@@ -162,3 +169,26 @@ curl http://127.0.0.1:1235/v1/runtime/identity
 ```
 
 The `runtime.config` object is generated from the same non-sensitive allowlist covered by `runtime.config_digest`. Private paths, download URLs and credentials are excluded by design.
+
+## Local image-generation runtime
+
+The built-in `qwen-image-2.1` entry uses the `diffusers_image` backend and declares
+`image_generation` with text input and image output. Runtime defaults live in the registry and
+can be overridden through the CLI/environment settings above.
+
+Install the optional backend dependencies with:
+
+```bash
+pip install -e '.[image]'
+```
+
+Then download and serve:
+
+```bash
+local-llm download qwen-image-2.1
+local-llm serve --model qwen-image-2.1 --no-download
+```
+
+`image_device=auto` prefers MPS when available, then CUDA, then CPU. This selection is runtime
+behavior, not a hardware-performance guarantee. Representative Apple Silicon performance and
+memory evidence remains separate from deterministic software validation.
