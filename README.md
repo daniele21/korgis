@@ -184,6 +184,8 @@ Current limits still matter:
 - support claims are tied to tested models, backends, hardware and procedures;
 - automatic pressure-triggered eviction remains disabled;
 - post-stop memory deltas are observations, not a general reclamation or production-safety guarantee;
+- the current Qwen Image 2.1 built-in baseline uses the official BF16 Diffusers pipeline and is
+  resource-heavy; no lightweight/quantized Apple profile is claimed yet;
 - new hardware, performance, cancellation, thermal or cross-device claims need matching representative evidence.
 
 See [`docs/current-state.md`](docs/current-state.md) for the exact current state.
