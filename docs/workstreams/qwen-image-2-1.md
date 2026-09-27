@@ -30,18 +30,18 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 
 | ID | Work | Owns/writes | Depends on | Parallel | State |
 | --- | --- | --- | --- | --- | --- |
-| QI-1 | Canonical image-generation capability contract | `src/local_llm_server/core/*`, capability tests | — | yes | ACTIVE |
-| QI-2 | Diffusers model source + runtime backend | registry/config/model_sources/backend + unit tests | QI-1 contract shape | yes | ACTIVE |
-| QI-3 | OpenAI-compatible image generation HTTP route | modular product API + route tests | QI-1, QI-2 interface | no | BLOCKED |
-| QI-4 | Registry entry + docs/package extra | registry, pyproject/lock, API/config docs | QI-1, QI-2 | yes | READY |
-| QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | BLOCKED |
+| QI-1 | Canonical image-generation capability contract | `src/local_llm_server/core/*`, capability tests | — | yes | DONE |
+| QI-2 | Diffusers model source + runtime backend | registry/config/model_sources/backend + unit tests | QI-1 contract shape | yes | DONE |
+| QI-3 | OpenAI-compatible image generation HTTP route | modular product API + route tests | QI-1, QI-2 interface | no | DONE |
+| QI-4 | Registry entry + docs/package extra | registry, pyproject/lock, API/config docs | QI-1, QI-2 | yes | ACTIVE |
+| QI-5 | Integration validation + experiments handoff | CI/evidence/docs | QI-1..QI-4 | no | READY |
 | QI-6 | Image editing / RGBA follow-up | future image contract | QI-5 | no | BLOCKED |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-1 + QI-2`
+`QI-4 + QI-5`
 
 Acceptance:
 
