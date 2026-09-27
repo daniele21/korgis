@@ -195,7 +195,6 @@ def test_image_requests_respect_shared_transient_memory_budget() -> None:
     asyncio.run(scenario())
 
 
-
 def test_image_requests_use_per_runtime_queue_before_backend() -> None:
     async def scenario() -> None:
         resources = ResourceManager(ResourceBudget(limit_bytes=500))
