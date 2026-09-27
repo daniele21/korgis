@@ -70,9 +70,11 @@ def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
 def _safe_error(exc: BaseException) -> str:
     text = str(exc).strip().replace("\n", " ")
     lowered = text.lower()
-    if any(token in lowered for token in ("/users/", "/home/", "file://")):
-        text = exc.__class__.__name__
-    if "\\" in text:
+    if (
+        any(token in lowered for token in ("/users/", "/home/", "file://"))
+        or "/" in text
+        or "\\" in text
+    ):
         text = exc.__class__.__name__
     return (text[:217] + "...") if len(text) > 220 else (text or exc.__class__.__name__)
 
