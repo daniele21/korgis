@@ -195,7 +195,6 @@ def test_image_generation_route_rejects_excessive_steps():
     assert engine.calls == []
 
 
-
 def test_image_policy_preserves_pydantic_422_for_malformed_body():
     image_engine = _ImageEngine()
     manager = ModelRuntimeManager(default_model="qwen-image-2.1")
