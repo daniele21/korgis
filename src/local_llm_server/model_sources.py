@@ -73,7 +73,31 @@ def is_complete_diffusers_model(path: Path) -> bool:
         return False
     if any(not (path / name).exists() for name in component_names):
         return False
-    return any(path.rglob("*.safetensors"))
+
+    weight_class_markers = (
+        "Model",
+        "Transformer",
+        "Autoencoder",
+        "UNet",
+        "ForConditionalGeneration",
+    )
+    weighted_components = [
+        str(name)
+        for name, value in index.items()
+        if not str(name).startswith("_")
+        and isinstance(value, list)
+        and len(value) >= 2
+        and any(marker in str(value[1]) for marker in weight_class_markers)
+    ]
+    if not weighted_components:
+        return False
+    for name in weighted_components:
+        component = path / name
+        if not any(component.rglob("*.safetensors")) and not any(
+            component.rglob("*.bin")
+        ):
+            return False
+    return True
 
 
 def _looks_like_local_path(reference: str) -> bool:
