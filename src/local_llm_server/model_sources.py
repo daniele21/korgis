@@ -176,13 +176,22 @@ def _looks_like_local_path(reference: str) -> bool:
     )
 
 
-def _is_complete_local(path: Path, backend: str, *, multimodal: bool) -> bool:
+def _is_complete_local(
+    path: Path,
+    backend: str,
+    *,
+    multimodal: bool,
+    expected_quantization_bits: int | None = None,
+) -> bool:
     if backend in _MLX_BACKENDS:
         return is_complete_mlx_model(path, multimodal=multimodal)
     if backend in _DIFFUSERS_BACKENDS:
         return is_complete_diffusers_model(path)
     if backend in _MFLUX_IMAGE_BACKENDS:
-        return is_complete_mflux_image_model(path)
+        return is_complete_mflux_image_model(
+            path,
+            expected_quantization_bits=expected_quantization_bits,
+        )
     return path.is_file()
 
 
@@ -191,6 +200,7 @@ def _cached_huggingface_snapshot(
     *,
     backend: str,
     multimodal: bool,
+    expected_quantization_bits: int | None = None,
 ) -> Path | None:
     try:
         from huggingface_hub import snapshot_download
@@ -199,7 +209,16 @@ def _cached_huggingface_snapshot(
         # Cache inspection is deliberately best-effort and offline. Missing
         # optional dependencies and incomplete cache entries both mean absent.
         return None
-    return snapshot if _is_complete_local(snapshot, backend, multimodal=multimodal) else None
+    return (
+        snapshot
+        if _is_complete_local(
+            snapshot,
+            backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
+        )
+        else None
+    )
 
 
 def resolve_registry_model(
@@ -213,6 +232,14 @@ def resolve_registry_model(
     """Resolve a registry entry locally without downloading or contacting the network."""
     resolved_backend = str(backend or entry.get("backend") or "llama_cpp")
     multimodal = bool(entry.get("multimodal", False))
+    params = entry.get("params")
+    expected_quantization_bits = (
+        int(params["image_quantization_bits"])
+        if resolved_backend in _MFLUX_IMAGE_BACKENDS
+        and isinstance(params, dict)
+        and params.get("image_quantization_bits") is not None
+        else None
+    )
 
     if explicit_path is not None:
         reference = str(explicit_path)
@@ -220,10 +247,18 @@ def resolve_registry_model(
             path = Path(reference).expanduser().resolve()
             return ResolvedModel(
                 str(path), path, "explicit",
-                _is_complete_local(path, resolved_backend, multimodal=multimodal),
+                _is_complete_local(
+                    path,
+                    resolved_backend,
+                    multimodal=multimodal,
+                    expected_quantization_bits=expected_quantization_bits,
+                ),
             )
         cached = _cached_huggingface_snapshot(
-            reference, backend=resolved_backend, multimodal=multimodal
+            reference,
+            backend=resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
         )
         return ResolvedModel(
             str(cached) if cached else reference,
@@ -237,14 +272,24 @@ def resolve_registry_model(
         path = Path(str(configured_path)).expanduser().resolve()
         return ResolvedModel(
             str(path), path, "explicit",
-            _is_complete_local(path, resolved_backend, multimodal=multimodal),
+            _is_complete_local(
+                    path,
+                    resolved_backend,
+                    multimodal=multimodal,
+                    expected_quantization_bits=expected_quantization_bits,
+                ),
         )
 
     lmstudio_key = entry.get("lmstudio_path")
     if lmstudio_key:
         root = Path.home() / ".lmstudio" / "models" / str(lmstudio_key)
         candidate = root / str(entry["filename"]) if entry.get("filename") else root
-        if _is_complete_local(candidate, resolved_backend, multimodal=multimodal):
+        if _is_complete_local(
+            candidate,
+            resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
+        ):
             mmproj = root / str(entry["mmproj_filename"]) if entry.get("mmproj_filename") else None
             mmproj_ready = mmproj is None or mmproj.is_file()
             if mmproj_ready:
@@ -255,13 +300,19 @@ def resolve_registry_model(
         candidate = models_dir / str(filename)
         mmproj = models_dir / str(entry["mmproj_filename"]) if entry.get("mmproj_filename") else None
         downloaded = _is_complete_local(
-            candidate, resolved_backend, multimodal=multimodal
+            candidate,
+            resolved_backend,
+            multimodal=multimodal,
+            expected_quantization_bits=expected_quantization_bits,
         ) and (mmproj is None or mmproj.is_file())
         return ResolvedModel(str(candidate), candidate, "managed", downloaded, mmproj)
 
     reference = str(entry.get("model_id") or key)
     cached = _cached_huggingface_snapshot(
-        reference, backend=resolved_backend, multimodal=multimodal
+        reference,
+        backend=resolved_backend,
+        multimodal=multimodal,
+        expected_quantization_bits=expected_quantization_bits,
     )
     return ResolvedModel(
         str(cached) if cached else reference,
@@ -388,6 +439,7 @@ def resolve_mflux_image_runtime_path(
         reference,
         backend="mflux_image",
         multimodal=False,
+        expected_quantization_bits=expected_quantization_bits,
     )
     if cached is not None and is_complete_mflux_image_model(
         cached,
