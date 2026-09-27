@@ -180,11 +180,14 @@ can be overridden through the CLI/environment settings above. Public requests ar
 they exceed `image_max_pixels` or `image_max_inference_steps`; these are runtime policy bounds,
 not provider hints.
 
-Install the optional backend dependencies with:
+Install the optional image-runtime dependency profile separately from the core Korgis lock:
 
 ```bash
-pip install -e '.[image]'
+python -m pip install -r requirements/image.txt
 ```
+
+The image stack is intentionally not part of the default `uv sync --frozen` path, so text/VLM
+users and normal CI do not inherit PyTorch/Diffusers dependencies.
 
 Then download and serve:
 
