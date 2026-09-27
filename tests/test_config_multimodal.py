@@ -160,6 +160,8 @@ def test_qwen_image_config_is_explicit_and_image_only(monkeypatch, tmp_path):
     assert cfg["image_width"] == 1024
     assert cfg["image_height"] == 1024
     assert cfg["image_num_inference_steps"] == 40
+    assert cfg["image_max_inference_steps"] == 100
+    assert cfg["image_max_pixels"] == 4194304
     assert cfg["image_output_format"] == "png"
     assert cfg["max_concurrent_requests"] == 1
     assert cfg["model_path"] == "Qwen/Qwen-Image-2.1"
