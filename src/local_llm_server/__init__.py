@@ -136,33 +136,6 @@ def download_model(model: str) -> None:
         raise ValueError(f"Model '{model}' not found in registry. Run 'local-llm models' to list available models.")
     backend = str(entry.get("backend") or "llama_cpp")
     resolved = resolve_registry_model(model, entry, models_dir, backend=backend)
-    if resolved.downloaded:
-        return
-    if backend in {"mlx", "mlx_vlm_server"}:
-        resolve_mlx_runtime_path(
-            resolved.model_path,
-            no_download=False,
-            multimodal=bool(entry.get("multimodal", False)),
-        )
-        return
-    if backend == "diffusers_image":
-        resolve_diffusers_runtime_path(
-            resolved.model_path,
-            no_download=False,
-        )
-        return
-    if backend == "mflux_image":
-        resolve_mflux_image_runtime_path(
-            resolved.model_path,
-            no_download=False,
-            expected_quantization_bits=(
-                int(entry["params"]["image_quantization_bits"])
-                if isinstance(entry.get("params"), dict)
-                and entry["params"].get("image_quantization_bits") is not None
-                else None
-            ),
-        )
-        return
     if backend == "stable_diffusion_cpp_image":
         artifacts = resolved.artifacts or {}
         specs = entry.get("artifacts")
@@ -190,6 +163,33 @@ def download_model(model: str) -> None:
             raise RuntimeError(
                 f"Model '{model}' artifact bundle is incomplete after download"
             )
+        return
+    if resolved.downloaded:
+        return
+    if backend in {"mlx", "mlx_vlm_server"}:
+        resolve_mlx_runtime_path(
+            resolved.model_path,
+            no_download=False,
+            multimodal=bool(entry.get("multimodal", False)),
+        )
+        return
+    if backend == "diffusers_image":
+        resolve_diffusers_runtime_path(
+            resolved.model_path,
+            no_download=False,
+        )
+        return
+    if backend == "mflux_image":
+        resolve_mflux_image_runtime_path(
+            resolved.model_path,
+            no_download=False,
+            expected_quantization_bits=(
+                int(entry["params"]["image_quantization_bits"])
+                if isinstance(entry.get("params"), dict)
+                and entry["params"].get("image_quantization_bits") is not None
+                else None
+            ),
+        )
         return
     if entry.get("path"):
         raise FileNotFoundError(f"Local model path not found: {resolved.model_path}")
