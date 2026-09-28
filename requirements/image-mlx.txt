@@ -1,4 +1,4 @@
 # Optional Apple/MLX image-generation runtime.
 # Separate from the core uv lock and from the generic PyTorch/Diffusers image stack.
 mflux==0.20.0
-huggingface-hub>=0.34.0,<2.0.0
+huggingface-hub>=2.0.0,<3.0.0
