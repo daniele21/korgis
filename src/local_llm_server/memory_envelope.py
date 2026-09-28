@@ -192,6 +192,19 @@ def _model_weights_component(config: Mapping[str, Any]) -> MemoryComponent:
         if size_bytes is not None:
             return MemoryComponent("model_weights", size_bytes, "registry_artifact_size")
 
+    model_artifacts = config.get("model_artifacts")
+    if isinstance(model_artifacts, Mapping) and model_artifacts:
+        try:
+            paths = [Path(str(value)).expanduser() for value in model_artifacts.values()]
+            if paths and all(path.is_file() for path in paths):
+                return MemoryComponent(
+                    "model_weights",
+                    sum(path.stat().st_size for path in paths),
+                    "artifact_bundle_file_size",
+                )
+        except OSError:
+            pass
+
     model_path = config.get("model_path")
     if model_path:
         try:
