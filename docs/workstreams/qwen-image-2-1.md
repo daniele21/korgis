@@ -40,14 +40,14 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 | QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | DONE |
 | QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7, QI-9 | no | BLOCKED |
 | QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | DONE |
-| QI-10 | stable-diffusion.cpp GGUF Q4_K_M runtime | multi-artifact bundle, sd-server backend, registry/config/tests/docs | QI-3, QI-9 | no | ACTIVE |
-| QI-11 | GGUF Q4_K_M experiments arm | Korgis provider mapping + React provenance | QI-10 | no | BLOCKED |
+| QI-10 | stable-diffusion.cpp GGUF Q4_K_M runtime | multi-artifact bundle, sd-server backend, registry/config/tests/docs | QI-3, QI-9 | no | DONE |
+| QI-11 | GGUF Q4_K_M experiments arm | Korgis provider mapping + React provenance | QI-10 | no | READY |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-10`
+`QI-11`
 
 Acceptance:
 
