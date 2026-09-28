@@ -39,9 +39,11 @@ _SUPPORTED_BACKENDS = {
     "mlx_vlm_server",
     "diffusers_image",
     "mflux_image",
+    "stable_diffusion_cpp_image",
 }
 _VALID_MODALITIES = {"text", "image", "audio"}
 _EXTERNAL_REGISTRY_ENV = "LOCAL_LLM_REGISTRY_PATHS"
+_SDCPP_REQUIRED_ARTIFACTS = ("diffusion_model", "text_encoder", "vae")
 
 
 def load_registry(
@@ -184,7 +186,7 @@ def validate_registry(registry: dict[str, Any]) -> None:
             params = {}
         for field_name in (
             "ctx_size", "max_kv_size", "max_concurrent_requests",
-            "llama_server_port", "mlx_vlm_server_port", "startup_timeout",
+            "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout",
             "image_width", "image_height", "image_num_inference_steps",
             "image_quantization_bits", "image_max_inference_steps", "image_max_pixels",
         ):
@@ -227,6 +229,7 @@ def validate_registry(registry: dict[str, Any]) -> None:
             "mlx_vlm_server",
             "diffusers_image",
             "mflux_image",
+            "stable_diffusion_cpp_image",
         } and not has_model_source:
             errors.append(f"{label} needs path, filename, or model_id")
         if backend == "mlx_vlm_server" and not (entry.get("path") or entry.get("model_id")):
@@ -235,6 +238,8 @@ def validate_registry(registry: dict[str, Any]) -> None:
             errors.append(f"{label} with diffusers_image needs path or model_id")
         if backend == "mflux_image" and not (entry.get("path") or entry.get("model_id")):
             errors.append(f"{label} with mflux_image needs path or model_id")
+        if backend == "stable_diffusion_cpp_image":
+            _validate_sdcpp_artifacts(entry, label, errors)
         if backend == "llama_server" and multimodal and not (
             entry.get("mmproj_filename") or params.get("mmproj_path")
         ):
@@ -250,6 +255,53 @@ def validate_registry(registry: dict[str, Any]) -> None:
     if errors:
         formatted = "\n".join(f"- {error}" for error in errors)
         raise ValueError(f"Registry validation failed:\n{formatted}")
+
+
+def _validate_sdcpp_artifacts(
+    entry: dict[str, Any],
+    label: str,
+    errors: list[str],
+) -> None:
+    artifacts = entry.get("artifacts")
+    if not isinstance(artifacts, dict):
+        errors.append(
+            f"{label} with stable_diffusion_cpp_image needs an artifacts mapping"
+        )
+        return
+    for name in _SDCPP_REQUIRED_ARTIFACTS:
+        spec = artifacts.get(name)
+        artifact_label = f"{label}.artifacts.{name}"
+        if not isinstance(spec, dict):
+            errors.append(f"{artifact_label} must be a mapping")
+            continue
+        filename = spec.get("filename")
+        local_path = spec.get("local_path")
+        if not (
+            isinstance(filename, str) and filename.strip()
+        ) and not (
+            isinstance(local_path, str) and local_path.strip()
+        ):
+            errors.append(f"{artifact_label} needs filename or local_path")
+        url = spec.get("url")
+        repo = spec.get("repo")
+        if not (
+            isinstance(url, str) and url.strip()
+        ) and not (
+            isinstance(repo, str)
+            and repo.strip()
+            and isinstance(filename, str)
+            and filename.strip()
+        ):
+            errors.append(
+                f"{artifact_label} needs url or repo+filename"
+            )
+        sha256 = spec.get("sha256")
+        if sha256 is not None and (
+            not isinstance(sha256, str)
+            or len(sha256) != 64
+            or any(ch not in "0123456789abcdef" for ch in sha256.lower())
+        ):
+            errors.append(f"{artifact_label}.sha256 must be SHA-256 hex")
 
 
 def _load_mapping(path: Path) -> dict[str, Any]:
