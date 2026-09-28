@@ -146,6 +146,47 @@ models:
       resource_model_weights_bytes: 24025558302
     tags: [image-generation, qwen, local, mlx, mflux, q8, apple-silicon]
 
+  qwen-image-2.1-gguf-q4km:
+    model_id: "unsloth/Qwen-Image-2.1-GGUF"
+    backend: stable_diffusion_cpp_image
+    quantization: "Q4_K_M"
+    size_gb: 10.03
+    thinking_mode: none
+    tasks: [image_generation]
+    input_modalities: [text]
+    output_modalities: [image]
+    artifacts:
+      diffusion_model:
+        repo: "unsloth/Qwen-Image-2.1-GGUF"
+        filename: "qwen-image-2.1-Q4_K_M.gguf"
+        local_path: "diffusion/qwen-image-2.1-Q4_K_M.gguf"
+        sha256: "631d532e7ca71e8d90a87c71d3699761a812039d22e3370e87498d87754660fe"
+      text_encoder:
+        repo: "unsloth/Qwen3-VL-8B-Instruct-GGUF"
+        filename: "Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"
+        local_path: "text_encoder/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"
+        sha256: "e3d1a6e87c5cb31e054f2c3bc0dd82ffde052f613de5eef3665b7bd33c9b703e"
+      vae:
+        repo: "Comfy-Org/Qwen-Image-2.1"
+        filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        local_path: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        sha256: "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+    params:
+      sd_server_port: 8093
+      image_width: 1024
+      image_height: 1024
+      image_num_inference_steps: 20
+      image_max_inference_steps: 100
+      image_max_pixels: 4194304
+      image_guidance_scale: 6.0
+      image_sampling_method: euler
+      image_diffusion_flash_attention: true
+      image_offload_to_cpu: true
+      image_output_format: png
+      max_concurrent_requests: 1
+      startup_timeout: 600
+    tags: [image-generation, qwen, local, gguf, q4-k-m, stable-diffusion-cpp]
+
   # voxtral-mini-3b:
   #   filename: "mistralai_Voxtral-Mini-3B-2507-Q4_K_M.gguf"
   #   mmproj_filename: "mmproj-mistralai_Voxtral-Mini-3B-2507-f16.gguf"

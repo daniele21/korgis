@@ -52,6 +52,21 @@ _BACKEND_CONFIG_CAPABILITIES: dict[str, tuple[str, ...]] = {
         "image_guidance_scale",
         "image_output_format",
     ),
+    "stable_diffusion_cpp_image": (
+        "timeout",
+        "max_concurrent_requests",
+        "image_width",
+        "image_height",
+        "image_num_inference_steps",
+        "image_max_inference_steps",
+        "image_max_pixels",
+        "image_guidance_scale",
+        "image_sampling_method",
+        "image_scheduler",
+        "image_diffusion_flash_attention",
+        "image_offload_to_cpu",
+        "image_output_format",
+    ),
     "diffusers_image": (
         "timeout",
         "max_concurrent_requests",
@@ -216,10 +231,12 @@ class ModelRuntimeManager:
     _PORT_FIELDS = {
         "llama_server": "llama_server_port",
         "mlx_vlm_server": "mlx_vlm_server_port",
+        "stable_diffusion_cpp_image": "sd_server_port",
     }
     _DEFAULT_PRIVATE_PORTS = {
         "llama_server": 8091,
         "mlx_vlm_server": 8092,
+        "stable_diffusion_cpp_image": 8093,
     }
 
     def __init__(

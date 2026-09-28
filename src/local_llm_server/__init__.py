@@ -119,6 +119,8 @@ def serve(
 def download_model(model: str) -> None:
     """Download a model from the registry if not already on disk."""
     from .model_sources import (
+        artifact_download_url,
+        is_complete_sdcpp_image_bundle,
         resolve_diffusers_runtime_path,
         resolve_mflux_image_runtime_path,
         resolve_mlx_runtime_path,
@@ -134,6 +136,34 @@ def download_model(model: str) -> None:
         raise ValueError(f"Model '{model}' not found in registry. Run 'local-llm models' to list available models.")
     backend = str(entry.get("backend") or "llama_cpp")
     resolved = resolve_registry_model(model, entry, models_dir, backend=backend)
+    if backend == "stable_diffusion_cpp_image":
+        artifacts = resolved.artifacts or {}
+        specs = entry.get("artifacts")
+        if not isinstance(specs, dict):
+            raise ValueError(
+                f"Model '{model}' stable_diffusion_cpp_image artifacts are invalid"
+            )
+        for name, destination in artifacts.items():
+            spec = specs.get(name)
+            if not isinstance(spec, dict):
+                raise ValueError(
+                    f"Model '{model}' artifact '{name}' is not configured"
+                )
+            ensure_model(
+                url=artifact_download_url(spec),
+                dest=destination,
+                expected_sha256=(
+                    str(spec["sha256"])
+                    if spec.get("sha256") is not None
+                    else None
+                ),
+                verify_existing=True,
+            )
+        if not is_complete_sdcpp_image_bundle(artifacts):
+            raise RuntimeError(
+                f"Model '{model}' artifact bundle is incomplete after download"
+            )
+        return
     if resolved.downloaded:
         return
     if backend in {"mlx", "mlx_vlm_server"}:

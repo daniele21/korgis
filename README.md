@@ -184,9 +184,9 @@ Current limits still matter:
 - support claims are tied to tested models, backends, hardware and procedures;
 - automatic pressure-triggered eviction remains disabled;
 - post-stop memory deltas are observations, not a general reclamation or production-safety guarantee;
-- Qwen Image 2.1 has both the generic BF16 Diffusers baseline and a separate MFlux Q8
-  Apple/MLX-oriented profile; the Q8 software contract is deterministic, but real Mac peak-memory
-  and performance claims still require representative-device evidence;
+- Qwen Image 2.1 has the generic BF16 Diffusers baseline, an MFlux Q8 Apple/MLX-oriented
+  profile and a separate GGUF Q4_K_M profile managed through stable-diffusion.cpp; deterministic
+  software validation does not establish real Mac peak-memory or performance claims;
 - new hardware, performance, cancellation, thermal or cross-device claims need matching representative evidence.
 
 See [`docs/current-state.md`](docs/current-state.md) for the exact current state.

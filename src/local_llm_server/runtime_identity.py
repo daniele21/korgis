@@ -54,6 +54,10 @@ _ALLOWED_CONFIG_KEYS = frozenset({
     "image_max_pixels",
     "image_guidance_scale",
     "image_output_format",
+    "image_sampling_method",
+    "image_scheduler",
+    "image_diffusion_flash_attention",
+    "image_offload_to_cpu",
 })
 
 

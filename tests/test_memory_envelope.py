@@ -128,3 +128,29 @@ def test_transient_total_override_is_authoritative():
 
     assert envelope.accounted_bytes == 1234
     assert envelope.complete is True
+
+
+def test_resident_envelope_prefers_exact_bundle_size_over_catalog_size(tmp_path):
+    artifacts = {}
+    for name, content in (
+        ("diffusion", b"12345"),
+        ("encoder", b"1234567"),
+        ("vae", b"123"),
+    ):
+        path = tmp_path / name
+        path.write_bytes(content)
+        artifacts[name] = str(path)
+
+    envelope = resident_memory_envelope(
+        {
+            "model_artifacts": artifacts,
+            "size_gb": 10.03,
+            "resource_backend_overhead_bytes": 0,
+            "resource_context_cache_bytes": 0,
+            "resource_safety_margin_bytes": 0,
+        }
+    )
+
+    model_weights = envelope.as_dict()["components"]["model_weights"]
+    assert model_weights["bytes"] == 15
+    assert model_weights["source"] == "artifact_bundle_file_size"
