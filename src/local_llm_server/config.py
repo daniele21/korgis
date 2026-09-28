@@ -293,8 +293,11 @@ def build_config(
     cfg["model_source"] = resolved_source.source_type
     cfg["model_downloaded"] = resolved_source.downloaded
     cfg["model_artifacts"] = (
-        {name: str(path) for name, path in resolved_source.artifacts.items()}
-        if resolved_source.artifacts is not None
+        {
+            name: str(path)
+            for name, path in getattr(resolved_source, "artifacts", {}).items()
+        }
+        if getattr(resolved_source, "artifacts", None) is not None
         else {}
     )
     cfg["artifact_specs"] = dict(entry.get("artifacts") or {})
