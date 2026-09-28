@@ -183,19 +183,13 @@ def _model_weights_component(config: Mapping[str, Any]) -> MemoryComponent:
     if explicit is not None:
         return MemoryComponent("model_weights", explicit, "configured")
 
-    size_gb = config.get("size_gb")
-    if size_gb is not None:
-        try:
-            size_bytes = max(0, int(float(size_gb) * _GIB))
-        except (TypeError, ValueError):
-            size_bytes = None
-        if size_bytes is not None:
-            return MemoryComponent("model_weights", size_bytes, "registry_artifact_size")
-
     model_artifacts = config.get("model_artifacts")
     if isinstance(model_artifacts, Mapping) and model_artifacts:
         try:
-            paths = [Path(str(value)).expanduser() for value in model_artifacts.values()]
+            paths = [
+                Path(str(value)).expanduser()
+                for value in model_artifacts.values()
+            ]
             if paths and all(path.is_file() for path in paths):
                 return MemoryComponent(
                     "model_weights",
@@ -204,6 +198,19 @@ def _model_weights_component(config: Mapping[str, Any]) -> MemoryComponent:
                 )
         except OSError:
             pass
+
+    size_gb = config.get("size_gb")
+    if size_gb is not None:
+        try:
+            size_bytes = max(0, int(float(size_gb) * _GIB))
+        except (TypeError, ValueError):
+            size_bytes = None
+        if size_bytes is not None:
+            return MemoryComponent(
+                "model_weights",
+                size_bytes,
+                "registry_artifact_size",
+            )
 
     model_path = config.get("model_path")
     if model_path:
