@@ -118,7 +118,12 @@ def serve(
 
 def download_model(model: str) -> None:
     """Download a model from the registry if not already on disk."""
-    from .model_sources import resolve_mlx_runtime_path, resolve_registry_model
+    from .model_sources import (
+        resolve_diffusers_runtime_path,
+        resolve_mflux_image_runtime_path,
+        resolve_mlx_runtime_path,
+        resolve_registry_model,
+    )
     from .registry import load_registry
     from .downloader import ensure_model
 
@@ -136,6 +141,24 @@ def download_model(model: str) -> None:
             resolved.model_path,
             no_download=False,
             multimodal=bool(entry.get("multimodal", False)),
+        )
+        return
+    if backend == "diffusers_image":
+        resolve_diffusers_runtime_path(
+            resolved.model_path,
+            no_download=False,
+        )
+        return
+    if backend == "mflux_image":
+        resolve_mflux_image_runtime_path(
+            resolved.model_path,
+            no_download=False,
+            expected_quantization_bits=(
+                int(entry["params"]["image_quantization_bits"])
+                if isinstance(entry.get("params"), dict)
+                and entry["params"].get("image_quantization_bits") is not None
+                else None
+            ),
         )
         return
     if entry.get("path"):
@@ -177,6 +200,7 @@ def list_models() -> list[dict]:
                 "modalities": entry.get("modalities", []),
                 "capabilities": capability["capabilities"],
                 "capability_source": capability["capability_source"],
+                "generation_parameter_domains": capability["generation_parameter_domains"],
                 "downloaded": resolved.downloaded,
                 "path": resolved.model_path,
                 "source": resolved.source_type,

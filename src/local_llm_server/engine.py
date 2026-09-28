@@ -548,4 +548,14 @@ def load_llm(cfg: dict[str, Any]) -> Any:
     if backend == "mlx_vlm_server":
         return MLXVLMServerEngine(cfg)
 
+    if backend == "diffusers_image":
+        from .image_generation_engine import DiffusersImageEngine
+
+        return DiffusersImageEngine(cfg)
+
+    if backend == "mflux_image":
+        from .mflux_image_engine import MFluxImageEngine
+
+        return MFluxImageEngine(cfg)
+
     raise ValueError(f"Unsupported backend: {backend}")

@@ -185,3 +185,54 @@ def test_descriptor_serialization_is_stable_and_public_safe():
         "features": ["streaming", "structured_output", "thinking"],
         "thinking_mode": "switchable",
     }
+
+
+def test_image_generation_descriptor_allows_image_output_without_text_output():
+    descriptor = descriptor_from_registry_entry(
+        {
+            "backend": "diffusers_image",
+            "tasks": ["image_generation"],
+            "input_modalities": ["text"],
+            "output_modalities": ["image"],
+            "thinking_mode": "none",
+        }
+    )
+
+    request = InferenceRequest(
+        task=TaskType.IMAGE_GENERATION,
+        model="qwen-image-2.1",
+        input_text="A red cube on a white background",
+    )
+    chat_request = InferenceRequest(
+        task=TaskType.CHAT,
+        model="qwen-image-2.1",
+        messages=({"role": "user", "content": "hello"},),
+    )
+
+    assert descriptor.output_modalities == frozenset({Modality.IMAGE})
+    assert descriptor.features == frozenset()
+    assert descriptor.supports(request) is True
+    assert descriptor.supports(chat_request) is False
+
+
+def test_image_generation_requires_text_input_and_image_output():
+    invalid_entries = (
+        {
+            "tasks": ["image_generation"],
+            "input_modalities": ["image"],
+            "output_modalities": ["image"],
+        },
+        {
+            "tasks": ["image_generation"],
+            "input_modalities": ["text"],
+            "output_modalities": ["text"],
+        },
+    )
+
+    for entry in invalid_entries:
+        try:
+            descriptor_from_registry_entry(entry)
+        except ValueError as exc:
+            assert "image_generation requires" in str(exc)
+        else:
+            raise AssertionError("invalid image generation capability must fail")

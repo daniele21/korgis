@@ -45,11 +45,9 @@ def test_explicit_non_streaming_runtime_rejects_stream_request():
         "features": [],
     }
 
-    # Empty explicit feature sets are invalid under the registry contract; a
-    # runtime cannot use an invalid declaration to silently widen capability.
     with pytest.raises(InferenceError) as exc_info:
         enforce_request_capabilities(request, runtime_config=cfg)
-    assert exc_info.value.code is ErrorCode.INVALID_REQUEST
+    assert exc_info.value.code is ErrorCode.UNSUPPORTED_TASK
 
 
 def test_legacy_text_runtime_conservatively_supports_chat_structured_and_streaming():

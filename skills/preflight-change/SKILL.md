@@ -1,20 +1,8 @@
-# preflight-change
+---
+name: preflight-change
+description: Establish Korgis integration/release readiness from exact identity, affected docs, risk-selected gates and equivalent evidence reuse.
+---
+# Preflight Change
+Refresh exact head/tree/live base, review the complete diff, make affected durable docs current, resolve risks -> gates -> profile/executor and select affected E2E. Reuse only equivalent trusted proof; route missing deterministic work via `remote-preflight`.
 
-Use immediately before pushing/opening/updating a PR or otherwise publishing a meaningful change. `validate-change` owns iteration; this skill owns final exact-head readiness, including durable-documentation freshness.
-
-1. **Resolve material ambiguity.** Inspect canonical contracts, owner code, direct consumers/fakes/tests and active workstream acceptance. Ask the user only if two reasonable interpretations would materially change behavior, compatibility, persistence, security/privacy, lifecycle/resource semantics, acceptance criteria or meaningful UX.
-2. **Refresh the intended base.** Record target branch/revision and current head. Reconcile stale or stacked work; invalidate affected evidence after any head/base/dependency change.
-3. **Review the complete diff.** Look for generated/private/debug residue, unrelated edits, duplicate ownership, weakened tests, stale docs/contracts, missed consumers, unsafe cleanup or changed security/UX semantics.
-4. **Assess documentation impact.** Use `docs/README.md` to identify canonical owners and classify `README_IDENTITY`, `README_USAGE`, `FEATURE_DOCS`, `ARCHITECTURE`, `ADR`, `SECURITY_DATA`, `OPERATIONS`, `PRODUCT_EXPERIENCE` and `CURRENT_STATE` as `UPDATED` or `N/A`. README identity is purpose/audience/outcome/positioning and is not rewritten merely because implementation, commands or a feature changed. README usage covers prerequisites/setup/run/configuration/public API/UI/examples and must update in the same change whenever old instructions become incomplete, wrong or misleading. Existing feature docs update in the same change as the durable behavior they describe; create a new feature doc only for non-obvious behavior without a better code/API/test/architecture owner. An affected stale owner makes `DOCS_CURRENT_WITH_IMPLEMENTATION: FAIL` and blocks readiness.
-5. **Select validation profile.** Run the project selector from `.engineering/commands.json`. `LEAN` = docs/governance only; `SCOPED` = contained owner/direct consumers; `STRONG` = cross-boundary/runtime/security/E2E/package-sensitive; `FULL` = promotion/release or changes to CI, selector, global build/dependency/toolchain machinery, or unknown executable paths. Never silently downgrade below `auto`.
-6. **Select E2E fidelity when needed.** Read `.engineering/e2e.json`, pick the affected critical journey and cheapest declared automated environment sufficient for the claim. Built/package claims require the built surface. Preserve residual real-environment gaps explicitly.
-7. **Classify every required gate for this session.** `AGENT_LOCAL` if executable here; `REMOTE_AUTOMATED` if deterministic but only repository automation can run it; `REAL_ENVIRONMENT` only for genuinely hardware/protected/manual claims. Lack of a local SDK/toolchain never turns an automatable gate into a user task.
-8. **Execute or route.** Run available local gates on the exact head. If deterministic gates remain remote and semantic/base/diff/documentation checks pass, publish/refresh the same-repository PR and use `remote-preflight` to inspect GitHub Actions. Real-device evidence may remain pending but blocks any claim that depends on it.
-9. **Diagnose failures before editing.** Classify as change regression, baseline failure, environment/toolchain, flaky, base drift or wrong assumption; fix the owning invariant. Do not suppress or weaken legitimate gates to obtain green CI. Recheck documentation impact after material fixes.
-10. **Require parity.** CI should invoke the same project-owned command/validator semantics. If target hardware repeatedly discovers ordinary automatable workflow failures, strengthen the automated journey rather than normalizing manual discovery.
-
-Report:
-
-`HEAD`, `TARGET`, `AMBIGUITY`, `BASE_FRESHNESS`, `FULL_DIFF_REVIEW`, `DOCUMENTATION_IMPACT` with the nine owners above, `DOCS_CURRENT_WITH_IMPLEMENTATION`, `VALIDATION_PROFILE` + reason, `AGENT_LOCAL`, `REMOTE_AUTOMATED`, `REAL_ENVIRONMENT`, affected E2E journey/environment/fidelity, residual gaps and `READINESS`.
-
-Readiness is one of `READY_FOR_CI`, `READY_FOR_REMOTE_PREFLIGHT`, `AUTOMATED_PREFLIGHT_CONFIRMED`, or `NOT_READY_FOR_AUTOMATED_PREFLIGHT`. Documentation must be current for every ready state. Any material edit/rebase/base change invalidates affected evidence and requires documentation impact to be rechecked.
+INTEGRATION requires all required automated gates/E2E and defers required Apple Silicon confirmation to release. RELEASE requires FULL plus every applicable required real-environment confirmation. Use `validate-change` diagnosis on failure. Return bounded reporting fields including failed/pending gates and remaining release obligations.

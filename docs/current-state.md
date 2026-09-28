@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-27
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -46,7 +46,13 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
 
 ## Active workstreams
 
-None. New workstreams should be opened only for a new bounded capability or evidence objective.
+- Qwen Image 2.1 local generation: the first-class capability, BF16 Diffusers runtime,
+  MFlux Q8 profile and `/v1/images/generations` API are integrated. The active slice brings
+  image requests through the same canonical HTTP admission path as chat/VLM: optional runtime
+  queue, global execution governor, then shared transient-memory accounting before the final
+  runtime lease. Missing image transient-memory evidence remains unknown rather than inferred.
+  Representative Apple Silicon peak memory, latency, thermal and reclamation claims remain unproven.
+  See `docs/workstreams/qwen-image-2-1.md`.
 
 ## Durable references
 

@@ -5,7 +5,10 @@ from types import SimpleNamespace
 from local_llm_server.product_runtime_manager import ProductRuntimeManager
 from local_llm_server.runtime_evidence import attached_runtime_identity
 from local_llm_server.runtime_identity import BackendIdentity
-from local_llm_server.runtime_identity_capture import capture_verified_runtime_identity
+from local_llm_server.runtime_identity_capture import (
+    capture_verified_runtime_identity,
+    resolve_backend_identity,
+)
 
 
 class _Engine:
@@ -198,3 +201,23 @@ def test_product_runtime_manager_attempts_capture_after_residency(monkeypatch):
     assert captured == ["demo"]
     assert manager.default_model == "demo"
     assert manager.configured_default_model == "demo"
+
+def test_image_backend_identity_resolves_package_versions(monkeypatch):
+    class _Engine:
+        backend = "mflux_image"
+
+    runtime = SimpleNamespace(
+        cfg={"backend": "mflux_image"},
+        engine=_Engine(),
+    )
+    monkeypatch.setattr(
+        "local_llm_server.runtime_identity.metadata.version",
+        lambda package: "0.20.0" if package == "mflux" else "unknown",
+    )
+
+    identity = resolve_backend_identity(runtime)
+
+    assert identity is not None
+    assert identity.name == "mflux_image"
+    assert identity.version == "0.20.0"
+    assert identity.implementation == "_Engine"

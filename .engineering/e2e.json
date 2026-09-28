@@ -1,168 +1,29 @@
 {
   "schema_version": 1,
-  "contract_version": "0.1.0",
-  "applicability": {
-    "status": "required",
-    "reason": "The browser control plane and local inference server expose complete user/system and external-application journeys whose assembled HTTP, UI, runtime-state and cleanup behavior cannot be proven by lower-level tests alone."
+  "contract_version": "0.2.1",
+  "applicability": {"status": "required", "reason": "The browser control plane and local inference server expose complete user/system and external-application journeys whose assembled HTTP, UI, runtime-state and cleanup behavior cannot be proven by lower-level tests alone."},
+  "principles": {"final_environment_should_confirm_not_discover": true, "execution_capability_separate_from_environment_fidelity": true, "lowest_sufficient_test_level": true, "critical_journeys_only": true, "built_artifact_when_material": true, "residual_fidelity_gaps_explicit": true, "ui_evidence_risk_based": true},
+  "stage_policy": {
+    "integration": {"automated_e2e_before_shared_integration": true, "real_environment_blocking": false, "real_environment_deferred_to_release": true, "material_ui_journey_minimum_evidence_mode": "full_media", "incidental_ui_may_use_assertions": true},
+    "release": {"full_validation_required": true, "release_critical_e2e_required": true, "required_real_environment_blocking": true}
   },
-  "principles": {
-    "final_environment_should_confirm_not_discover": true,
-    "execution_capability_separate_from_environment_fidelity": true,
-    "lowest_sufficient_test_level": true,
-    "critical_journeys_only": true,
-    "built_artifact_when_material": true,
-    "residual_fidelity_gaps_explicit": true
-  },
-  "fidelity_order": [
-    "host_or_fake",
-    "simulated_or_emulated",
-    "representative_virtual",
-    "representative_physical",
-    "target_environment"
-  ],
+  "ui_evidence": {"modes": ["assertions", "screenshots", "full_media"], "default_mode": "assertions", "assertions_allowed_when_ui_incidental": true, "full_media_triggers": ["material_ui_integration_outcome", "motion_or_animation", "timing_or_progression", "navigation_or_transition_sequence", "lifecycle_visibility", "release_acceptance"]},
+  "fidelity_order": ["host_or_fake", "simulated_or_emulated", "representative_virtual", "representative_physical", "target_environment"],
   "target_environments": [
-    {
-      "id": "target-apple-silicon-local-ai",
-      "platform": "macOS on Apple Silicon",
-      "description": "A supported Apple Silicon Mac running the packaged Local LLM Server with a representative production model/backend and the browser control plane.",
-      "material_dimensions": [
-        "software build and package identity",
-        "model family artifact identity and quantization",
-        "runtime backend implementation and accelerator support",
-        "Apple Silicon architecture and macOS lifecycle behavior",
-        "unified-memory capacity and pressure",
-        "production-sized context input and output shape",
-        "browser-to-HTTP control-plane integration",
-        "external application-to-HTTP API integration",
-        "sustained latency throughput thermal and power behavior when performance is claimed"
-      ]
-    }
+    {"id": "target-apple-silicon-local-ai", "platform": "macOS on Apple Silicon", "description": "A supported Apple Silicon Mac running the packaged Local LLM Server with a representative production model/backend and the browser control plane.", "material_dimensions": ["software build and package identity", "model family artifact identity and quantization", "runtime backend implementation and accelerator support", "Apple Silicon architecture and macOS lifecycle behavior", "unified-memory capacity and pressure", "production-sized context input and output shape", "browser-to-HTTP control-plane integration", "external application-to-HTTP API integration", "sustained latency throughput thermal and power behavior when performance is claimed"]}
   ],
   "execution_environments": [
-    {
-      "id": "ci-studio-deterministic",
-      "fidelity_class": "host_or_fake",
-      "automation": "automated",
-      "platform": "GitHub-hosted Ubuntu with Chromium",
-      "artifact_surface": "source checkout running the real FastAPI/middleware/UI stack with deterministic in-process inference, exercised both through Chromium user journeys and a direct external loopback HTTP API client",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "known_gaps": [
-        "does not load a production model",
-        "does not execute production MLX or llama.cpp backend processes on Apple Silicon",
-        "does not reproduce target unified-memory pressure thermals or accelerator behavior",
-        "does not prove production-model latency throughput or output quality"
-      ]
-    },
-    {
-      "id": "ci-installed-wheel",
-      "fidelity_class": "host_or_fake",
-      "automation": "automated",
-      "platform": "GitHub-hosted Ubuntu",
-      "artifact_surface": "freshly built and installed wheel exercised through the repository built-surface journey and package smoke contracts",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "known_gaps": [
-        "Linux host is not representative of macOS runtime and accelerator behavior",
-        "production model/backend and unified-memory behavior remain outside this environment",
-        "hardware performance and thermal claims remain unproven"
-      ]
-    },
-    {
-      "id": "representative-apple-silicon",
-      "fidelity_class": "representative_physical",
-      "automation": "real_environment",
-      "platform": "representative Apple Silicon Mac",
-      "artifact_surface": "real Local LLM Server runtime with representative model/backend configuration using the device-evidence runbook",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "known_gaps": [
-        "representative hardware may differ from the exact target Mac memory tier or OS revision",
-        "evidence only supports the recorded model backend configuration and workload shape"
-      ]
-    },
-    {
-      "id": "target-apple-silicon",
-      "fidelity_class": "target_environment",
-      "automation": "real_environment",
-      "platform": "target supported Apple Silicon Mac",
-      "artifact_surface": "release-equivalent Local LLM Server build with the intended production model/backend configuration",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "known_gaps": []
-    }
+    {"id": "ci-studio-deterministic", "fidelity_class": "host_or_fake", "automation": "automated", "platform": "GitHub-hosted Ubuntu with Chromium", "artifact_surface": "source checkout running the real FastAPI/middleware/UI stack with deterministic in-process inference, exercised through Chromium and a direct external loopback HTTP API client", "target_environment_refs": ["target-apple-silicon-local-ai"], "known_gaps": ["does not load a production model", "does not execute production MLX or llama.cpp backend processes on Apple Silicon", "does not reproduce target unified-memory pressure thermals or accelerator behavior", "does not prove production-model latency throughput or output quality"]},
+    {"id": "ci-installed-wheel", "fidelity_class": "host_or_fake", "automation": "automated", "platform": "GitHub-hosted Ubuntu", "artifact_surface": "freshly built and installed wheel exercised through the repository built-surface journey and package smoke contracts", "target_environment_refs": ["target-apple-silicon-local-ai"], "known_gaps": ["Linux host is not representative of macOS runtime and accelerator behavior", "production model/backend and unified-memory behavior remain outside this environment", "hardware performance and thermal claims remain unproven"]},
+    {"id": "representative-apple-silicon", "fidelity_class": "representative_physical", "automation": "real_environment", "platform": "representative Apple Silicon Mac", "artifact_surface": "real Local LLM Server runtime with representative model/backend configuration using the device-evidence runbook", "target_environment_refs": ["target-apple-silicon-local-ai"], "known_gaps": ["representative hardware may differ from the exact target Mac memory tier or OS revision", "evidence supports only the recorded model/backend configuration and workload shape"]},
+    {"id": "target-apple-silicon", "fidelity_class": "target_environment", "automation": "real_environment", "platform": "target supported Apple Silicon Mac", "artifact_surface": "release-equivalent Local LLM Server build with the intended production model/backend configuration", "target_environment_refs": ["target-apple-silicon-local-ai"], "known_gaps": []}
   ],
   "critical_journeys": [
-    {
-      "id": "control-plane-status-and-navigation",
-      "claim": "A user can open the control plane, understand truthful server/runtime status and navigate core surfaces through the assembled browser and HTTP boundary.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "target macOS process and backend state can still expose platform-specific lifecycle differences"
-      ],
-      "real_environment_confirmation": "conditional",
-      "automation_gap_reason": null
-    },
-    {
-      "id": "chat-inference-and-recovery",
-      "claim": "A user can configure a text request, submit it, observe truthful progress or failure, receive a result through the public boundary and recover for the next request.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "real model loading token generation cancellation and backend error behavior require representative hardware evidence",
-        "latency throughput memory and thermal claims require the recorded target model backend and workload"
-      ],
-      "real_environment_confirmation": "required",
-      "automation_gap_reason": null
-    },
-    {
-      "id": "application-api-consumer-contract",
-      "claim": "An external local application can discover runtime identity and capabilities, use text vision transcription evaluation and policy/admin HTTP contracts, select explicit or default routes, receive fail-closed errors and privacy-safe streams, exercise different resident runtimes concurrently and recover after a backend-originated failure without calling product internals.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "the deterministic engine does not prove production llama.cpp or MLX adapter process behavior, model loading or native cancellation semantics",
-        "real backend compatibility memory reclamation latency throughput quality and accelerator behavior require representative Apple Silicon evidence"
-      ],
-      "real_environment_confirmation": "required",
-      "automation_gap_reason": null
-    },
-    {
-      "id": "model-runtime-management",
-      "claim": "Model availability residency pinning unload and resource-state actions remain coherent across the public control plane and runtime owner without unsafe eviction or leaked ownership.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "actual MLX or llama.cpp allocation reclamation and unified-memory pressure cannot be proven by the deterministic fixture",
-        "automatic pressure behavior remains gated by representative-device evidence"
-      ],
-      "real_environment_confirmation": "required",
-      "automation_gap_reason": null
-    },
-    {
-      "id": "evaluation-review-and-repeatability",
-      "claim": "A user can run or review evaluation state and comparable history with durable execution identity without confusing unavailable measurements with zero.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "representative-model repeatability and hardware-sensitive metrics require real-device runs with retained model configuration and build identity"
-      ],
-      "real_environment_confirmation": "conditional",
-      "automation_gap_reason": null
-    },
-    {
-      "id": "owned-lifecycle-cleanup",
-      "claim": "A complete automated product run releases its owned server process listener browser session temporary evaluation state and bounded diagnostic evidence on success and failure paths.",
-      "target_environment_refs": ["target-apple-silicon-local-ai"],
-      "automated_environment_refs": ["ci-studio-deterministic"],
-      "minimum_automated_fidelity": "host_or_fake",
-      "residual_gaps": [
-        "real backend sessions and accelerator resources require representative-device shutdown and reclamation confirmation"
-      ],
-      "real_environment_confirmation": "conditional",
-      "automation_gap_reason": null
-    }
+    {"id": "control-plane-status-and-navigation", "claim": "A user can open the control plane, understand truthful server/runtime status and navigate core surfaces through the assembled browser and HTTP boundary.", "ui_surface": true, "minimum_ui_evidence_mode": "screenshots", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["target macOS process and backend state can still expose platform-specific lifecycle differences"], "real_environment_confirmation": "conditional", "automation_gap_reason": null},
+    {"id": "chat-inference-and-recovery", "claim": "A user can configure a text request, submit it, observe truthful progress or failure, receive a result through the public boundary and recover for the next request.", "ui_surface": true, "minimum_ui_evidence_mode": "full_media", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["real model loading token generation cancellation and backend error behavior require representative hardware evidence", "latency throughput memory and thermal claims require the recorded target model backend and workload"], "real_environment_confirmation": "required", "automation_gap_reason": null},
+    {"id": "application-api-consumer-contract", "claim": "An external local application can discover runtime identity and capabilities, use text vision transcription evaluation and policy/admin HTTP contracts, select explicit or default routes, receive fail-closed errors and privacy-safe streams, exercise different resident runtimes concurrently and recover after a backend-originated failure without calling product internals.", "ui_surface": false, "minimum_ui_evidence_mode": "assertions", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["the deterministic engine does not prove production llama.cpp or MLX adapter process behavior, model loading or native cancellation semantics", "real backend compatibility memory reclamation latency throughput quality and accelerator behavior require representative Apple Silicon evidence"], "real_environment_confirmation": "required", "automation_gap_reason": null},
+    {"id": "model-runtime-management", "claim": "Model availability residency pinning unload and resource-state actions remain coherent across the public control plane and runtime owner without unsafe eviction or leaked ownership.", "ui_surface": true, "minimum_ui_evidence_mode": "full_media", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["actual MLX or llama.cpp allocation reclamation and unified-memory pressure cannot be proven by the deterministic fixture", "automatic pressure behavior remains gated by representative-device evidence"], "real_environment_confirmation": "required", "automation_gap_reason": null},
+    {"id": "evaluation-review-and-repeatability", "claim": "A user can run or review evaluation state and comparable history with durable execution identity without confusing unavailable measurements with zero.", "ui_surface": true, "minimum_ui_evidence_mode": "screenshots", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic", "ci-installed-wheel"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["representative-model repeatability and hardware-sensitive metrics require real-device runs with retained model configuration and build identity"], "real_environment_confirmation": "conditional", "automation_gap_reason": null},
+    {"id": "owned-lifecycle-cleanup", "claim": "A complete automated product run releases its owned server process listener browser session temporary evaluation state and bounded diagnostic evidence on success and failure paths.", "ui_surface": false, "minimum_ui_evidence_mode": "assertions", "target_environment_refs": ["target-apple-silicon-local-ai"], "automated_environment_refs": ["ci-studio-deterministic"], "minimum_automated_fidelity": "host_or_fake", "residual_gaps": ["real backend sessions and accelerator resources require representative-device shutdown and reclamation confirmation"], "real_environment_confirmation": "conditional", "automation_gap_reason": null}
   ]
 }

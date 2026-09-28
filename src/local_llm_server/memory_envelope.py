@@ -118,7 +118,7 @@ def request_memory_envelope(
     request: InferenceRequest,
     runtime_config: Mapping[str, Any],
 ) -> MemoryEnvelope:
-    """Build the transient peak estimate held for one chat/vision request."""
+    """Build the transient peak estimate held for one canonical inference request."""
     override = _non_negative_int(runtime_config.get("resource_request_estimate_bytes"))
     base = _request_base_component(runtime_config)
     input_component = _request_input_component(

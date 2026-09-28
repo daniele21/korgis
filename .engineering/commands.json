@@ -1,151 +1,30 @@
 {
   "schema_version": 1,
-  "contract_version": "0.5.0",
+  "contract_version": "0.7.0",
   "commands": {
-    "setup": {
-      "status": "required",
-      "run": "python3 -m pip install 'uv==0.8.13' && uv sync --frozen --extra dev && npm ci --ignore-scripts --no-audit --no-fund"
-    },
-    "doctor": {
-      "status": "recommended",
-      "run": "python3 --version && uv --version && node --version && npm --version"
-    },
-    "dev": {
-      "status": "n/a",
-      "reason": "Runtime startup is intentionally model/workload-specific; there is no single repository-wide development daemon command that can truthfully select a model/backend for every checkout."
-    },
-    "check": {
-      "status": "required",
-      "run": "uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82"
-    },
-    "test": {
-      "status": "required",
-      "run": "uv run --frozen pytest tests/ -v --tb=short"
-    },
-    "e2e": {
-      "status": "required",
-      "run": "npm run test:e2e && python tests/e2e/verify_residue.py"
-    },
-    "build": {
-      "status": "required",
-      "run": "./deploy.sh"
-    },
-    "smoke": {
-      "status": "recommended",
-      "run": "python tests/real_runtime/smoke_runtime.py --base-url http://127.0.0.1:1235",
-      "requires": "An already running real Local LLM Server with an unambiguous default runtime, or pass --model explicitly."
-    },
-    "package": {
-      "status": "n/a",
-      "reason": "The Python wheel/sdist distributables and their uniquely identified bundle are produced atomically by the canonical build operation; a second packaging command would duplicate the artifact source of truth."
-    },
-    "stop": {
-      "status": "n/a",
-      "reason": "The supported local server is foreground-owned rather than a detached repository daemon. Its owning process/signal path performs shutdown; deterministic E2E additionally verifies the owned listener and temp state are gone."
-    },
-    "clean": {
-      "status": "required",
-      "run": "rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache playwright-report test-results"
-    }
+    "setup": {"status": "required", "run": "python3 -m pip install 'uv==0.8.13' && uv sync --frozen --extra dev && npm ci --ignore-scripts --no-audit --no-fund"},
+    "doctor": {"status": "recommended", "run": "python3 --version && uv --version && node --version && npm --version"},
+    "dev": {"status": "n/a", "run": "n/a", "reason": "Runtime startup is model/workload-specific; there is no truthful repository-wide daemon command."},
+    "check": {"status": "required", "run": "uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82"},
+    "test": {"status": "required", "run": "uv run --frozen pytest tests/ -v --tb=short"},
+    "e2e": {"status": "required", "run": "npm run test:e2e && python tests/e2e/verify_residue.py"},
+    "build": {"status": "required", "run": "./deploy.sh"},
+    "smoke": {"status": "recommended", "run": "python tests/real_runtime/smoke_runtime.py --base-url http://127.0.0.1:1235", "requires": "Release/diagnostic evidence only: an already running real Local LLM Server with an unambiguous default runtime, or pass --model explicitly. This does not block integration to dev."},
+    "package": {"status": "n/a", "run": "n/a", "reason": "Canonical build already owns package production."},
+    "stop": {"status": "n/a", "run": "n/a", "reason": "Foreground-owned runtime; owning process/signal path performs shutdown."},
+    "clean": {"status": "required", "run": "rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache playwright-report test-results"}
   },
-  "publication_gate": {
-    "agent_preflight_required": true,
-    "target_base_freshness_required": true,
-    "full_diff_review_required": true,
-    "material_ambiguity_must_be_resolved": true,
-    "failure_root_cause_required": true,
-    "execution_capability_classification_required": true,
-    "blast_radius_profile_selection_required": true,
-    "automatable_gates_must_not_be_delegated_to_user": true,
-    "remote_automated_fallback_required_when_agent_local_unavailable": true,
-    "deterministic_ci_command_parity_required": true,
-    "non_automated_evidence_must_be_declared": true,
-    "exact_head_evidence_required": true
-  },
-  "validation_execution": {
-    "classes": ["agent_local", "remote_automated", "real_environment"],
-    "no_human_runner_for_automatable_gates": true,
-    "remote_automation_required_when_agent_local_unavailable": true
-  },
-  "validation_profiles": {
-    "default": "auto",
-    "profiles": ["lean", "scoped", "strong", "full"],
-    "selector": "python3 scripts/select_validation_profile.py",
-    "unknown_executable_paths_fail_safe": true,
-    "selector_changes_force_full": true,
-    "promotion_validation_full": true,
-    "automatic_escalation_allowed": true,
-    "silent_downgrade_below_auto_forbidden": true,
-    "report_selected_profile_and_reason": true
-  },
-  "remote_preflight": {
-    "status": "recommended",
-    "trigger": "Open or update a same-repository pull request targeting dev for ordinary changes or main/master for promotion; GitHub pull_request workflows run deterministic validation on the exact PR head, promotion targets force the FULL profile, and failed jobs may be rerun through GitHub Actions.",
-    "default_profile": "auto",
-    "stronger_profile_override_allowed": true,
-    "weaker_profile_override_requires_explicit_justification": true,
-    "exact_head_required": true,
-    "trusted_requesters_only": true,
-    "same_repository_prs_only_by_default": true,
-    "execution_job_write_credentials": false,
-    "report_result_to_pr": true
-  },
-  "end_to_end": {
-    "recommended_when_full_workflow_boundary_exists": true,
-    "critical_journeys_prioritized": true,
-    "lower_level_tests_remain_primary": true,
-    "use_stack_native_tooling": true,
-    "run_against_built_artifact_when_material": true,
-    "failure_evidence_bounded": true,
-    "zero_residue_required": true,
-    "implementation_state": "Implemented for the deterministic Studio/product boundary: Playwright owns a run-scoped synthetic evaluation workspace, CI performs an always-run residue check, and failure traces/screenshots have seven-day retention. Built-wheel and representative-hardware evidence remain distinct stronger environments."
-  },
-  "build_identity": {
-    "unique_per_build": true,
-    "source_revision_required": true,
-    "dirty_state_required": true,
-    "lineage_fields": ["project", "platform", "architecture", "channel", "variant"],
-    "artifact_name_fields": ["product", "product_version", "build_id", "source_revision"],
-    "implementation_state": "Implemented by scripts/build_artifacts.py: product version, unique UTC/UUID build ID, source revision, dirty state and lineage are recorded in the promoted build manifest and bundle identity."
-  },
-  "artifact_lifecycle": {
-    "immutable_successful_artifacts": true,
-    "promote_only_after_success": true,
-    "manifest_required": true,
-    "manifest_name": "build-manifest.json",
-    "checksum_algorithm": "sha256",
-    "local_keep_successful_per_lineage": 2,
-    "ci_store": "github-actions",
-    "ci_retention_days": 7,
-    "release_store": "github-releases",
-    "release_artifacts_immutable": true,
-    "implementation_state": "Implemented for wheel/sdist builds and tagged releases: staging/promote, manifest, SHA-256 inventory, bounded local retention, seven-day CI handoff retention and fail-closed existing release/tag behavior are present."
-  },
-  "build_delta": {
-    "required": true,
-    "compare_to": "previous-successful-comparable-build",
-    "output": "BUILD_CHANGELOG.md",
-    "bundle_with_artifact": true,
-    "dimensions": ["source", "dependencies", "toolchain", "configuration", "compatibility_migrations", "artifact_metrics", "validation"],
-    "implementation_state": "Implemented by scripts/build_artifacts.py and bundled with every promoted build."
-  },
-  "local_runtime": {
-    "applicable": true,
-    "bind_default": "loopback",
-    "port_strategy": "configurable-with-collision-check",
-    "foreground_default": true,
-    "readiness_required": true,
-    "graceful_shutdown_required": true,
-    "verify_no_project_listener_after_stop": true,
-    "implementation_state": "Loopback/foreground/readiness/graceful shutdown are product behavior; deterministic E2E verifies its owned fixture listener closes, while representative real-runtime lifecycle evidence remains a distinct hardware/environment claim."
-  },
-  "ephemeral_resources": {
-    "run_identity": true,
-    "isolated_workspace": true,
-    "cleanup_paths": ["success", "failure", "timeout", "cancellation", "interrupt", "partial-initialization"],
-    "stale_resource_recovery": true,
-    "ownership_required_before_cleanup": true,
-    "post_cleanup_verification": true,
-    "implementation_state": "Implemented for deterministic E2E run-owned evaluation/temp state with ownership-checked deletion and independent post-run verification."
-  }
+  "development_velocity": {"default_stage": "iteration", "stages": ["iteration", "integration", "release"], "iteration": {"target_feedback_minutes": 3, "exact_head_required": false, "full_diff_review_required": false, "durable_documentation_current_required": false, "remote_preflight_required": false, "e2e_default": "risk_only"}, "integration": {"target_feedback_minutes": 8, "exact_head_required": true, "full_diff_review_required": true, "durable_documentation_current_required": true, "remote_preflight_when_required_gates_unavailable_local": true, "e2e_default": "affected_critical_journeys", "automated_e2e_required_when_affected": true, "real_environment_blocking": false, "real_environment_deferred_to_release": true}, "release": {"exact_head_required": true, "full_diff_review_required": true, "durable_documentation_current_required": true, "full_validation_required": true, "e2e_default": "release_critical_journeys", "required_real_environment_blocking": true}, "parallel_development_prefers_early_convergence": true, "stacked_publication_exception_only": true},
+  "publication_gate": {"applies_from_stage": "integration", "agent_preflight_required": true, "target_base_freshness_required": true, "full_diff_review_required": true, "material_ambiguity_must_be_resolved": true, "failure_root_cause_required": true, "execution_capability_classification_required": true, "blast_radius_profile_selection_required": true, "automatable_gates_must_not_be_delegated_to_user": true, "remote_automated_fallback_required_when_agent_local_unavailable": true, "deterministic_ci_command_parity_required": true, "non_automated_evidence_must_be_declared": true, "exact_head_evidence_required": true},
+  "validation_execution": {"classes": ["agent_local", "remote_automated", "real_environment"], "no_human_runner_for_automatable_gates": true, "remote_automation_required_when_agent_local_unavailable": true},
+  "validation_profiles": {"default": "auto", "profiles": ["lean", "scoped", "strong", "full"], "selector": "python3 scripts/select_validation_profile.py --base-ref <base-revision> --head-ref <head-revision>", "selector_output": "risk_dimensions_and_required_gates", "profiles_are_shorthand": true, "gate_selection_preferred_over_suite_selection": true, "unknown_executable_paths_fail_safe": true, "selector_changes_force_full": true, "promotion_validation_full": true, "automatic_escalation_allowed": true, "silent_downgrade_below_auto_forbidden": true, "report_selected_profile_and_reason": true},
+  "remote_preflight": {"status": "recommended", "trigger": "GitHub pull_request validation owned by .github/workflows/ci.yml; exact-head reruns reuse equivalent evidence before executing missing gates", "default_profile": "auto", "stronger_profile_override_allowed": true, "weaker_profile_override_requires_explicit_justification": true, "exact_head_required": true, "reuse_successful_equivalent_evidence": true, "rerun_only_when_missing_stale_or_insufficient": true, "evidence_identity_fields": ["head", "source_tree", "target_base", "required_gates", "profile", "e2e_environment"], "post_merge_tree_equivalent_reuse_allowed": true, "post_merge_tree_reuse_requires_same_target_base": true, "direct_push_without_equivalent_evidence_must_validate": true, "trusted_requesters_only": true, "same_repository_prs_only_by_default": true, "execution_job_write_credentials": false, "report_result_to_pr": true},
+  "end_to_end": {"recommended_when_full_workflow_boundary_exists": true, "critical_journeys_prioritized": true, "lower_level_tests_remain_primary": true, "use_stack_native_tooling": true, "run_against_built_artifact_when_material": true, "failure_evidence_bounded": true, "zero_residue_required": true, "ui_evidence_modes": ["assertions", "screenshots", "full_media"], "ui_evidence_selection": "risk_based", "incidental_ui_does_not_force_full_media": true, "full_media_for_motion_timing_sequence_or_release_claims": true, "implementation_state": "Deterministic Studio/API E2E owns integration evidence and zero residue; installed-wheel evidence strengthens package claims; representative Apple Silicon evidence is release-only unless explicitly used for diagnosis."},
+  "validation_economics": {"status": "recommended", "optimize_for": "sufficient-confidence-per-feedback-time", "dimensions": ["duration", "flake_rate", "unique_regression_signal", "overlap"], "periodic_review": true},
+  "build_identity": {"unique_per_build": true, "source_revision_required": true, "dirty_state_required": true, "lineage_fields": ["project", "platform", "architecture", "channel", "variant"], "artifact_name_fields": ["product", "product_version", "build_id", "source_revision"], "implementation_state": "scripts/build_artifacts.py records version, unique build ID, source revision, dirty state and lineage."},
+  "artifact_lifecycle": {"immutable_successful_artifacts": true, "promote_only_after_success": true, "manifest_required": true, "manifest_name": "build-manifest.json", "checksum_algorithm": "sha256", "local_keep_successful_per_lineage": 2, "ci_store": "github-actions", "ci_retention_days": 7, "release_store": "github-releases", "release_artifacts_immutable": true, "implementation_state": "Wheel/sdist builds use staging/promote, manifest, SHA-256 inventory, bounded retention and immutable release artifacts."},
+  "build_delta": {"required": true, "compare_to": "previous-successful-comparable-build", "output": "BUILD_CHANGELOG.md", "bundle_with_artifact": true, "dimensions": ["source", "dependencies", "toolchain", "configuration", "compatibility_migrations", "artifact_metrics", "validation"], "implementation_state": "scripts/build_artifacts.py bundles the delta with every promoted build."},
+  "local_runtime": {"applicable": true, "bind_default": "loopback", "port_strategy": "configurable-with-collision-check", "foreground_default": true, "readiness_required": true, "graceful_shutdown_required": true, "verify_no_project_listener_after_stop": true, "implementation_state": "Loopback/foreground/readiness/shutdown are product behavior; deterministic E2E verifies fixture listener cleanup and real backend lifecycle remains separate release evidence."},
+  "ephemeral_resources": {"run_identity": true, "isolated_workspace": true, "cleanup_paths": ["success", "failure", "timeout", "cancellation", "interrupt", "partial-initialization"], "stale_resource_recovery": true, "ownership_required_before_cleanup": true, "post_cleanup_verification": true, "implementation_state": "Deterministic E2E owns isolated run state and independently verifies cleanup."},
+  "agent_reporting": {"schema_version": 1, "format": "summary_with_evidence_references", "required_summary_fields": ["stage", "source_identity", "risks", "profile", "required_gates", "evidence", "remaining_gaps", "next_action"], "gate_fields": ["id", "reason", "executor", "status"], "source_identity_fields": ["head", "source_tree", "target_base", "dirty"], "bounded_output": true, "full_report_on_demand": true, "preserve_failed_pending_gates": true, "summary_is_not_evidence_verification": true}
 }

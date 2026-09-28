@@ -7,13 +7,13 @@
       "id": "development-clean-removes-owned-output",
       "lifecycle": "development",
       "claim": "canonical clean removes project-owned generated output",
-      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/repository-health.yml", "marker": "Verify canonical clean removes build output"}
+      "evidence": {"kind": "pytest", "nodeid": "tests/test_repeatability_contract.py::test_canonical_clean_removes_owned_output"}
     },
     {
       "id": "tests-run-from-locked-clean-checkout",
       "lifecycle": "test",
       "claim": "deterministic unit tests run after clean checkout and frozen dependency sync",
-      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/ci.yml", "marker": "Run deterministic unit tests without implicit resync"}
+      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/ci.yml", "marker": "uv run --no-sync pytest tests/ -v --tb=short"}
     },
     {
       "id": "e2e-owned-root-repeatability",
@@ -30,14 +30,14 @@
     {
       "id": "build-three-successive-identities",
       "lifecycle": "build",
-      "claim": "canonical build executes three times and validates unique identity, retention and failed-stage cleanup",
-      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/repository-health.yml", "marker": "Build three times through the canonical command"}
+      "claim": "FULL validation exercises three comparable builds and validates unique identity, bounded retention and failed-stage cleanup",
+      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/ci.yml", "marker": "Exercise artifact identity, promotion and bounded retention"}
     },
     {
       "id": "fresh-install-smoke-cleans-output",
       "lifecycle": "smoke",
       "claim": "fresh-install package smoke removes its build output after verification",
-      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/package-smoke.yml", "marker": "Remove package-smoke output"}
+      "evidence": {"kind": "workflow_marker", "path": ".github/workflows/ci.yml", "marker": "rm -rf dist build src/*.egg-info"}
     },
     {
       "id": "worker-runtime-multi-cycle",

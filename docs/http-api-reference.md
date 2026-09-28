@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-08-15
+Last reviewed: 2026-09-27
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
@@ -36,6 +36,7 @@ Administrative routes are disabled unless the server is launched with `--enable-
 | `GET` | `/v1/runtime/identity` | stable, versioned, path-free execution identity |
 | `GET` | `/v1/models` | OpenAI-compatible resident model discovery |
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat completion and SSE streaming |
+| `POST` | `/v1/images/generations` | OpenAI-shaped local text-to-image generation for explicit image-generation runtimes |
 | `POST` | `/v1/audio/transcriptions` | first-class multipart audio-to-text for explicit ASR runtimes |
 | `GET` | `/` | Local LLM Studio |
 | `GET` | `/example` | copy-ready integration examples |
@@ -220,3 +221,41 @@ Need exact current schema?          -> /docs
 ```
 
 For AI Performance Lab specifically, inference, identity and status are three independent contracts; none should be inferred from another.
+
+
+## `POST /v1/images/generations`
+
+This endpoint is a first-class image-generation task. It does not reuse chat semantics and it
+fails before backend invocation when the selected runtime does not explicitly declare
+`image_generation`, text input and image output.
+
+Minimal request:
+
+```json
+{
+  "model": "qwen-image-2.1",
+  "prompt": "A red cube on a clean white background",
+  "size": "1024x1024",
+  "response_format": "b64_json",
+  "seed": 42
+}
+```
+
+The first vertical slice supports `n=1` and `b64_json`. Optional Korgis request fields
+`num_inference_steps`, `guidance_scale` and `output_format` override the selected runtime
+defaults for that request. The response keeps the OpenAI image-list shape under `data[]` and
+adds a bounded `korgis` evidence object with runtime key, backend, dimensions, seed, latency
+and effective generation metadata.
+
+Image requests pass through the same optional HTTP admission layers as chat/VLM requests:
+canonical capability policy, per-runtime queue/global execution governor, transient-memory
+admission and finally the runtime lease. When enabled, successful responses can therefore expose
+`x-local-llm-queue-wait-ms`, `x-local-llm-global-wait-ms` and
+`x-local-llm-transient-reserved-bytes` under the same semantics as other inference endpoints.
+Queued image work does not reserve transient memory.
+
+Transient image memory is configuration/evidence driven. If no trustworthy request estimate is
+configured, the transient envelope remains unknown and execution is not presented as having a
+measured or derived memory requirement.
+
+Image editing and RGBA-specific public contracts are not part of this first slice.

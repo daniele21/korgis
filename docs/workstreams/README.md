@@ -14,4 +14,4 @@ Do not create separate plan/progress/status files for the same workstream. Git h
 
 ## Active
 
-No active workstreams. Full L2 repository, representative-hardware and bounded human product-experience evidence are accepted for the current candidate; future workstreams should be opened only for new bounded capability or evidence objectives.
+- [Qwen Image 2.1 Local Generation](qwen-image-2-1.md) — first-class local image-generation capability, Diffusers runtime, API integration and validation.

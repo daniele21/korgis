@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Create a minimal identity-bearing, privacy-safe Playwright failure bundle."""
+"""Create a minimal identity-bearing failure bundle, then remove raw Playwright evidence."""
 from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
+import shutil
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
-RESULTS = ROOT / "test-results" / "playwright-results.json"
+RESULTS_DIR = ROOT / "test-results"
+RESULTS = RESULTS_DIR / "playwright-results.json"
 OUTPUT_DIR = ROOT / "e2e-failure-evidence"
 OUTPUT = OUTPUT_DIR / "manifest.json"
 
@@ -34,45 +36,27 @@ def _collect_specs(suites: object) -> list[dict[str, object]]:
         if not isinstance(suite, dict):
             continue
         suite_file = _safe_relative_test_file(suite.get("file"))
-        specs = suite.get("specs")
-        if isinstance(specs, list):
-            for spec in specs:
-                if not isinstance(spec, dict):
+        for spec in suite.get("specs") or []:
+            if not isinstance(spec, dict):
+                continue
+            outcomes: list[dict[str, object]] = []
+            for test in spec.get("tests") or []:
+                if not isinstance(test, dict):
                     continue
-                tests = spec.get("tests")
-                outcomes: list[dict[str, object]] = []
-                if isinstance(tests, list):
-                    for test in tests:
-                        if not isinstance(test, dict):
-                            continue
-                        results = test.get("results")
-                        if not isinstance(results, list):
-                            continue
-                        for result in results:
-                            if not isinstance(result, dict):
-                                continue
-                            status = result.get("status")
-                            duration = result.get("duration")
-                            outcomes.append(
-                                {
-                                    "status": status if isinstance(status, str) else "unknown",
-                                    "duration_ms": duration if isinstance(duration, (int, float)) and not isinstance(duration, bool) else None,
-                                }
-                            )
-                collected.append(
-                    {
-                        "file": suite_file,
-                        "title": str(spec.get("title") or ""),
-                        "ok": bool(spec.get("ok")),
-                        "outcomes": outcomes,
-                    }
-                )
+                for result in test.get("results") or []:
+                    if not isinstance(result, dict):
+                        continue
+                    duration = result.get("duration")
+                    outcomes.append({
+                        "status": result.get("status") if isinstance(result.get("status"), str) else "unknown",
+                        "duration_ms": duration if isinstance(duration, (int, float)) and not isinstance(duration, bool) else None,
+                    })
+            collected.append({"file": suite_file, "title": str(spec.get("title") or ""), "ok": bool(spec.get("ok")), "outcomes": outcomes})
         collected.extend(_collect_specs(suite.get("suites")))
     return collected
 
 
 def build_manifest(report: dict[str, Any] | None, env: dict[str, str]) -> dict[str, object]:
-    specs = _collect_specs(report.get("suites") if isinstance(report, dict) else None)
     return {
         "schema_version": 1,
         "evidence_type": "playwright_failure_summary",
@@ -88,11 +72,12 @@ def build_manifest(report: dict[str, Any] | None, env: dict[str, str]) -> dict[s
         "privacy": {
             "raw_page_content_retained": False,
             "screenshots_retained": False,
+            "videos_retained": False,
             "traces_retained": False,
             "stdout_stderr_retained": False,
             "absolute_paths_retained": False,
         },
-        "tests": specs,
+        "tests": _collect_specs(report.get("suites") if isinstance(report, dict) else None),
     }
 
 
@@ -104,11 +89,20 @@ def main() -> int:
             if isinstance(loaded, dict):
                 report = loaded
         except (OSError, json.JSONDecodeError):
-            report = None
+            pass
+
     manifest = build_manifest(report, dict(os.environ))
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+
+    # Raw reports/traces/media can contain rendered content, stack details or
+    # absolute paths. Once the allow-listed manifest exists, remove them before
+    # the workflow's broad artifact path is evaluated.
+    if RESULTS_DIR.exists():
+        shutil.rmtree(RESULTS_DIR)
+
     print(f"Wrote sanitized E2E failure evidence: {OUTPUT.relative_to(ROOT)}")
+    print("Removed raw Playwright failure artifacts before upload")
     return 0
 
 

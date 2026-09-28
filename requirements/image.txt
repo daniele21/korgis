@@ -1,0 +1,9 @@
+# Optional local image-generation runtime dependencies.
+# Kept separate from the default Korgis uv lock so normal LLM/VLM installs
+# and CI do not pull the PyTorch/Diffusers stack.
+torch>=2.4.0
+transformers>=5.17
+diffusers @ git+https://github.com/huggingface/diffusers.git@80c7ed262aeffbeb43ef13ae04baeb9b84515a69
+accelerate>=1.0.0
+pillow>=10.0.0
+huggingface-hub>=0.34.0,<2.0.0
