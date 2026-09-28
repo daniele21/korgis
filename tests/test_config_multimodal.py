@@ -196,6 +196,7 @@ def test_qwen_image_gguf_q4km_config_resolves_managed_bundle(
     monkeypatch,
     tmp_path,
 ):
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     cfg = build_config(model="qwen-image-2.1-gguf-q4km")
