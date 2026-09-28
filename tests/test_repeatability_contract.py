@@ -1,9 +1,35 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import subprocess
 
 from scripts.verify_repeatability_contracts import PATH, validate
 from tests.e2e.lifecycle import OwnedRunState, stale_owned_roots
+
+COMMANDS_PATH = Path(".engineering/commands.json")
+
+
+def test_canonical_clean_removes_owned_output(tmp_path: Path) -> None:
+    commands = json.loads(COMMANDS_PATH.read_text(encoding="utf-8"))["commands"]
+    clean = commands["clean"]["run"]
+    owned = [
+        "build",
+        "dist",
+        ".pytest_cache",
+        ".ruff_cache",
+        "playwright-report",
+        "test-results",
+        "src/local_llm_server.egg-info",
+    ]
+    for relative in owned:
+        path = tmp_path / relative
+        path.mkdir(parents=True, exist_ok=True)
+        (path / "sentinel").write_text("owned", encoding="utf-8")
+
+    subprocess.run(clean, cwd=tmp_path, shell=True, check=True)
+
+    assert all(not (tmp_path / relative).exists() for relative in owned)
 
 
 def test_multiple_owned_e2e_runs_leave_no_owned_temp_roots() -> None:

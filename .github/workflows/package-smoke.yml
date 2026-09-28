@@ -1,9 +1,6 @@
 name: Package Install Smoke
 
 on:
-  pull_request:
-  push:
-    branches: ["main", "dev"]
   workflow_dispatch:
 
 permissions:
@@ -18,31 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==${UV_VERSION}"
-      - name: Sync locked package toolchain
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
       - name: Build identified wheel/sdist
-        env:
-          LOCAL_LLM_BUILD_CHANNEL: package-smoke
-          LOCAL_LLM_BUILD_VARIANT: wheel-sdist
         run: uv run --no-sync python scripts/build_artifacts.py --output-root dist --channel package-smoke --variant wheel-sdist
-      - name: Install built wheel into a fresh environment and smoke it
+      - name: Fresh-install and smoke built wheel
         shell: bash
         run: |
-          build_dir="$(find dist/builds -mindepth 2 -maxdepth 2 -type d | head -n 1)"
-          test -n "$build_dir"
+          build_dir="$(find dist/builds -mindepth 2 -maxdepth 2 -type d | head -n1)"
           wheel="$(find "$build_dir/package" -maxdepth 1 -type f -name '*.whl' -print -quit)"
           test -n "$wheel"
-          version="$(tr -d '[:space:]' < VERSION)"
-          uv run --no-sync python scripts/smoke_installed_artifact.py \
-            --wheel "$wheel" \
-            --expected-version "$version"
-      - name: Remove package-smoke output
-        if: always()
+          uv run --no-sync python scripts/smoke_installed_artifact.py --wheel "$wheel" --expected-version "$(tr -d '[:space:]' < VERSION)"
+      - if: always()
         run: rm -rf dist build src/*.egg-info
+
+# Automatic PR/release selection is owned by ci.yml. This workflow is a
+# diagnostic/manual rerun surface rather than a second automatic PR owner.

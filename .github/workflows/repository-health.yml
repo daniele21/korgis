@@ -1,227 +1,41 @@
 name: Repository Health
 
 on:
-  push:
-    branches: ["main", "master", "dev"]
   pull_request:
+    branches: [dev, main, master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [dev, main, master]
 
 permissions:
   contents: read
 
+concurrency:
+  group: local-llm-health-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   repository-health:
-    name: Repository Health
+    name: Structural repository health
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Select pull-request validation profile
-        if: github.event_name == 'pull_request'
-        env:
-          VALIDATION_BASE_REF: ${{ github.event.pull_request.base.sha }}
-          VALIDATION_HEAD_REF: HEAD
-        run: python3 scripts/select_validation_profile.py
-      - name: Validate repository baseline
-        run: python3 scripts/verify_repository.py
-      - name: Validate operating contract
-        run: python3 scripts/verify_operations.py
-      - name: Validate E2E environment fidelity
-        run: python3 scripts/verify_e2e.py
-      - name: Validate documentation lifecycle
-        run: python3 scripts/verify_docs.py
-      - name: Validate agent context budget
-        run: python3 scripts/verify_agent_context.py
-
-  artifact-lifecycle:
-    name: Artifact Lifecycle
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==0.8.13"
-      - name: Sync locked build/test toolchain
-        # The artifact lifecycle itself is backend-neutral; do not compile the
-        # native llama.cpp runtime merely to validate packaging mechanics.
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
-      - name: Build three times through the canonical command
-        env:
-          LOCAL_LLM_BUILD_CHANNEL: ci
-          LOCAL_LLM_BUILD_VARIANT: wheel-sdist
+      - name: Structural baseline and contracts
         run: |
-          uv run --no-sync python - <<'PY'
-          from __future__ import annotations
+          python3 scripts/verify_repository.py --skip-specialists
+          python3 scripts/verify_operations.py
+          python3 scripts/verify_e2e.py
+          python3 scripts/verify_stage_environment_policy.py
+          python3 scripts/verify_docs.py
+          python3 scripts/verify_agent_context.py
+          python3 scripts/select_validation_profile.py --self-test
 
-          import hashlib
-          import json
-          import os
-          from pathlib import Path
-          import subprocess
-
-          output_root = Path("dist")
-
-          def successful_builds() -> set[Path]:
-              root = output_root / "builds"
-              if not root.is_dir():
-                  return set()
-              return {
-                  path
-                  for path in root.glob("*/*")
-                  if path.is_dir() and (path / "build-manifest.json").is_file()
-              }
-
-          def invoke_build(*extra: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-              return subprocess.run(
-                  ["./deploy.sh", *extra],
-                  check=check,
-                  text=True,
-                  capture_output=True,
-                  env=os.environ.copy(),
-              )
-
-          def run_build() -> Path:
-              before = successful_builds()
-              proc = invoke_build("--skip-tests")
-              after = successful_builds()
-              created = after - before
-              if len(created) != 1:
-                  raise AssertionError(
-                      f"canonical build did not promote exactly one new build; created={sorted(map(str, created))}\n"
-                      f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
-                  )
-              return created.pop()
-
-          def sha256(path: Path) -> str:
-              digest = hashlib.sha256()
-              with path.open("rb") as handle:
-                  for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                      digest.update(chunk)
-              return digest.hexdigest()
-
-          def load_manifest(build: Path) -> dict:
-              return json.loads((build / "build-manifest.json").read_text(encoding="utf-8"))
-
-          def verify_build(build: Path) -> dict:
-              manifest = load_manifest(build)
-              required = {
-                  "build-manifest.json",
-                  "BUILD_CHANGELOG.md",
-                  "SHA256SUMS",
-                  "package",
-              }
-              assert required <= {path.name for path in build.iterdir()}
-              bundles = list(build.glob("*.tar.gz"))
-              assert len(bundles) == 1, f"expected one identified bundle in {build}"
-              package_files = [path for path in (build / "package").iterdir() if path.is_file()]
-              assert any(path.suffix == ".whl" for path in package_files)
-              assert any(path.name.endswith(".tar.gz") for path in package_files)
-
-              for line in (build / "SHA256SUMS").read_text(encoding="utf-8").splitlines():
-                  expected, relative = line.split("  ", 1)
-                  target = build / relative
-                  assert target.is_file(), f"checksum target missing: {relative}"
-                  assert sha256(target) == expected, f"checksum mismatch: {relative}"
-              return manifest
-
-          first = run_build()
-          second = run_build()
-          assert first != second
-          assert first.exists() and second.exists(), "retention=2 must keep the first two successful builds"
-
-          first_manifest = verify_build(first)
-          second_manifest = verify_build(second)
-          assert first_manifest["build_id"] != second_manifest["build_id"]
-          assert first_manifest["source"]["revision"] == second_manifest["source"]["revision"]
-          assert first_manifest["source"]["dirty"] is False
-          assert second_manifest["source"]["dirty"] is False
-          assert first_manifest["lineage"] == second_manifest["lineage"]
-          second_delta = (second / "BUILD_CHANGELOG.md").read_text(encoding="utf-8")
-          assert first_manifest["build_id"] in second_delta
-
-          third = run_build()
-          third_manifest = verify_build(third)
-          assert not first.exists(), "third comparable success must evict only the oldest retained build"
-          assert second.exists() and third.exists()
-          retained = successful_builds()
-          assert retained == {second, third}
-          assert third_manifest["source"]["revision"] == second_manifest["source"]["revision"]
-          assert third_manifest["source"]["dirty"] is False
-          third_delta = (third / "BUILD_CHANGELOG.md").read_text(encoding="utf-8")
-          assert second_manifest["build_id"] in third_delta
-
-          required_asset = Path("src/local_llm_server/static/index.html")
-          hidden_asset = required_asset.with_suffix(".html.std09-hidden")
-          before_failure = successful_builds()
-          required_asset.rename(hidden_asset)
-          try:
-              failed = invoke_build("--skip-tests", check=False)
-              assert failed.returncode != 0, "controlled broken package unexpectedly succeeded"
-          finally:
-              hidden_asset.rename(required_asset)
-          assert successful_builds() == before_failure, "failed staging was promoted as successful output"
-
-          staging = output_root / ".staging"
-          assert not staging.exists() or not any(staging.iterdir()), "build lifecycle left staging residue"
-          PY
-      - name: Verify release-style version bump updates lock identity
-        env:
-          LOCAL_LLM_BUILD_CHANNEL: release-candidate-ci
-          LOCAL_LLM_BUILD_VARIANT: wheel-sdist
-        run: |
-          before_version="$(tr -d '[:space:]' < VERSION)"
-          ./deploy.sh --bump-patch --skip-tests
-          after_file="$(tr -d '[:space:]' < VERSION)"
-          after_project="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          test "$after_file" = "$after_project"
-          test "$after_file" != "$before_version"
-          uv lock --check
-          git diff --exit-code --quiet -- . ':(exclude)pyproject.toml' ':(exclude)VERSION' ':(exclude)uv.lock' || {
-            echo "Version bump modified files outside pyproject.toml, VERSION and uv.lock" >&2
-            git status --short >&2
-            exit 1
-          }
-          test -n "$(git status --short -- pyproject.toml VERSION uv.lock)"
-      - name: Verify canonical clean removes build output
-        if: always()
-        run: |
-          rm -rf build dist src/*.egg-info .pytest_cache .ruff_cache playwright-report test-results
-          test ! -e build
-          test ! -e dist
-          test ! -e playwright-report
-          test ! -e test-results
-
-  l2-performance-regression:
-    name: L2 Performance Regression
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==0.8.13"
-      - name: Sync locked deterministic benchmark environment
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
-      - name: Run reproducible hosted performance regression
-        run: |
-          mkdir -p .artifacts/l2-performance
-          uv run --no-sync python scripts/run_performance_regression.py \
-            --output ".artifacts/l2-performance/performance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA}.json"
-      - name: Retain bounded performance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: l2-performance-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .artifacts/l2-performance/*.json
-          if-no-files-found: ignore
-          retention-days: 7
+# Expensive L1/L2 specialist fitness, artifact-lifecycle stress and hosted
+# performance regression are owned by the stage/risk-aware FULL gate in ci.yml.
+# Representative/target Apple Silicon evidence is a RELEASE gate, not a PR-to-dev gate.

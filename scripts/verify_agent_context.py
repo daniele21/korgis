@@ -1,64 +1,28 @@
 #!/usr/bin/env python3
-"""Estimate mandatory coding-agent context cost from bounded repository guides."""
-
-from __future__ import annotations
-
-import argparse
-import json
-import math
+import argparse,json,math,sys
 from pathlib import Path
-import sys
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--root", default=".")
-    return parser.parse_args()
-
-
-def estimate(path: Path, chars_per_token: int) -> int:
-    if not path.is_file():
-        return 0
-    return math.ceil(len(path.read_text(encoding="utf-8")) / chars_per_token)
-
-
-def main() -> int:
-    args = parse_args()
-    root = Path(args.root).resolve()
-    policy = json.loads((root / ".engineering/documentation-policy.json").read_text(encoding="utf-8"))
-    chars_per_token = int(policy.get("estimated_token_characters", 4))
-    targets = policy["context_targets"]
-
-    root_tokens = estimate(root / "AGENTS.md", chars_per_token)
-    scoped = [(p, estimate(p, chars_per_token)) for p in root.rglob("AGENTS.md") if p != root / "AGENTS.md" and ".git" not in p.parts]
-    scoped_path, scoped_tokens = max(scoped, key=lambda item: item[1], default=(None, 0))
-    workstreams = [(p, estimate(p, chars_per_token)) for p in (root / "docs/workstreams").glob("*.md") if p.name != "README.md" and not p.name.startswith("_")] if (root / "docs/workstreams").is_dir() else []
-    work_path, work_tokens = max(workstreams, key=lambda item: item[1], default=(None, 0))
-
-    bootstrap = root_tokens
-    worst_focused = root_tokens + scoped_tokens + work_tokens
-    errors: list[str] = []
-    if bootstrap > targets["bootstrap_max_estimated_tokens"]:
-        errors.append(f"bootstrap context ~{bootstrap} > {targets['bootstrap_max_estimated_tokens']} token target")
-    if worst_focused > targets["root_scoped_workstream_max_estimated_tokens"]:
-        errors.append(
-            f"root+largest scoped+largest workstream ~{worst_focused} > {targets['root_scoped_workstream_max_estimated_tokens']} token target"
-        )
-
-    print("Agent context health")
-    print(f"root AGENTS: ~{root_tokens} tokens")
-    print(f"largest scoped AGENTS: ~{scoped_tokens} tokens" + (f" ({scoped_path.relative_to(root)})" if scoped_path else ""))
-    print(f"largest active workstream: ~{work_tokens} tokens" + (f" ({work_path.relative_to(root)})" if work_path else ""))
-    print(f"bootstrap cost: ~{bootstrap} tokens")
-    print(f"worst focused routing bundle: ~{worst_focused} tokens")
-    for error in errors:
-        print(f"FAIL: {error}")
-    if errors:
-        print(f"RESULT: FAIL ({len(errors)} error(s))")
-        return 1
-    print("RESULT: PASS")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+REQ={'docs','bug','contract','ui','integration','release','resume'}
+a=argparse.ArgumentParser();a.add_argument('--route');a.add_argument('--path',action='append',default=[]);a.add_argument('--workstream');a.add_argument('--format',choices=['text','json'],default='text');a.add_argument('--root',default='.');a.add_argument('--template-mode',action='store_true');x=a.parse_args();root=Path(x.root);err=[];reports=[]
+try:
+ p=json.loads((root/'.engineering/documentation-policy.json').read_text());b=json.loads((root/'.engineering/baseline.json').read_text())
+ if p.get('schema_version')!=2:raise ValueError('documentation policy schema_version must be 2')
+ if not REQ.issubset(p.get('context_routes',{})):raise ValueError('missing context route')
+ cpt=p.get('estimated_token_characters',4);profiles=set(b.get('profiles',[]));names=[x.route] if x.route else list(p['context_routes'])
+ for n in names:
+  rr=p['context_routes'][n];req=rr.get('requires_profile')
+  if req and req not in profiles and not x.template_mode:continue
+  files=list(rr['files']);
+  if x.workstream and rr.get('include_workstream'):files.append(x.workstream)
+  total=0
+  for f in files:
+   q=root/f
+   if not q.is_file():raise ValueError('missing context source: '+f)
+   total+=math.ceil(len(q.read_text())/cpt)
+  if total>rr['max_estimated_tokens']:err.append(f'route {n} ~{total} exceeds {rr["max_estimated_tokens"]}')
+  reports.append({'route':n,'estimated_tokens':total,'budget':rr['max_estimated_tokens']})
+ boot=math.ceil(len((root/'AGENTS.md').read_text())/cpt);limit=p['context_targets']['bootstrap_max_estimated_tokens']
+ if boot>limit:err.append(f'bootstrap ~{boot} exceeds {limit}')
+ out={'bootstrap_estimated_tokens':boot,'routes':reports,'errors':err,'result':'FAIL' if err else 'PASS'}
+except Exception as ex:out={'errors':[str(ex)],'result':'FAIL'}
+print(json.dumps(out,indent=2) if x.format=='json' else '\n'.join(['Agent context health']+[f"{z['route']}: ~{z['estimated_tokens']} / {z['budget']}" for z in out.get('routes',[])]+['FAIL: '+z for z in out.get('errors',[])]+['RESULT: '+out['result']]))
+sys.exit(out['result']!='PASS')

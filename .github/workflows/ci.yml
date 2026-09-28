@@ -1,88 +1,363 @@
 name: CI
 
 on:
-  push:
-    branches: ["main", "master", "dev", "docs/control-plane-positioning-ux-plan"]
   pull_request:
+    branches: [dev, main, master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [dev, main, master]
+  workflow_dispatch:
+    inputs:
+      validation_profile:
+        type: choice
+        options: [auto, strong, full]
+        default: auto
+      delivery_stage:
+        type: choice
+        options: [iteration, integration, release]
+        default: integration
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: local-llm-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   UV_VERSION: "0.8.13"
 
 jobs:
-  lint:
-    name: Lint
+  scope:
+    name: Validation scope and identity
+    runs-on: ubuntu-latest
+    outputs:
+      stage: ${{ steps.selector.outputs.stage }}
+      profile: ${{ steps.selector.outputs.profile }}
+      reason: ${{ steps.selector.outputs.reason }}
+      risks: ${{ steps.selector.outputs.risk_dimensions }}
+      required_gates: ${{ steps.selector.outputs.required_gates }}
+      gate_key: ${{ steps.selector.outputs.gate_key }}
+      head_sha: ${{ steps.identity.outputs.head_sha }}
+      base_sha: ${{ steps.identity.outputs.base_sha }}
+      source_tree: ${{ steps.identity.outputs.source_tree }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEAD_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event.before }}" != "" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA="${{ github.event.before }}"
+          else
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "source_tree=$(git rev-parse HEAD^{tree})" >> "$GITHUB_OUTPUT"
+      - id: selector
+        shell: bash
+        env:
+          PR_DRAFT: ${{ github.event.pull_request.draft || false }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            STAGE="${{ inputs.delivery_stage }}"; PROFILE="${{ inputs.validation_profile }}"
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            if [[ "${{ github.base_ref }}" == "main" || "${{ github.base_ref }}" == "master" ]]; then STAGE=release
+            elif [[ "${{ github.event.pull_request.draft }}" == "true" ]]; then STAGE=iteration
+            else STAGE=integration
+            fi
+            PROFILE=auto
+          elif [[ "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "master" ]]; then
+            STAGE=release; PROFILE=auto
+          else
+            STAGE=integration; PROFILE=auto
+          fi
+          python3 scripts/select_validation_profile.py \
+            --base-ref "${{ steps.identity.outputs.base_sha }}" \
+            --head-ref "${{ steps.identity.outputs.head_sha }}" \
+            --stage "$STAGE" --profile "$PROFILE" --github-output "$GITHUB_OUTPUT"
+
+  guards:
+    name: Repository guards
+    needs: scope
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}", fetch-depth: 0}
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==${UV_VERSION}"
-      - name: Sync locked deterministic development environment
-        # llama-cpp-python is intentionally omitted from hosted deterministic CI:
-        # compiling the native backend is not required to prove backend-neutral
-        # product contracts and would make the normal gate hardware/toolchain-heavy.
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
-      - name: Run blocking Ruff correctness gate
-        # --no-sync is critical: a second implicit sync would reinstall the
-        # intentionally excluded native llama-cpp-python package.
-        run: uv run --no-sync ruff check src/ tests/ --select E9,F63,F7,F82
+        with: {python-version: "3.11"}
+      - run: |
+          test "$(git rev-parse HEAD)" = "${{ needs.scope.outputs.head_sha }}"
+          python3 scripts/verify_repository.py --skip-specialists
+          python3 scripts/verify_operations.py
+          python3 scripts/verify_e2e.py
+          python3 scripts/verify_docs.py
+          python3 scripts/verify_agent_context.py
+          python3 scripts/select_validation_profile.py --self-test
 
-  test:
+  reuse:
+    name: Reuse equivalent validation evidence
+    needs: scope
+    if: needs.scope.outputs.stage == 'integration'
+    runs-on: ubuntu-latest
+    outputs:
+      reused: ${{ steps.reuse.outputs.reused }}
+      source_run: ${{ steps.reuse.outputs.source_run }}
+    steps:
+      - id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ needs.scope.outputs.head_sha }}
+          BASE_SHA: ${{ needs.scope.outputs.base_sha }}
+          SOURCE_TREE: ${{ needs.scope.outputs.source_tree }}
+          PROFILE: ${{ needs.scope.outputs.profile }}
+          GATE_KEY: ${{ needs.scope.outputs.gate_key }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          exact="validation-evidence-${HEAD_SHA}-${BASE_SHA}-${PROFILE}-${GATE_KEY}"
+          tree="validation-tree-evidence-${SOURCE_TREE}-${BASE_SHA}-${PROFILE}-${GATE_KEY}"
+          names=("$exact")
+          if [[ "$EVENT_NAME" == "push" ]]; then names=("$tree"); fi
+          reused=false; source_run=""
+          for name in "${names[@]}"; do
+            row="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts?name=${name}&per_page=5" --jq '.artifacts[] | select(.expired == false) | [.name, (.workflow_run.id|tostring)] | @tsv' | head -n1 || true)"
+            if [[ -n "$row" ]]; then reused=true; source_run="${row#*$'\t'}"; break; fi
+          done
+          echo "reused=$reused" >> "$GITHUB_OUTPUT"
+          echo "source_run=$source_run" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: Lint
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'lint') && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - run: uv run --no-sync ruff check src/ tests/ --select E9,F63,F7,F82
+
+  python-fast:
+    name: Python fast
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'python-fast') && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - run: uv run --no-sync pytest tests/ -q --tb=short
+
+  python-matrix:
     name: Test (Python ${{ matrix.python-version }})
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'python-matrix') && needs.reuse.outputs.reused != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+      matrix: {python-version: ["3.10", "3.11", "3.12"]}
     steps:
       - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}"}
       - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==${UV_VERSION}"
-      - name: Sync locked deterministic test environment
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
-      - name: Run deterministic unit tests without implicit resync
-        run: uv run --no-sync pytest tests/ -v --tb=short
+        with: {python-version: "${{ matrix.python-version }}"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - run: uv run --no-sync pytest tests/ -v --tb=short
 
   browser-e2e:
     name: Playwright E2E
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'browser-e2e') && needs.reuse.outputs.reused != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}"}
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+        with: {python-version: "3.11"}
       - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install pinned uv bootstrap
-        run: python -m pip install "uv==${UV_VERSION}"
-      - name: Sync locked deterministic product fixture environment
-        run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
-      - name: Install locked Playwright dependency and Chromium
-        run: |
+        with: {node-version: "20"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          npm audit --audit-level=high
           npx playwright install --with-deps chromium
-      - name: Run browser E2E gate without Python environment resync
+      - name: Run deterministic browser journeys
         run: uv run --no-sync npm run test:e2e
+      - name: Verify risk-based UI evidence
+        run: node tests/e2e/verify_media_evidence.js test-results/playwright-results.json .engineering/e2e.json
       - name: Verify zero E2E residue
         if: always()
         run: uv run --no-sync python tests/e2e/verify_residue.py
-      - name: Prepare bounded privacy-safe E2E failure evidence
+      - name: Prepare privacy-safe failure evidence
         if: failure()
         env:
-          SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_HEAD_SHA: ${{ needs.scope.outputs.head_sha }}
         run: uv run --no-sync python tests/e2e/prepare_failure_evidence.py
-      - name: Upload bounded identity-bearing Playwright failure evidence
-        if: failure()
+      - name: Upload bounded E2E evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-e2e-failure-${{ github.run_id }}-${{ github.run_attempt }}
-          if-no-files-found: error
+          name: playwright-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**
+            e2e-failure-evidence/**
+          if-no-files-found: ignore
           retention-days: 7
-          path: e2e-failure-evidence/manifest.json
+
+  package-smoke:
+    name: Fresh-install wheel smoke
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'package-smoke') && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - name: Build and fresh-install smoke
+        run: |
+          uv run --no-sync python scripts/build_artifacts.py --output-root dist --channel package-smoke --variant wheel-sdist
+          build_dir="$(find dist/builds -mindepth 2 -maxdepth 2 -type d | head -n1)"
+          wheel="$(find "$build_dir/package" -maxdepth 1 -type f -name '*.whl' -print -quit)"
+          test -n "$wheel"
+          uv run --no-sync python scripts/smoke_installed_artifact.py --wheel "$wheel" --expected-version "$(tr -d '[:space:]' < VERSION)"
+      - if: always()
+        run: rm -rf dist build src/*.egg-info
+
+  security-audit:
+    name: Dependency security audit
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'security-audit') && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20", cache: npm}
+      - run: python -m pip install "uv==${UV_VERSION}" "pip-audit==2.10.1"
+      - run: |
+          python scripts/verify_security_exceptions.py
+          uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file audited-requirements.txt
+          python -m pip_audit --requirement audited-requirements.txt --no-deps --disable-pip --ignore-vuln PYSEC-2026-2447
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=high
+
+  l2-specialists:
+    name: L1/L2 specialist fitness
+    needs: [scope, guards, reuse]
+    if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'l2-specialists') && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ needs.scope.outputs.head_sha }}", fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}"
+      - run: uv sync --frozen --extra dev --no-install-package llama-cpp-python
+      - name: Run all L1/L2 repository fitness functions
+        run: uv run --no-sync python scripts/verify_repository.py
+      - name: Exercise artifact identity, promotion and bounded retention
+        run: uv run --no-sync python scripts/verify_artifact_lifecycle.py
+      - name: Run hosted performance regression
+        run: |
+          mkdir -p .artifacts/l2-performance
+          uv run --no-sync python scripts/run_performance_regression.py --output ".artifacts/l2-performance/performance-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA}.json"
+      - name: Retain bounded performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l2-performance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/l2-performance/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  validation:
+    name: Validation / ${{ needs.scope.outputs.stage }} / ${{ needs.scope.outputs.profile }}
+    if: always()
+    needs: [scope, guards, reuse, lint, python-fast, python-matrix, browser-e2e, package-smoke, security-audit, l2-specialists]
+    runs-on: ubuntu-latest
+    steps:
+      - shell: bash
+        env:
+          GATES: ${{ needs.scope.outputs.required_gates }}
+          REUSED: ${{ needs.reuse.outputs.reused }}
+          GUARDS: ${{ needs.guards.result }}
+          LINT: ${{ needs.lint.result }}
+          PYFAST: ${{ needs.python-fast.result }}
+          PYMATRIX: ${{ needs.python-matrix.result }}
+          BROWSER: ${{ needs.browser-e2e.result }}
+          PACKAGE: ${{ needs.package-smoke.result }}
+          SECURITY: ${{ needs.security-audit.result }}
+          L2: ${{ needs.l2-specialists.result }}
+        run: |
+          set -euo pipefail
+          test "$GUARDS" = success
+          if [[ "$REUSED" == true ]]; then exit 0; fi
+          check_gate() { local gate="$1" result="$2"; if [[ ",$GATES," == *",$gate,"* ]]; then test "$result" = success; fi; }
+          check_gate lint "$LINT"
+          check_gate python-fast "$PYFAST"
+          check_gate python-matrix "$PYMATRIX"
+          check_gate browser-e2e "$BROWSER"
+          check_gate package-smoke "$PACKAGE"
+          check_gate security-audit "$SECURITY"
+          check_gate l2-specialists "$L2"
+
+  evidence:
+    name: Publish reusable validation evidence
+    needs: [scope, reuse, validation]
+    if: always() && needs.validation.result == 'success' && needs.scope.outputs.stage != 'iteration' && needs.reuse.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create evidence identity
+        id: identity
+        env:
+          HEAD_SHA: ${{ needs.scope.outputs.head_sha }}
+          BASE_SHA: ${{ needs.scope.outputs.base_sha }}
+          SOURCE_TREE: ${{ needs.scope.outputs.source_tree }}
+          PROFILE: ${{ needs.scope.outputs.profile }}
+          STAGE: ${{ needs.scope.outputs.stage }}
+          RISKS: ${{ needs.scope.outputs.risks }}
+          GATES: ${{ needs.scope.outputs.required_gates }}
+          GATE_KEY: ${{ needs.scope.outputs.gate_key }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > evidence.json <<EOF
+          {"head":"$HEAD_SHA","source_tree":"$SOURCE_TREE","target_base":"$BASE_SHA","stage":"$STAGE","profile":"$PROFILE","risk_dimensions":"$RISKS","required_gates":"$GATES","e2e_environment":"as-selected","run_id":"${GITHUB_RUN_ID}"}
+          EOF
+          echo "exact=validation-evidence-${HEAD_SHA}-${BASE_SHA}-${PROFILE}-${GATE_KEY}" >> "$GITHUB_OUTPUT"
+          echo "tree=validation-tree-evidence-${SOURCE_TREE}-${BASE_SHA}-${PROFILE}-${GATE_KEY}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.identity.outputs.exact }}
+          path: evidence.json
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.identity.outputs.tree }}
+          path: evidence.json
+          retention-days: 7

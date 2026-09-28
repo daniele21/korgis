@@ -424,6 +424,7 @@ def get_health(request: Request):
         "GET /health",
         "GET /v1/models",
         "POST /v1/chat/completions",
+        "POST /v1/images/generations",
         "GET /status",
     ]
     if admin_enabled:

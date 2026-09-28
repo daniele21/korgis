@@ -1,9 +1,6 @@
 name: Security Audit
 
 on:
-  pull_request:
-  push:
-    branches: ["main", "dev"]
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
@@ -22,35 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned audit tooling
-        run: |
-          python -m pip install "uv==${UV_VERSION}" "pip-audit==${PIP_AUDIT_VERSION}"
-          python -m pip_audit --version
-      - name: Validate bounded vulnerability exceptions
-        run: python scripts/verify_security_exceptions.py
-      - name: Export exact locked runtime dependency graph
-        run: |
+        with: {python-version: "3.11"}
+      - run: python -m pip install "uv==${UV_VERSION}" "pip-audit==${PIP_AUDIT_VERSION}"
+      - run: python scripts/verify_security_exceptions.py
+      - run: |
           uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file audited-requirements.txt
-          test -s audited-requirements.txt
-      - name: Audit locked Python dependencies without re-resolution
-        run: |
-          python -m pip_audit \
-            --requirement audited-requirements.txt \
-            --no-deps \
-            --disable-pip \
-            --ignore-vuln PYSEC-2026-2447 \
-            --format json \
-            --output pip-audit.json
-      - name: Upload bounded machine-readable audit evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-dependency-audit-${{ github.run_id }}-${{ github.run_attempt }}
-          path: pip-audit.json
-          if-no-files-found: ignore
-          retention-days: 14
+          python -m pip_audit --requirement audited-requirements.txt --no-deps --disable-pip --ignore-vuln PYSEC-2026-2447
 
   node-dependencies:
     name: Node dependency audit
@@ -58,10 +32,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-      - name: Install exactly locked Node tooling
-        run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Fail on high or critical Node advisories
-        run: npm audit --audit-level=high
+        with: {node-version: "20", cache: npm}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm audit --audit-level=high
+
+# Dependency/security-sensitive PR and release gating is selected in ci.yml;
+# this workflow preserves independent scheduled/manual auditing without duplication.

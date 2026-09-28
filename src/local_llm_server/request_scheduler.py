@@ -31,7 +31,11 @@ from .metrics import DurationMetrics, InferenceMetrics
 from .request_pipeline import public_error_detail
 from .scheduler_policy import RequestSchedulerSettings, scheduler_settings_from_env
 
-_INFERENCE_PATHS = frozenset({"/v1/chat/completions", "/api/v1/chat"})
+_INFERENCE_PATHS = frozenset({
+    "/v1/chat/completions",
+    "/api/v1/chat",
+    "/v1/images/generations",
+})
 _QUEUE_WAIT_HEADER = "x-local-llm-queue-wait-ms"
 _GLOBAL_WAIT_HEADER = "x-local-llm-global-wait-ms"
 

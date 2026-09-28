@@ -69,7 +69,7 @@ test('overview prioritizes readiness, residency, budget, workload and capacity',
   await expect(evidenceDetails.getByText('Runtime fingerprint', { exact: true })).toBeHidden();
 });
 
-test('models and runtimes owns the lifecycle, resource recovery and deep-linked detail surface', async ({ page, request }) => {
+test('models and runtimes owns the lifecycle, resource recovery and deep-linked detail surface @full-media', async ({ page, request }) => {
   await openStudio(page);
   await page.getByRole('link', { name: 'Models & Runtimes' }).click();
   await expect(page).toHaveURL(/\/models$/);
@@ -151,7 +151,7 @@ test('runtime status polling becomes visible while a request is genuinely genera
   await expect(page.locator('#typing-status')).toBeHidden();
 });
 
-test('a failed inference does not poison the next request', async ({ page }) => {
+test('a failed inference does not poison the next request @full-media', async ({ page }) => {
   await openPlayground(page);
 
   let intercepted = false;

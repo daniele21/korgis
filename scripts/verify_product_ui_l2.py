@@ -13,8 +13,8 @@ POLICY_PATH = ROOT / ".engineering" / "product-ui-l2.json"
 BASELINE_PATH = ROOT / ".engineering" / "baseline.json"
 UX_PATH = ROOT / "design" / "ux-contract.json"
 PR_TEMPLATE = ROOT / ".github" / "pull_request_template.md"
-EXPECTED_STANDARD_VERSION = "0.8.0"
-EXPECTED_STANDARD_REVISION = "6677c5349d64ea6d935f1b460d03a47c236821bc"
+EXPECTED_STANDARD_VERSION = "0.10.0"
+EXPECTED_STANDARD_REVISION = "f392e4ded5cd3ec5efbf806934789c6cb9f10ded"
 EXPECTED_PRODUCT_UI_CONTRACT_VERSION = "0.5.0"
 ALLOWED_MANUAL_STATES = {"pending", "complete", "not-justified"}
 SENSITIVE_FIELD_FRAGMENTS = {
@@ -86,7 +86,7 @@ def main() -> int:
             f"found {standard.get('version')!r}"
         )
     if standard.get("revision") != EXPECTED_STANDARD_REVISION:
-        errors.append("product-ui L2 standard revision does not match the reviewed 0.8.0 baseline")
+        errors.append("product-ui L2 standard revision does not match the reviewed 0.10.0 baseline")
     if baseline.get("target_level") != "L2":
         errors.append("product-ui L2 validator requires target_level L2 when product-ui is adopted")
 
@@ -150,7 +150,11 @@ def main() -> int:
             if css_path == canonical:
                 continue
             css = css_path.read_text(encoding="utf-8")
-            duplicated = [selector for selector in required_components if isinstance(selector, str) and defines_component(css, selector)]
+            duplicated = [
+                selector
+                for selector in required_components
+                if isinstance(selector, str) and defines_component(css, selector)
+            ]
             if duplicated:
                 errors.append(
                     f"{css_path.relative_to(ROOT)} redefines canonical semantic component roots: "
@@ -272,7 +276,9 @@ def main() -> int:
             errors.append(f"manual_evidence.{key} must be one of {sorted(ALLOWED_MANUAL_STATES)}")
         elif status == "pending":
             warnings.append(f"{key} remains pending; full product-ui L2 must not be claimed")
-    if not isinstance(manual.get("completion_rule"), str) or not manual.get("completion_rule", "").strip():
+    if not isinstance(manual.get("completion_rule"), str) or not manual.get(
+        "completion_rule", ""
+    ).strip():
         errors.append("manual_evidence.completion_rule must be a non-empty string")
 
     for warning in warnings:

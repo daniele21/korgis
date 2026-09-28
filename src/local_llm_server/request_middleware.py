@@ -1,8 +1,8 @@
 """FastAPI request-policy middleware for the public inference entrypoints.
 
-The middleware canonicalizes and validates chat requests before the historical
-route creates backend kwargs. It is deliberately installed by product entry
-points rather than duplicating policy inside each backend.
+The middleware canonicalizes and validates public inference requests before
+scheduler/resource admission and backend execution. It is deliberately installed
+by product entry points rather than duplicating policy inside each backend.
 """
 from __future__ import annotations
 
@@ -10,12 +10,19 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
-from .core import InferenceError
+from .core import ErrorCode, InferenceError
+from .image_generation_request import (
+    ImageGenerationRequest,
+    prepare_image_generation_request,
+)
 from .request_pipeline import prepare_chat_request, public_error_detail
 from .task_policy import enforce_request_capabilities
 
-_INFERENCE_PATHS = frozenset({"/v1/chat/completions", "/api/v1/chat"})
+_CHAT_PATHS = frozenset({"/v1/chat/completions", "/api/v1/chat"})
+_IMAGE_PATHS = frozenset({"/v1/images/generations"})
+_INFERENCE_PATHS = _CHAT_PATHS | _IMAGE_PATHS
 
 
 def install_request_policy(application: FastAPI) -> FastAPI:
@@ -47,10 +54,38 @@ def install_request_policy(application: FastAPI) -> FastAPI:
             return await call_next(request)
 
         try:
-            prepared = prepare_chat_request(payload, runtime_config=runtime.cfg)
+            if request.url.path in _IMAGE_PATHS:
+                try:
+                    image_payload = ImageGenerationRequest.model_validate(payload)
+                except ValidationError:
+                    # Preserve FastAPI/Pydantic's public 422 behavior for malformed
+                    # image bodies. Invalid requests never reach admission anyway.
+                    return await call_next(request)
+                prepared = prepare_image_generation_request(
+                    image_payload,
+                    runtime_key=runtime.key,
+                    runtime_config=runtime.cfg,
+                )
+            else:
+                prepared = prepare_chat_request(
+                    payload,
+                    runtime_config=runtime.cfg,
+                )
             descriptor = enforce_request_capabilities(
                 prepared.canonical,
                 runtime_config=runtime.cfg,
+            )
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "detail": {
+                        "code": ErrorCode.INVALID_REQUEST.value,
+                        "message": str(exc),
+                        "retryable": False,
+                        "details": {},
+                    }
+                },
             )
         except InferenceError as exc:
             return JSONResponse(
@@ -58,9 +93,8 @@ def install_request_policy(application: FastAPI) -> FastAPI:
                 content={"detail": public_error_detail(exc)},
             )
 
-        # The current route still builds backend kwargs for compatibility, but
-        # downstream integration can consume this canonical object without
-        # translating the HTTP body a second time.
+        # Downstream admission consumes the canonical request regardless of
+        # whether the final route is chat or image generation.
         request.state.prepared_inference_request = prepared
         request.state.runtime_capabilities = descriptor
         return await call_next(request)

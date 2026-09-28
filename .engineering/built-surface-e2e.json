@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "surface": "fresh-installed-wheel",
-  "workflow": ".github/workflows/package-smoke.yml",
-  "workflow_marker": "Install built wheel into a fresh environment and smoke it",
+  "workflow": ".github/workflows/ci.yml",
+  "workflow_marker": "Build and fresh-install smoke",
   "smoke_runner": "scripts/smoke_installed_artifact.py",
   "journey_runner": "scripts/installed_surface_journey.py",
   "journey": {

@@ -25,6 +25,8 @@ _BACKEND_PACKAGES: dict[str, str] = {
     "llama_cpp": "llama-cpp-python",
     "mlx": "mlx-lm",
     "mlx_vlm_server": "mlx-vlm",
+    "diffusers_image": "diffusers",
+    "mflux_image": "mflux",
 }
 
 

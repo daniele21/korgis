@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from local_llm_server.registry import validate_registry
+from local_llm_server.registry import load_registry, validate_registry
 
 
 def _registry(models, *, default_model="one", startup_models=None):
@@ -73,3 +73,148 @@ def test_registry_validation_rejects_unknown_thinking_mode():
 
     with pytest.raises(ValueError, match="thinking_mode"):
         validate_registry(registry)
+
+
+def test_registry_validation_accepts_explicit_bounded_generation_domain():
+    validate_registry(
+        _registry(
+            {
+                "one": {
+                    "filename": "one.gguf",
+                    "generation_parameter_domains": {
+                        "temperature": {
+                            "kind": "float",
+                            "minimum": 0.0,
+                            "maximum": 0.8,
+                            "step": 0.1,
+                        }
+                    },
+                }
+            }
+        )
+    )
+
+
+def test_registry_validation_rejects_runtime_load_field_as_request_domain():
+    registry = _registry(
+        {
+            "one": {
+                "filename": "one.gguf",
+                "generation_parameter_domains": {
+                    "n_ubatch": {
+                        "kind": "integer",
+                        "minimum": 64,
+                        "maximum": 512,
+                    }
+                },
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="n_ubatch"):
+        validate_registry(registry)
+
+
+
+def test_builtin_registry_exposes_q4km_local_benchmark_models(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+
+    expected = {
+        "qwen3.5-4b-q4km": ("Qwen/Qwen3.5-4B", 2.71),
+        "qwen3.5-9b-q4km": ("Qwen/Qwen3.5-9B", 5.63),
+        "nemotron-nano-4b": ("nvidia/nemotron-3-nano-4b", 2.5),
+    }
+    for key, (model_id, size_gb) in expected.items():
+        entry = registry["models"][key]
+        assert entry["model_id"] == model_id
+        assert entry["quantization"] == "Q4_K_M"
+        assert entry["size_gb"] == size_gb
+        assert entry["thinking_mode"] == "switchable"
+
+    for key in ("qwen3.5-4b-q4km", "qwen3.5-9b-q4km"):
+        entry = registry["models"][key]
+        assert entry["backend"] == "llama_server"
+        assert entry["params"]["ctx_size"] == 8192
+        assert entry["params"]["enable_thinking"] is False
+        assert len(entry["sha256"]) == 64
+
+
+def test_registry_validation_accepts_image_generation_runtime():
+    validate_registry(
+        _registry(
+            {
+                "image": {
+                    "model_id": "Qwen/Qwen-Image-2.1",
+                    "backend": "diffusers_image",
+                    "tasks": ["image_generation"],
+                    "input_modalities": ["text"],
+                    "output_modalities": ["image"],
+                    "params": {"max_concurrent_requests": 1},
+                }
+            },
+            default_model="image",
+        )
+    )
+
+
+def test_builtin_registry_exposes_qwen_image_generation_capability(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["qwen-image-2.1"]
+
+    assert entry["model_id"] == "Qwen/Qwen-Image-2.1"
+    assert entry["backend"] == "diffusers_image"
+    assert entry["size_gb"] == 33.12
+    assert entry["tasks"] == ["image_generation"]
+    assert entry["input_modalities"] == ["text"]
+    assert entry["output_modalities"] == ["image"]
+    assert entry["params"]["max_concurrent_requests"] == 1
+
+
+def test_registry_validation_accepts_mflux_image_runtime():
+    validate_registry(
+        _registry(
+            {
+                "image": {
+                    "model_id": "mflux-community/example-q8",
+                    "backend": "mflux_image",
+                    "tasks": ["image_generation"],
+                    "input_modalities": ["text"],
+                    "output_modalities": ["image"],
+                    "params": {
+                        "max_concurrent_requests": 1,
+                        "resource_model_weights_bytes": 123,
+                    },
+                }
+            },
+            default_model="image",
+        )
+    )
+
+
+def test_builtin_registry_exposes_qwen_image_mflux_q8_profile(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["qwen-image-2.1-mflux-q8"]
+
+    assert entry["model_id"] == "mflux-community/qwen-image-2-1-mflux-q8"
+    assert entry["backend"] == "mflux_image"
+    assert entry["quantization"] == "Q8"
+    assert entry["size_gb"] == 24.04
+    assert entry["tasks"] == ["image_generation"]
+    assert entry["input_modalities"] == ["text"]
+    assert entry["output_modalities"] == ["image"]
+    assert entry["params"]["image_guidance_scale"] == 1.0
+    assert entry["params"]["image_quantization_bits"] == 8
+    assert entry["params"]["resource_model_weights_bytes"] == 24025558302
+    assert entry["params"]["max_concurrent_requests"] == 1

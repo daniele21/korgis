@@ -166,7 +166,42 @@ local-llm serve \
 
 A configured artifact, a resident runtime and the default route are distinct states. A server may also be healthy with zero resident runtimes.
 
-## 7. Use transcription
+## 7. Run the Jev-vs-LLM local benchmark models
+
+The built-in registry includes three text models used by the external Jev-vs-LLM experiment:
+
+| Registry key | Model | Quantization | Approx. weights | Backend |
+| --- | --- | --- | ---: | --- |
+| `qwen3.5-4b-q4km` | Qwen3.5-4B | Q4_K_M | 2.71 GB | `llama_server` |
+| `qwen3.5-9b-q4km` | Qwen3.5-9B | Q4_K_M | 5.63 GB | `llama_server` |
+| `nemotron-nano-4b` | NVIDIA Nemotron-3-Nano-4B | Q4_K_M | 2.5 GB | existing configured backend |
+
+Qwen3.5 uses 4B and 9B sizes; there is no official Qwen3.5-8B checkpoint. The 9B model is the corresponding larger local comparison.
+
+Download the artifacts before the benchmark:
+
+```bash
+local-llm download qwen3.5-4b-q4km
+local-llm download qwen3.5-9b-q4km
+local-llm download nemotron-nano-4b
+```
+
+The Qwen3.5 registry entries use the managed `llama_server` backend, so a compatible current `llama-server` binary must be available to Korgis. The registry pins the Q4_K_M artifact SHA-256 metadata used by runtime identity.
+
+For a low-memory benchmark setup, start only the small anchor runtime and enable the admin API:
+
+```bash
+local-llm serve \
+  --model nemotron-nano-4b \
+  --enable-admin-api \
+  --no-download
+```
+
+The external benchmark can then activate the Qwen runtimes sequentially through `/api/v1/models/activate`, return to the Nemotron anchor, and unload each larger temporary runtime. This avoids requiring all three GGUFs to stay resident at once.
+
+Benchmark requests explicitly disable thinking and hide reasoning output. Qwen3.5 registry defaults also use its non-thinking sampling profile so the measured workload is bounded decision inference rather than open-ended reasoning.
+
+## 8. Use transcription
 
 When an explicitly transcription-capable runtime is resident:
 
@@ -178,7 +213,7 @@ curl http://127.0.0.1:1235/v1/audio/transcriptions \
 
 Audio modality alone does not imply transcription support. Unsupported task/capability combinations are rejected before backend execution on supported product entrypoints.
 
-## 8. Connect AI Performance Lab
+## 9. Connect AI Performance Lab
 
 For the richest Performance Lab run, Local LLM Server provides three independent surfaces:
 
@@ -190,7 +225,7 @@ For the richest Performance Lab run, Local LLM Server provides three independent
 
 Performance Lab does not need an internal Python dependency on this repository. See the Performance Lab operational guide and this repository's [`runtime-identity-api.md`](runtime-identity-api.md).
 
-## 9. Before treating the setup as verified
+## 10. Before treating the setup as verified
 
 A useful local readiness check is:
 
