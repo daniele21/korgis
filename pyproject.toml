@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=84.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -28,7 +28,7 @@ dev = [
     "ruff",
     "huggingface-hub>=0.34.0,<2.0.0",
     "build==1.2.2.post1",
-    "setuptools>=68.0",
+    "setuptools>=84.0.0",
     "wheel",
 ]
 mlx = ["mlx-lm>=0.31.0", "huggingface-hub>=0.34.0,<2.0.0"]
