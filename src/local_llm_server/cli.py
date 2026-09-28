@@ -42,9 +42,10 @@ def main() -> None:
             "mlx_vlm_server",
             "diffusers_image",
             "mflux_image",
+            "stable_diffusion_cpp_image",
         ],
         default=None,
-        help="Inference backend: llama_cpp/llama_server for GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image for generic image generation, mflux_image for MLX image generation.",
+        help="Inference backend: llama_cpp/llama_server for text GGUF, mlx for text MLX, mlx_vlm_server for MLX vision, diffusers_image/mflux_image/stable_diffusion_cpp_image for image generation.",
     )
     p_serve.add_argument(
         "--model",
@@ -67,7 +68,7 @@ def main() -> None:
         "--model-path",
         default=None,
         dest="model_path",
-        help="Direct model path/ref. GGUF uses a file; MLX/Diffusers/MFlux use a local model directory or Hugging Face repo.",
+        help="Direct model path/ref. Text GGUF uses a file; MLX/Diffusers/MFlux use a model directory/ref; stable_diffusion_cpp_image uses a bundle root.",
     )
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
@@ -81,6 +82,9 @@ def main() -> None:
     p_serve.add_argument("--llama-server-port", type=int, default=None, dest="llama_server_port")
     p_serve.add_argument("--llama-server-bin", default=None, dest="llama_server_bin")
     p_serve.add_argument("--mlx-vlm-server-port", type=int, default=None, dest="mlx_vlm_server_port")
+    p_serve.add_argument("--sd-server-port", type=int, default=None, dest="sd_server_port")
+    p_serve.add_argument("--sd-server-bin", default=None, dest="sd_server_bin")
+    p_serve.add_argument("--sd-server-poll-interval-seconds", type=float, default=None, dest="sd_server_poll_interval_seconds")
     p_serve.add_argument("--mmproj-path", default=None, dest="mmproj_path")
     p_serve.add_argument("--image-device", choices=["auto", "mps", "cuda", "cpu"], default=None, dest="image_device")
     p_serve.add_argument("--image-dtype", choices=["bfloat16", "float16", "float32"], default=None, dest="image_dtype")
@@ -92,6 +96,10 @@ def main() -> None:
     p_serve.add_argument("--image-max-pixels", type=int, default=None, dest="image_max_pixels")
     p_serve.add_argument("--image-guidance-scale", type=float, default=None, dest="image_guidance_scale")
     p_serve.add_argument("--image-output-format", choices=["png", "jpeg", "jpg", "webp"], default=None, dest="image_output_format")
+    p_serve.add_argument("--image-sampling-method", default=None, dest="image_sampling_method")
+    p_serve.add_argument("--image-scheduler", default=None, dest="image_scheduler")
+    p_serve.add_argument("--image-diffusion-flash-attention", action=argparse.BooleanOptionalAction, default=None, dest="image_diffusion_flash_attention")
+    p_serve.add_argument("--image-offload-to-cpu", action=argparse.BooleanOptionalAction, default=None, dest="image_offload_to_cpu")
     p_serve.add_argument("--startup-timeout", type=int, default=None, dest="startup_timeout")
     p_serve.add_argument("--max-concurrent-requests", type=int, default=None, dest="max_concurrent_requests")
     p_serve.add_argument("--chat-format", default=None, dest="chat_format")
@@ -240,11 +248,13 @@ def _cmd_serve(args: argparse.Namespace) -> None:
     explicit: dict = {}
     for key in (
         "backend", "host", "port", "ctx_size", "max_kv_size", "n_gpu_layers", "n_threads",
-        "llama_server_port", "llama_server_bin", "mlx_vlm_server_port", "mmproj_path",
+        "llama_server_port", "llama_server_bin", "mlx_vlm_server_port",
+        "sd_server_port", "sd_server_bin", "sd_server_poll_interval_seconds", "mmproj_path",
         "image_device", "image_dtype", "image_width", "image_height",
         "image_num_inference_steps", "image_quantization_bits",
         "image_max_inference_steps", "image_max_pixels",
-        "image_guidance_scale", "image_output_format",
+        "image_guidance_scale", "image_output_format", "image_sampling_method",
+        "image_scheduler", "image_diffusion_flash_attention", "image_offload_to_cpu",
         "startup_timeout", "max_concurrent_requests", "chat_format", "force_json", "show_thinking", "enable_thinking",
         "no_download", "verbose",
     ):

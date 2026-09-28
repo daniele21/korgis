@@ -81,6 +81,8 @@ class ImageGenerationOptions:
     height: int | None = None
     num_inference_steps: int | None = None
     guidance_scale: float | None = None
+    sampling_method: str | None = None
+    scheduler: str | None = None
     seed: int | None = None
     output_format: str | None = None
 

@@ -1,7 +1,7 @@
 # Qwen Image 2.1 Local Generation
 
 Status: active
-Last reviewed: 2026-09-27
+Last reviewed: 2026-09-28
 Owner: Korgis runtime and public inference API
 Read when: implementing or coordinating local image-generation support
 
@@ -39,33 +39,36 @@ Make `qwen-image-2.1` a first-class Korgis resident runtime that can generate lo
 | QI-6 | Image editing / RGBA follow-up | future image contract | QI-7 | no | BLOCKED |
 | QI-7 | MFlux Q8 Apple-local runtime profile | MFlux backend, checkpoint validation, registry/config/tests/docs | QI-5 | no | DONE |
 | QI-8 | Representative Apple Silicon Q8 evidence | real-device smoke/performance/resource evidence | QI-7, QI-9 | no | BLOCKED |
-| QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | ACTIVE |
+| QI-9 | Image HTTP scheduler + transient admission | canonical policy, global governor, shared resource ledger, tests/docs | QI-3, QI-7 | no | DONE |
+| QI-10 | stable-diffusion.cpp GGUF Q4_K_M runtime | multi-artifact bundle, sd-server backend, registry/config/tests/docs | QI-3, QI-9 | no | DONE |
+| QI-11 | GGUF Q4_K_M experiments arm | Korgis provider mapping + React provenance | QI-10 | no | READY |
 
 Allowed states: `READY`, `ACTIVE`, `BLOCKED`, `DONE`.
 
 ## Current executable slice
 
-`QI-9`
+`QI-11`
 
 Acceptance:
 
-- image requests are canonicalized before admission using the same request preparation used by the route;
-- `/v1/images/generations` participates in optional per-runtime queueing and the global execution governor;
-- queued image work reserves no transient memory;
-- active image requests use the same `ResourceManager` ledger as resident runtimes and other admitted requests;
-- configured transient estimates can reject overcommit before the image backend is invoked;
-- missing transient image-memory evidence remains `unknown`; Korgis does not invent a pixel-to-RAM formula;
-- runtime lease/concurrency remains the final backend-local safeguard after scheduler/resource admission.
+- `qwen-image-2.1-gguf-q4km` is distinct from Diffusers BF16 and MFlux Q8 identities;
+- one registry entry owns a required artifact bundle: diffusion GGUF, Qwen3-VL text encoder GGUF and Qwen Image 2.1 VAE;
+- `local-llm download` completes every required artifact and `models` reports ready only when the complete bundle exists;
+- Korgis owns a resident `sd-server` subprocess and speaks the native `/sdcpp/v1/img_gen` job API;
+- request seed, dimensions, steps, CFG and sampler are mapped explicitly without prompt-embedded control JSON;
+- the public Korgis `/v1/images/generations` contract remains unchanged;
+- runtime identity records `stable_diffusion_cpp_image`, attributable sd-server version when available and Q4_K_M config provenance;
+- deterministic tests use fake process/HTTP boundaries and never download the real ~10 GB bundle.
 
 Validation:
 
-- `uv run --frozen pytest tests/test_image_generation_request.py tests/test_image_http_admission.py tests/test_image_generation_api.py tests/test_request_scheduler.py tests/test_request_resource_admission.py -q`
+- `uv run --frozen pytest tests/test_registry_validation.py tests/test_config_multimodal.py tests/test_model_sources_sdcpp_image.py tests/test_stable_diffusion_cpp_compat.py tests/test_stable_diffusion_cpp_image_engine.py tests/test_image_generation_api.py -q`
 - `uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82`
 
 ## Integration points
 
 - `TaskType.IMAGE_GENERATION` and `CapabilityDescriptor` are the canonical task/capability boundary.
-- `DiffusersImageEngine.generate_image(...)` and `MFluxImageEngine.generate_image(...)` implement the same backend-neutral image route contract.
+- `DiffusersImageEngine.generate_image(...)`, `MFluxImageEngine.generate_image(...)` and the stable-diffusion.cpp backend implement the same backend-neutral image route contract.
 - Canonical HTTP policy prepares image requests before `request_scheduler` and `request_resource_admission`.
 - `ProductRuntimeManager.lease_runtime(...)` remains the final lifecycle/concurrency owner.
 - `POST /v1/images/generations` is the public application-facing boundary used by experiments.

@@ -19,6 +19,8 @@ class ImageGenerationRequest(BaseModel):
     seed: int | None = None
     num_inference_steps: int | None = Field(default=None, ge=1)
     guidance_scale: float | None = None
+    sampling_method: str | None = None
+    scheduler: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +59,8 @@ def prepare_image_generation_request(
         height=height,
         num_inference_steps=payload.num_inference_steps,
         guidance_scale=payload.guidance_scale,
+        sampling_method=payload.sampling_method,
+        scheduler=payload.scheduler,
         seed=payload.seed,
         output_format=payload.output_format,
     )
@@ -73,6 +77,8 @@ def prepare_image_generation_request(
         "seed": payload.seed,
         "num_inference_steps": payload.num_inference_steps,
         "guidance_scale": payload.guidance_scale,
+        "sampling_method": payload.sampling_method,
+        "scheduler": payload.scheduler,
         "output_format": payload.output_format,
     }
     return PreparedImageGenerationRequest(

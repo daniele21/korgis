@@ -189,3 +189,42 @@ def test_qwen_image_mflux_q8_config_preserves_quantization_and_resource_evidence
     assert cfg["image_guidance_scale"] == 1.0
     assert cfg["resource_model_weights_bytes"] == 24025558302
     assert cfg["max_concurrent_requests"] == 1
+
+
+
+def test_qwen_image_gguf_q4km_config_resolves_managed_bundle(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    cfg = build_config(model="qwen-image-2.1-gguf-q4km")
+
+    bundle_root = tmp_path / ".local-llm" / "models" / "qwen-image-2.1-gguf-q4km"
+    assert cfg["backend"] == "stable_diffusion_cpp_image"
+    assert cfg["model_id"] == "unsloth/Qwen-Image-2.1-GGUF"
+    assert cfg["model_path"] == str(bundle_root.resolve())
+    assert cfg["model_downloaded"] is False
+    assert cfg["quantization"] == "Q4_K_M"
+    assert cfg["image_width"] == 1024
+    assert cfg["image_height"] == 1024
+    assert cfg["image_num_inference_steps"] == 20
+    assert cfg["image_guidance_scale"] == 6.0
+    assert cfg["image_sampling_method"] == "euler"
+    assert cfg["image_diffusion_flash_attention"] is True
+    assert cfg["image_offload_to_cpu"] is True
+    assert cfg["sd_server_port"] == 8093
+    assert cfg["model_artifacts"] == {
+        "diffusion_model": str(
+            bundle_root / "diffusion" / "qwen-image-2.1-Q4_K_M.gguf"
+        ),
+        "text_encoder": str(
+            bundle_root
+            / "text_encoder"
+            / "Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"
+        ),
+        "vae": str(
+            bundle_root / "vae" / "qwen_image_2.1_vae_bf16.safetensors"
+        ),
+    }

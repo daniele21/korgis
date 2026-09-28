@@ -5,6 +5,7 @@ No external dependencies (uses stdlib urllib only).
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import sys
 import urllib.request
@@ -13,7 +14,15 @@ from pathlib import Path
 logger = logging.getLogger("local-llm.downloader")
 
 
-def ensure_model(url: str, dest: Path, *, resume: bool = True, no_download: bool = False) -> None:
+def ensure_model(
+    url: str,
+    dest: Path,
+    *,
+    resume: bool = True,
+    no_download: bool = False,
+    expected_sha256: str | None = None,
+    verify_existing: bool = False,
+) -> None:
     """
     Ensure the model file exists at *dest*.
 
@@ -22,6 +31,8 @@ def ensure_model(url: str, dest: Path, *, resume: bool = True, no_download: bool
     Otherwise downloads from *url* with resume support.
     """
     if dest.exists():
+        if verify_existing and expected_sha256 is not None:
+            verify_file_sha256(dest, expected_sha256)
         return
 
     if no_download:
@@ -35,10 +46,22 @@ def ensure_model(url: str, dest: Path, *, resume: bool = True, no_download: bool
             f"Model not found at {dest} and no download URL is configured for this model."
         )
 
-    download_model(url=url, dest=dest, resume=resume)
+    download_model(
+        url=url,
+        dest=dest,
+        resume=resume,
+        expected_sha256=expected_sha256,
+    )
 
 
-def download_model(url: str, dest: Path, *, resume: bool = True, max_retries: int = 3) -> None:
+def download_model(
+    url: str,
+    dest: Path,
+    *,
+    resume: bool = True,
+    max_retries: int = 3,
+    expected_sha256: str | None = None,
+) -> None:
     """
     Download *url* to *dest* with resume, atomic write, and a progress bar.
 
@@ -51,6 +74,8 @@ def download_model(url: str, dest: Path, *, resume: bool = True, max_retries: in
     for attempt in range(1, max_retries + 1):
         try:
             _download_attempt(url=url, dest=dest, part=part, resume=resume)
+            if expected_sha256 is not None:
+                verify_file_sha256(dest, expected_sha256)
             return
         except Exception as exc:
             if attempt == max_retries:
@@ -115,3 +140,25 @@ def _print_progress(downloaded: int, total: int) -> None:
         file=sys.stderr,
         flush=True,
     )
+
+
+
+def verify_file_sha256(path: Path, expected_sha256: str) -> None:
+    """Verify one local artifact against an expected SHA-256 digest."""
+    expected = str(expected_sha256).strip().lower()
+    if len(expected) != 64 or any(ch not in "0123456789abcdef" for ch in expected):
+        raise ValueError("expected_sha256 must be a SHA-256 hex digest")
+
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            while chunk := handle.read(8 * 1024 * 1024):
+                digest.update(chunk)
+    except OSError as exc:
+        raise RuntimeError(f"Cannot hash downloaded artifact {path}: {exc}") from exc
+
+    actual = digest.hexdigest()
+    if actual != expected:
+        raise RuntimeError(
+            f"SHA-256 mismatch for {path.name}: expected {expected}, got {actual}"
+        )
