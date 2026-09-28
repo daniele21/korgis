@@ -12,6 +12,8 @@ SourceType = Literal["explicit", "lmstudio", "managed", "huggingface", "unresolv
 _MLX_BACKENDS = {"mlx", "mlx_vlm_server"}
 _DIFFUSERS_BACKENDS = {"diffusers_image"}
 _MFLUX_IMAGE_BACKENDS = {"mflux_image"}
+_SDCPP_IMAGE_BACKENDS = {"stable_diffusion_cpp_image"}
+_SDCPP_REQUIRED_ARTIFACTS = ("diffusion_model", "text_encoder", "vae")
 logger = logging.getLogger("local-llm.model_sources")
 
 
@@ -24,6 +26,7 @@ class ResolvedModel:
     source_type: SourceType
     downloaded: bool
     mmproj_path: Path | None = None
+    artifacts: dict[str, Path] | None = None
 
 
 def is_complete_mlx_model(path: Path, *, multimodal: bool = False) -> bool:
@@ -167,6 +170,76 @@ def is_complete_mflux_image_model(
     )
 
 
+def resolve_bundle_artifacts(
+    key: str,
+    entry: dict[str, Any],
+    models_dir: Path,
+    *,
+    explicit_root: str | None = None,
+) -> dict[str, Path]:
+    """Resolve one registry artifact bundle to bounded local paths."""
+    raw_artifacts = entry.get("artifacts")
+    if not isinstance(raw_artifacts, dict):
+        raise ValueError(f"Model '{key}' does not define an artifact bundle")
+
+    root = (
+        Path(explicit_root).expanduser().resolve()
+        if explicit_root is not None
+        else (models_dir / key).resolve()
+    )
+    resolved: dict[str, Path] = {}
+    for name, raw_spec in raw_artifacts.items():
+        if not isinstance(raw_spec, dict):
+            raise ValueError(f"Model '{key}' artifact '{name}' must be a mapping")
+        local_path = raw_spec.get("local_path") or raw_spec.get("filename")
+        if not isinstance(local_path, str) or not local_path.strip():
+            raise ValueError(
+                f"Model '{key}' artifact '{name}' needs local_path or filename"
+            )
+        relative = Path(local_path)
+        if relative.is_absolute():
+            raise ValueError(
+                f"Model '{key}' artifact '{name}' local path must be relative"
+            )
+        destination = (root / relative).resolve()
+        if destination != root and root not in destination.parents:
+            raise ValueError(
+                f"Model '{key}' artifact '{name}' escapes its bundle directory"
+            )
+        resolved[str(name)] = destination
+    return resolved
+
+
+def is_complete_sdcpp_image_bundle(
+    artifacts: dict[str, Path],
+) -> bool:
+    """Return whether every required stable-diffusion.cpp image artifact exists."""
+    return all(
+        name in artifacts and artifacts[name].is_file()
+        for name in _SDCPP_REQUIRED_ARTIFACTS
+    )
+
+
+def artifact_download_url(spec: dict[str, Any]) -> str:
+    """Resolve an explicit or Hugging Face artifact URL without network access."""
+    raw_url = spec.get("url")
+    if isinstance(raw_url, str) and raw_url.strip():
+        return raw_url.strip()
+    repo = spec.get("repo")
+    filename = spec.get("filename")
+    revision = spec.get("revision") or "main"
+    if not isinstance(repo, str) or not repo.strip():
+        raise ValueError("artifact repo must be a non-empty string when url is absent")
+    if not isinstance(filename, str) or not filename.strip():
+        raise ValueError(
+            "artifact filename must be a non-empty string when url is absent"
+        )
+    return (
+        f"https://huggingface.co/{repo.strip()}/resolve/"
+        f"{str(revision).strip()}/{filename.strip()}?download=true"
+    )
+
+
 def _looks_like_local_path(reference: str) -> bool:
     expanded = Path(reference).expanduser()
     return (
@@ -240,6 +313,26 @@ def resolve_registry_model(
         and params.get("image_quantization_bits") is not None
         else None
     )
+
+    if resolved_backend in _SDCPP_IMAGE_BACKENDS:
+        artifacts = resolve_bundle_artifacts(
+            key,
+            entry,
+            models_dir,
+            explicit_root=explicit_path,
+        )
+        root = (
+            Path(explicit_path).expanduser().resolve()
+            if explicit_path is not None
+            else (models_dir / key).resolve()
+        )
+        return ResolvedModel(
+            model_path=str(root),
+            local_path=root,
+            source_type="explicit" if explicit_path is not None else "managed",
+            downloaded=is_complete_sdcpp_image_bundle(artifacts),
+            artifacts=artifacts,
+        )
 
     if explicit_path is not None:
         reference = str(explicit_path)

@@ -558,4 +558,11 @@ def load_llm(cfg: dict[str, Any]) -> Any:
 
         return MFluxImageEngine(cfg)
 
+    if backend == "stable_diffusion_cpp_image":
+        from .stable_diffusion_cpp_image_engine import (
+            StableDiffusionCppImageEngine,
+        )
+
+        return StableDiffusionCppImageEngine(cfg)
+
     raise ValueError(f"Unsupported backend: {backend}")

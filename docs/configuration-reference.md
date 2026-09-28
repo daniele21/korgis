@@ -85,6 +85,9 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `llama_server_port` | `--llama-server-port` | `LOCAL_LLM_SERVER_PORT` | `8091` |
 | `llama_server_bin` | `--llama-server-bin` | `LOCAL_LLM_SERVER_BIN` | `null` |
 | `mlx_vlm_server_port` | `--mlx-vlm-server-port` | `LOCAL_LLM_MLX_VLM_SERVER_PORT` | `8092` |
+| `sd_server_port` | `--sd-server-port` | `LOCAL_LLM_SD_SERVER_PORT` | `8093` |
+| `sd_server_bin` | `--sd-server-bin` | `LOCAL_LLM_SD_SERVER_BIN` | `null` |
+| `sd_server_poll_interval_seconds` | `--sd-server-poll-interval-seconds` | `LOCAL_LLM_SD_SERVER_POLL_INTERVAL_SECONDS` | `0.25` |
 | `image_device` | `--image-device` | `LOCAL_LLM_IMAGE_DEVICE` | `auto` |
 | `image_dtype` | `--image-dtype` | `LOCAL_LLM_IMAGE_DTYPE` | `bfloat16` |
 | `image_width` | `--image-width` | `LOCAL_LLM_IMAGE_WIDTH` | `1024` |
@@ -95,6 +98,10 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `image_max_pixels` | `--image-max-pixels` | `LOCAL_LLM_IMAGE_MAX_PIXELS` | `4194304` |
 | `image_guidance_scale` | `--image-guidance-scale` | `LOCAL_LLM_IMAGE_GUIDANCE_SCALE` | `null` |
 | `image_output_format` | `--image-output-format` | `LOCAL_LLM_IMAGE_OUTPUT_FORMAT` | `png` |
+| `image_sampling_method` | `--image-sampling-method` | `LOCAL_LLM_IMAGE_SAMPLING_METHOD` | `euler` |
+| `image_scheduler` | `--image-scheduler` | `LOCAL_LLM_IMAGE_SCHEDULER` | `null` |
+| `image_diffusion_flash_attention` | `--image-diffusion-flash-attention/--no-image-diffusion-flash-attention` | `LOCAL_LLM_IMAGE_DIFFUSION_FLASH_ATTENTION` | `true` |
+| `image_offload_to_cpu` | `--image-offload-to-cpu/--no-image-offload-to-cpu` | `LOCAL_LLM_IMAGE_OFFLOAD_TO_CPU` | `true` |
 | `mmproj_path` | `--mmproj-path` | — | `null` |
 
 Paths and executable locations are private deployment details and are intentionally excluded from the public execution-identity response.
@@ -237,3 +244,56 @@ prompts. The resident runtime prioritizes correct repeated-request semantics.
 The model is governed by the upstream Qwen research license. Deterministic CI validates software
 contracts only; it does not establish performance, memory-fit or production-safety claims for a
 specific Mac.
+
+
+### Qwen Image 2.1 GGUF Q4_K_M via stable-diffusion.cpp
+
+The GGUF profile is a separate runtime identity:
+
+```text
+qwen-image-2.1-gguf-q4km
+```
+
+It is a three-artifact bundle rather than a single GGUF model:
+
+```text
+~/.local-llm/models/qwen-image-2.1-gguf-q4km/
+├── diffusion/qwen-image-2.1-Q4_K_M.gguf
+├── text_encoder/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf
+└── vae/qwen_image_2.1_vae_bf16.safetensors
+```
+
+`local-llm download qwen-image-2.1-gguf-q4km` downloads all required files and verifies the
+registry SHA-256 values. The model is considered downloaded only when all three required files
+exist. A user-supplied `--model-path` for this backend denotes the bundle root, not the denoiser
+GGUF file itself.
+
+Korgis does not install or silently replace the native inference engine. Build/install
+stable-diffusion.cpp separately and point Korgis to its `sd-server` executable:
+
+```bash
+export LOCAL_LLM_SD_SERVER_BIN="/absolute/path/to/sd-server"
+
+uv run --frozen local-llm download qwen-image-2.1-gguf-q4km
+uv run --frozen local-llm serve \
+  --model qwen-image-2.1-gguf-q4km \
+  --no-download
+```
+
+Korgis owns the `sd-server` subprocess lifecycle and talks to its native asynchronous
+`/sdcpp/v1/img_gen` job API. The public application boundary remains
+`POST /v1/images/generations`.
+
+The built-in profile uses 1024×1024, 20 steps, CFG 6.0 and Euler sampling. Dimensions for
+Qwen Image 2.1 must be divisible by 32. Request-level `sampling_method`, `scheduler`,
+`num_inference_steps`, `guidance_scale` and `seed` can override the configured defaults.
+
+The catalog size (~10.03 GB) describes the three artifacts, not peak runtime RAM. When the
+files are local, resource admission uses their exact summed file size before falling back to
+catalog size. Backend overhead, caches, activations and transient peak memory remain unknown
+unless separately configured or measured.
+
+The public runtime identity exposes backend/version, Q4_K_M quantization and the safe
+configuration digest. Its evidence grade remains partial because the current generic
+`verify-artifact` command is single-file; Korgis does not collapse three component hashes into
+a fictitious single-file digest.

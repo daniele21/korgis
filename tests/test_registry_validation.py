@@ -218,3 +218,89 @@ def test_builtin_registry_exposes_qwen_image_mflux_q8_profile(
     assert entry["params"]["image_quantization_bits"] == 8
     assert entry["params"]["resource_model_weights_bytes"] == 24025558302
     assert entry["params"]["max_concurrent_requests"] == 1
+
+
+
+def test_registry_validation_accepts_stable_diffusion_cpp_image_bundle():
+    validate_registry(
+        _registry(
+            {
+                "image": {
+                    "model_id": "unsloth/Qwen-Image-2.1-GGUF",
+                    "backend": "stable_diffusion_cpp_image",
+                    "tasks": ["image_generation"],
+                    "input_modalities": ["text"],
+                    "output_modalities": ["image"],
+                    "artifacts": {
+                        "diffusion_model": {
+                            "repo": "org/diffusion",
+                            "filename": "model.gguf",
+                        },
+                        "text_encoder": {
+                            "repo": "org/encoder",
+                            "filename": "encoder.gguf",
+                        },
+                        "vae": {
+                            "repo": "org/vae",
+                            "filename": "vae.safetensors",
+                        },
+                    },
+                    "params": {
+                        "sd_server_port": 8093,
+                        "max_concurrent_requests": 1,
+                    },
+                }
+            },
+            default_model="image",
+        )
+    )
+
+
+def test_registry_validation_rejects_incomplete_stable_image_bundle():
+    registry = _registry(
+        {
+            "image": {
+                "model_id": "unsloth/Qwen-Image-2.1-GGUF",
+                "backend": "stable_diffusion_cpp_image",
+                "tasks": ["image_generation"],
+                "input_modalities": ["text"],
+                "output_modalities": ["image"],
+                "artifacts": {
+                    "diffusion_model": {
+                        "repo": "org/diffusion",
+                        "filename": "model.gguf",
+                    },
+                    "vae": {
+                        "repo": "org/vae",
+                        "filename": "vae.safetensors",
+                    },
+                },
+            }
+        },
+        default_model="image",
+    )
+
+    with pytest.raises(ValueError, match="text_encoder"):
+        validate_registry(registry)
+
+
+def test_builtin_registry_exposes_qwen_image_gguf_q4km_profile(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["qwen-image-2.1-gguf-q4km"]
+
+    assert entry["backend"] == "stable_diffusion_cpp_image"
+    assert entry["quantization"] == "Q4_K_M"
+    assert entry["size_gb"] == 10.03
+    assert entry["tasks"] == ["image_generation"]
+    assert set(entry["artifacts"]) == {
+        "diffusion_model",
+        "text_encoder",
+        "vae",
+    }
+    assert entry["params"]["image_num_inference_steps"] == 20
+    assert entry["params"]["image_guidance_scale"] == 6.0
+    assert entry["params"]["image_sampling_method"] == "euler"

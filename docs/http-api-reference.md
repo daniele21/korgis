@@ -241,9 +241,9 @@ Minimal request:
 }
 ```
 
-The first vertical slice supports `n=1` and `b64_json`. Optional Korgis request fields
-`num_inference_steps`, `guidance_scale` and `output_format` override the selected runtime
-defaults for that request. The response keeps the OpenAI image-list shape under `data[]` and
+The first vertical slice supports `n=1` and `b64_json`. Optional Korgis request fields `num_inference_steps`, `guidance_scale`,
+`sampling_method`, `scheduler` and `output_format` override the selected runtime defaults
+for that request. The response keeps the OpenAI image-list shape under `data[]` and
 adds a bounded `korgis` evidence object with runtime key, backend, dimensions, seed, latency
 and effective generation metadata.
 

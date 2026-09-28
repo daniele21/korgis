@@ -56,6 +56,9 @@ _FALLBACKS: dict[str, Any] = {
     "llama_server_cache_type_v": None,
     "llama_server_cache_ram_mib": None,
     "mlx_vlm_server_port": 8092,
+    "sd_server_port": 8093,
+    "sd_server_bin": None,
+    "sd_server_poll_interval_seconds": 0.25,
     "image_device": "auto",
     "image_dtype": "bfloat16",
     "image_width": 1024,
@@ -66,6 +69,10 @@ _FALLBACKS: dict[str, Any] = {
     "image_max_pixels": 4194304,
     "image_guidance_scale": None,
     "image_output_format": "png",
+    "image_sampling_method": "euler",
+    "image_scheduler": None,
+    "image_diffusion_flash_attention": True,
+    "image_offload_to_cpu": True,
     "multimodal": False,
     "modalities": ["text"],
     "startup_timeout": 60,
@@ -105,6 +112,9 @@ _ENV_MAP: dict[str, str] = {
     "llama_server_cache_type_v": "LOCAL_LLM_SERVER_CACHE_TYPE_V",
     "llama_server_cache_ram_mib": "LOCAL_LLM_SERVER_CACHE_RAM_MIB",
     "mlx_vlm_server_port": "LOCAL_LLM_MLX_VLM_SERVER_PORT",
+    "sd_server_port": "LOCAL_LLM_SD_SERVER_PORT",
+    "sd_server_bin": "LOCAL_LLM_SD_SERVER_BIN",
+    "sd_server_poll_interval_seconds": "LOCAL_LLM_SD_SERVER_POLL_INTERVAL_SECONDS",
     "image_device": "LOCAL_LLM_IMAGE_DEVICE",
     "image_dtype": "LOCAL_LLM_IMAGE_DTYPE",
     "image_width": "LOCAL_LLM_IMAGE_WIDTH",
@@ -115,6 +125,10 @@ _ENV_MAP: dict[str, str] = {
     "image_max_pixels": "LOCAL_LLM_IMAGE_MAX_PIXELS",
     "image_guidance_scale": "LOCAL_LLM_IMAGE_GUIDANCE_SCALE",
     "image_output_format": "LOCAL_LLM_IMAGE_OUTPUT_FORMAT",
+    "image_sampling_method": "LOCAL_LLM_IMAGE_SAMPLING_METHOD",
+    "image_scheduler": "LOCAL_LLM_IMAGE_SCHEDULER",
+    "image_diffusion_flash_attention": "LOCAL_LLM_IMAGE_DIFFUSION_FLASH_ATTENTION",
+    "image_offload_to_cpu": "LOCAL_LLM_IMAGE_OFFLOAD_TO_CPU",
     "startup_timeout": "LOCAL_LLM_STARTUP_TIMEOUT",
     "max_concurrent_requests": "LOCAL_LLM_MAX_CONCURRENT_REQUESTS",
     "max_kv_size": "LOCAL_LLM_MAX_KV_SIZE",
@@ -132,10 +146,11 @@ _BOOL_ENV = {
     "flash_attn", "use_mmap", "multimodal", "trust_remote_code", "allow_remote_media",
     "llama_server_allow_unvalidated", "llama_server_cont_batching",
     "llama_server_kv_unified", "llama_server_fit",
+    "image_diffusion_flash_attention", "image_offload_to_cpu",
 }
 _INT_ENV = {
     "port", "ctx_size", "n_gpu_layers", "n_threads", "n_batch", "n_ubatch", "timeout",
-    "llama_server_port", "mlx_vlm_server_port", "startup_timeout", "default_top_k",
+    "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout", "default_top_k",
     "image_width", "image_height", "image_num_inference_steps", "image_quantization_bits",
     "image_max_inference_steps", "image_max_pixels",
     "max_concurrent_requests", "max_kv_size", "llama_server_fit_target_mib",
@@ -143,7 +158,7 @@ _INT_ENV = {
 }
 _FLOAT_ENV = {
     "default_temperature", "default_top_p", "default_min_p",
-    "default_repeat_penalty", "image_guidance_scale",
+    "default_repeat_penalty", "image_guidance_scale", "sd_server_poll_interval_seconds",
 }
 _RESOURCE_MEMORY_INT_ENV: dict[str, str] = {
     "resource_estimate_bytes": "LOCAL_LLM_RESOURCE_ESTIMATE_BYTES",
@@ -277,6 +292,15 @@ def build_config(
     cfg["model_path"] = resolved_source.model_path
     cfg["model_source"] = resolved_source.source_type
     cfg["model_downloaded"] = resolved_source.downloaded
+    cfg["model_artifacts"] = (
+        {
+            name: str(path)
+            for name, path in getattr(resolved_source, "artifacts", {}).items()
+        }
+        if getattr(resolved_source, "artifacts", None) is not None
+        else {}
+    )
+    cfg["artifact_specs"] = dict(entry.get("artifacts") or {})
 
     if not cfg.get("mmproj_path") and entry.get("mmproj_filename"):
         cfg["mmproj_path"] = str(
