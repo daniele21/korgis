@@ -27,6 +27,8 @@ def test_image_request_preparation_builds_canonical_and_backend_payload() -> Non
             seed=42,
             num_inference_steps=12,
             guidance_scale=1.0,
+            sampling_method="euler",
+            scheduler="discrete",
             output_format="png",
         ),
         runtime_key="image",
@@ -39,6 +41,8 @@ def test_image_request_preparation_builds_canonical_and_backend_payload() -> Non
     assert prepared.canonical.image_generation.width == 512
     assert prepared.canonical.image_generation.height == 768
     assert prepared.canonical.image_generation.seed == 42
+    assert prepared.canonical.image_generation.sampling_method == "euler"
+    assert prepared.canonical.image_generation.scheduler == "discrete"
     assert prepared.backend_payload == {
         "prompt": "A red cube",
         "width": 512,
@@ -46,6 +50,8 @@ def test_image_request_preparation_builds_canonical_and_backend_payload() -> Non
         "seed": 42,
         "num_inference_steps": 12,
         "guidance_scale": 1.0,
+        "sampling_method": "euler",
+        "scheduler": "discrete",
         "output_format": "png",
     }
 
