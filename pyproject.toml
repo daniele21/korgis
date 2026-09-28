@@ -26,13 +26,13 @@ dev = [
     "pytest",
     "httpx",
     "ruff",
-    "huggingface-hub>=0.34.0,<2.0.0",
+    "huggingface-hub>=2.0.0,<3.0.0",
     "build==1.2.2.post1",
     "setuptools>=68.0",
     "wheel",
 ]
-mlx = ["mlx-lm>=0.31.0", "huggingface-hub>=0.34.0,<2.0.0"]
-vision = ["mlx-vlm>=0.6.4,<0.7.0", "huggingface-hub>=0.34.0,<2.0.0"]
+mlx = ["mlx-lm>=0.31.0", "huggingface-hub>=2.0.0,<3.0.0"]
+vision = ["mlx-vlm>=0.6.4,<0.7.0", "huggingface-hub>=2.0.0,<3.0.0"]
 audio = ["soundfile>=0.12.0", "numpy>=1.24.0"]
 
 [project.scripts]
