@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import secrets
 import time
 import urllib.error
@@ -70,7 +71,7 @@ class StableDiffusionCppImageEngine:
         self.process = process_cls(
             command,
             name="sd-server",
-            logger=__import__("logging").getLogger("local-llm.sd-server"),
+            logger=logging.getLogger("local-llm.sd-server"),
         )
         self._start()
 
@@ -145,7 +146,9 @@ class StableDiffusionCppImageEngine:
         seed_raw = payload.get("seed")
         seed = int(seed_raw) if seed_raw is not None else int(self._seed_factory())
         sample_method = str(
-            self.cfg.get("image_sampling_method") or "euler"
+            payload.get("sampling_method")
+            or self.cfg.get("image_sampling_method")
+            or "euler"
         ).strip()
         if not sample_method:
             raise ValueError("image_sampling_method must not be empty")
@@ -165,7 +168,9 @@ class StableDiffusionCppImageEngine:
             "sample_steps": steps,
             "guidance": {"txt_cfg": guidance},
         }
-        scheduler = self.cfg.get("image_scheduler")
+        scheduler = payload.get("scheduler")
+        if scheduler is None:
+            scheduler = self.cfg.get("image_scheduler")
         if scheduler:
             sample_params["scheduler"] = str(scheduler)
 
