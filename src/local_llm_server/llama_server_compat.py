@@ -416,7 +416,7 @@ def _default_runner(binary: Path) -> str:
         [str(binary), "--version"],
         capture_output=True,
         text=True,
-        timeout=2.0,
+        timeout=10.0,
         check=False,
     )
     return "\n".join(
