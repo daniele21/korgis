@@ -288,6 +288,50 @@ The built-in profile uses 1024×1024, 20 steps, CFG 6.0 and Euler sampling. Dime
 Qwen Image 2.1 must be divisible by 32. Request-level `sampling_method`, `scheduler`,
 `num_inference_steps`, `guidance_scale` and `seed` can override the configured defaults.
 
+#### Reuse an existing local / LM Studio bundle without copying files
+
+For the `stable_diffusion_cpp_image` backend, `--model-path` is a **bundle root**. Artifact
+`local_path` values are resolved relative to that root. This allows Korgis to reuse files that
+already exist under another model manager without duplicating multi-gigabyte weights.
+
+Override the built-in artifact layout in `~/.local-llm/models.yaml`. For example:
+
+```yaml
+models:
+  qwen-image-2.1-gguf-q4km:
+    artifacts:
+      diffusion_model:
+        repo: "unsloth/Qwen-Image-2.1-GGUF"
+        filename: "qwen-image-2.1-Q4_K_M.gguf"
+        local_path: "unsloth/Qwen-Image-2.1-GGUF/qwen-image-2.1-Q4_K_M.gguf"
+      text_encoder:
+        repo: "unsloth/Qwen3-VL-8B-Instruct-GGUF"
+        filename: "Qwen3-VL-8B-Instruct-Q4_K_S.gguf"
+        local_path: "unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_S.gguf"
+      vae:
+        repo: "Comfy-Org/Qwen-Image-2.1"
+        filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        local_path: "qwen_image_2.1_vae_bf16.safetensors"
+```
+
+Then point Korgis at the common root:
+
+```bash
+uv run --frozen local-llm serve \
+  --model qwen-image-2.1-gguf-q4km \
+  --model-path "$HOME/.lmstudio/models" \
+  --no-download
+```
+
+No absolute artifact paths are written into public generation metadata. Korgis records the safe
+artifact basenames plus configured source repository/revision/hash metadata when available, so a
+benchmark can distinguish different text-encoder quantizations without leaking the user's local
+filesystem layout.
+
+The built-in text encoder remains the validated `UD-Q4_K_XL` profile. A different compatible
+Qwen3-VL GGUF quantization can be supplied through the override above, but it should be treated as
+a distinct benchmark/runtime variant until representative generation evidence is collected.
+
 The catalog size (~10.03 GB) describes the three artifacts, not peak runtime RAM. When the
 files are local, resource admission uses their exact summed file size before falling back to
 catalog size. Backend overhead, caches, activations and transient peak memory remain unknown
