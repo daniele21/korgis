@@ -105,7 +105,7 @@ def test_build_sd_server_command_adds_low_memory_controls(tmp_path: Path) -> Non
         },
     )
 
-    assert command[-12:] == [
+    assert command[-11:] == [
         "--params-backend",
         "diffusion=disk,te=cpu,vae=cpu",
         "--max-vram",
@@ -117,7 +117,7 @@ def test_build_sd_server_command_adds_low_memory_controls(tmp_path: Path) -> Non
         "--vae-tiling",
         "--vae-tile-size",
         "256x256",
-    ][-12:]
+    ]
     assert "--diffusion-fa" in command
     assert "--offload-to-cpu" in command
 
