@@ -284,9 +284,40 @@ Korgis owns the `sd-server` subprocess lifecycle and talks to its native asynchr
 `/sdcpp/v1/img_gen` job API. The public application boundary remains
 `POST /v1/images/generations`.
 
-The built-in profile uses 1024×1024, 20 steps, CFG 6.0 and Euler sampling. Dimensions for
-Qwen Image 2.1 must be divisible by 32. Request-level `sampling_method`, `scheduler`,
-`num_inference_steps`, `guidance_scale` and `seed` can override the configured defaults.
+The built-in profile keeps 1024×1024, 20 steps, CFG 6.0 and Euler as its quality-oriented
+generation defaults, while its `sd-server` startup is memory-bounded for Apple Silicon / shared-memory
+machines:
+
+```text
+--offload-to-cpu
+--params-backend diffusion=disk,te=cpu,vae=cpu
+--max-vram -2
+--model-args qwen_image_2_1_prefix_cache=false
+--disable-prefetch
+--vae-tiling --vae-tile-size 256x256
+```
+
+This keeps the largest diffusion parameters disk-backed, reserves approximately 2 GiB from the
+managed device budget, avoids the persistent Qwen Image 2.1 prefix cache, prevents asynchronous
+next-segment prefetch, and tiles VAE work. The trade-off is lower peak memory at the cost of more
+disk I/O and slower generation. These settings are written into image-generation evidence under
+`korgis.generation.memory`.
+
+Dimensions for Qwen Image 2.1 must be divisible by 32. Request-level `size`,
+`num_inference_steps`, `sampling_method`, `scheduler`, `guidance_scale` and `seed`
+can override the configured generation defaults.
+
+The low-memory startup controls are configurable through CLI or environment variables:
+
+```text
+--sd-server-params-backend     LOCAL_LLM_SD_SERVER_PARAMS_BACKEND
+--sd-server-max-vram           LOCAL_LLM_SD_SERVER_MAX_VRAM
+--sd-server-model-args         LOCAL_LLM_SD_SERVER_MODEL_ARGS
+--sd-server-mmap               LOCAL_LLM_SD_SERVER_MMAP
+--sd-server-disable-prefetch   LOCAL_LLM_SD_SERVER_DISABLE_PREFETCH
+--image-vae-tiling             LOCAL_LLM_IMAGE_VAE_TILING
+--image-vae-tile-size          LOCAL_LLM_IMAGE_VAE_TILE_SIZE
+```
 
 #### Reuse an existing local / LM Studio bundle without copying files
 
