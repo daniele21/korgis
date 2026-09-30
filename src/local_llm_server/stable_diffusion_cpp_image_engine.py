@@ -50,6 +50,7 @@ class StableDiffusionCppImageEngine:
             str(name): Path(str(value)).expanduser().resolve()
             for name, value in raw_artifacts.items()
         }
+        self.artifact_provenance = self._build_artifact_provenance(raw_specs)
         self._ensure_artifacts(raw_specs)
 
         self.host = "127.0.0.1"
@@ -74,6 +75,24 @@ class StableDiffusionCppImageEngine:
             logger=logging.getLogger("local-llm.sd-server"),
         )
         self._start()
+
+    def _build_artifact_provenance(
+        self,
+        specs: Mapping[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        provenance: dict[str, dict[str, Any]] = {}
+        for name in ("diffusion_model", "text_encoder", "vae"):
+            path = self.artifacts.get(name)
+            spec = specs.get(name)
+            if path is None or not isinstance(spec, Mapping):
+                continue
+            item: dict[str, Any] = {"filename": path.name}
+            for field in ("repo", "revision", "sha256"):
+                value = spec.get(field)
+                if value is not None and str(value).strip():
+                    item[field] = str(value)
+            provenance[name] = item
+        return provenance
 
     def _ensure_artifacts(self, specs: Mapping[str, Any]) -> None:
         for name in ("diffusion_model", "text_encoder", "vae"):
@@ -236,6 +255,7 @@ class StableDiffusionCppImageEngine:
                 "runtime": "stable-diffusion.cpp",
                 "backend_version": self.backend_version,
                 "quantization": self.cfg.get("quantization"),
+                "artifacts": self.artifact_provenance,
                 "sampling_method": sample_method,
                 "scheduler": scheduler,
                 "num_inference_steps": steps,
