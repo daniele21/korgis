@@ -256,6 +256,17 @@ class StableDiffusionCppImageEngine:
                 "backend_version": self.backend_version,
                 "quantization": self.cfg.get("quantization"),
                 "artifacts": self.artifact_provenance,
+                "memory": {
+                    "params_backend": self.cfg.get("sd_server_params_backend"),
+                    "max_vram": self.cfg.get("sd_server_max_vram"),
+                    "model_args": self.cfg.get("sd_server_model_args"),
+                    "mmap": bool(self.cfg.get("sd_server_mmap", False)),
+                    "disable_prefetch": bool(
+                        self.cfg.get("sd_server_disable_prefetch", False)
+                    ),
+                    "vae_tiling": bool(self.cfg.get("image_vae_tiling", False)),
+                    "vae_tile_size": self.cfg.get("image_vae_tile_size"),
+                },
                 "sampling_method": sample_method,
                 "scheduler": scheduler,
                 "num_inference_steps": steps,
