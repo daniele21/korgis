@@ -182,6 +182,12 @@ models:
       image_sampling_method: euler
       image_diffusion_flash_attention: true
       image_offload_to_cpu: true
+      sd_server_params_backend: "diffusion=disk,te=cpu,vae=cpu"
+      sd_server_max_vram: "-2"
+      sd_server_model_args: "qwen_image_2_1_prefix_cache=false"
+      sd_server_disable_prefetch: true
+      image_vae_tiling: true
+      image_vae_tile_size: "256x256"
       image_output_format: png
       max_concurrent_requests: 1
       startup_timeout: 600
