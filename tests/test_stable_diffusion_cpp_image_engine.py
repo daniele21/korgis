@@ -163,6 +163,15 @@ def test_sdcpp_engine_runs_native_job_and_preserves_q4_provenance(
     assert result.seed == 42
     assert result.metadata["runtime"] == "stable-diffusion.cpp"
     assert result.metadata["quantization"] == "Q4_K_M"
+    assert result.metadata["artifacts"] == {
+        "diffusion_model": {"filename": "model.gguf"},
+        "text_encoder": {"filename": "encoder.gguf"},
+        "vae": {"filename": "model.safetensors"},
+    }
+    assert all(
+        "local_path" not in artifact
+        for artifact in result.metadata["artifacts"].values()
+    )
     assert result.metadata["sampling_method"] == "euler_a"
     assert result.metadata["scheduler"] == "discrete"
     assert result.metadata["num_inference_steps"] == 16
