@@ -76,3 +76,70 @@ def test_build_sd_server_command_owns_bundle_and_runtime_flags(tmp_path: Path) -
         "--diffusion-fa",
         "--offload-to-cpu",
     ]
+
+
+
+def test_build_sd_server_command_adds_low_memory_controls(tmp_path: Path) -> None:
+    binary = _executable(tmp_path / "sd-server")
+    artifacts = {
+        "diffusion_model": tmp_path / "diffusion.gguf",
+        "text_encoder": tmp_path / "encoder.gguf",
+        "vae": tmp_path / "vae.safetensors",
+    }
+
+    command = build_sd_server_command(
+        binary=binary,
+        artifacts=artifacts,
+        host="127.0.0.1",
+        port=8093,
+        cfg={
+            "image_diffusion_flash_attention": True,
+            "image_offload_to_cpu": True,
+            "sd_server_params_backend": "diffusion=disk,te=cpu,vae=cpu",
+            "sd_server_max_vram": "-2",
+            "sd_server_model_args": "qwen_image_2_1_prefix_cache=false",
+            "sd_server_mmap": True,
+            "sd_server_disable_prefetch": True,
+            "image_vae_tiling": True,
+            "image_vae_tile_size": "256x256",
+        },
+    )
+
+    assert command[-12:] == [
+        "--params-backend",
+        "diffusion=disk,te=cpu,vae=cpu",
+        "--max-vram",
+        "-2",
+        "--model-args",
+        "qwen_image_2_1_prefix_cache=false",
+        "--mmap",
+        "--disable-prefetch",
+        "--vae-tiling",
+        "--vae-tile-size",
+        "256x256",
+    ][-12:]
+    assert "--diffusion-fa" in command
+    assert "--offload-to-cpu" in command
+
+
+def test_build_sd_server_command_rejects_tile_size_without_tiling(
+    tmp_path: Path,
+) -> None:
+    binary = _executable(tmp_path / "sd-server")
+    artifacts = {
+        "diffusion_model": tmp_path / "diffusion.gguf",
+        "text_encoder": tmp_path / "encoder.gguf",
+        "vae": tmp_path / "vae.safetensors",
+    }
+
+    with pytest.raises(ValueError, match="requires image_vae_tiling"):
+        build_sd_server_command(
+            binary=binary,
+            artifacts=artifacts,
+            host="127.0.0.1",
+            port=8093,
+            cfg={
+                "image_vae_tiling": False,
+                "image_vae_tile_size": "256x256",
+            },
+        )
