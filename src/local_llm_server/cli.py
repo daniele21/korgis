@@ -85,6 +85,11 @@ def main() -> None:
     p_serve.add_argument("--sd-server-port", type=int, default=None, dest="sd_server_port")
     p_serve.add_argument("--sd-server-bin", default=None, dest="sd_server_bin")
     p_serve.add_argument("--sd-server-poll-interval-seconds", type=float, default=None, dest="sd_server_poll_interval_seconds")
+    p_serve.add_argument("--sd-server-params-backend", default=None, dest="sd_server_params_backend")
+    p_serve.add_argument("--sd-server-max-vram", default=None, dest="sd_server_max_vram")
+    p_serve.add_argument("--sd-server-model-args", default=None, dest="sd_server_model_args")
+    p_serve.add_argument("--sd-server-mmap", action=argparse.BooleanOptionalAction, default=None, dest="sd_server_mmap")
+    p_serve.add_argument("--sd-server-disable-prefetch", action=argparse.BooleanOptionalAction, default=None, dest="sd_server_disable_prefetch")
     p_serve.add_argument("--mmproj-path", default=None, dest="mmproj_path")
     p_serve.add_argument("--image-device", choices=["auto", "mps", "cuda", "cpu"], default=None, dest="image_device")
     p_serve.add_argument("--image-dtype", choices=["bfloat16", "float16", "float32"], default=None, dest="image_dtype")
@@ -100,6 +105,8 @@ def main() -> None:
     p_serve.add_argument("--image-scheduler", default=None, dest="image_scheduler")
     p_serve.add_argument("--image-diffusion-flash-attention", action=argparse.BooleanOptionalAction, default=None, dest="image_diffusion_flash_attention")
     p_serve.add_argument("--image-offload-to-cpu", action=argparse.BooleanOptionalAction, default=None, dest="image_offload_to_cpu")
+    p_serve.add_argument("--image-vae-tiling", action=argparse.BooleanOptionalAction, default=None, dest="image_vae_tiling")
+    p_serve.add_argument("--image-vae-tile-size", default=None, dest="image_vae_tile_size")
     p_serve.add_argument("--startup-timeout", type=int, default=None, dest="startup_timeout")
     p_serve.add_argument("--max-concurrent-requests", type=int, default=None, dest="max_concurrent_requests")
     p_serve.add_argument("--chat-format", default=None, dest="chat_format")
@@ -249,12 +256,15 @@ def _cmd_serve(args: argparse.Namespace) -> None:
     for key in (
         "backend", "host", "port", "ctx_size", "max_kv_size", "n_gpu_layers", "n_threads",
         "llama_server_port", "llama_server_bin", "mlx_vlm_server_port",
-        "sd_server_port", "sd_server_bin", "sd_server_poll_interval_seconds", "mmproj_path",
+        "sd_server_port", "sd_server_bin", "sd_server_poll_interval_seconds",
+        "sd_server_params_backend", "sd_server_max_vram", "sd_server_model_args",
+        "sd_server_mmap", "sd_server_disable_prefetch", "mmproj_path",
         "image_device", "image_dtype", "image_width", "image_height",
         "image_num_inference_steps", "image_quantization_bits",
         "image_max_inference_steps", "image_max_pixels",
         "image_guidance_scale", "image_output_format", "image_sampling_method",
         "image_scheduler", "image_diffusion_flash_attention", "image_offload_to_cpu",
+        "image_vae_tiling", "image_vae_tile_size",
         "startup_timeout", "max_concurrent_requests", "chat_format", "force_json", "show_thinking", "enable_thinking",
         "no_download", "verbose",
     ):
