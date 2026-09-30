@@ -135,6 +135,12 @@ def test_sdcpp_engine_runs_native_job_and_preserves_q4_provenance(
             "image_output_format": "png",
             "image_diffusion_flash_attention": True,
             "image_offload_to_cpu": True,
+            "sd_server_params_backend": "diffusion=disk,te=cpu,vae=cpu",
+            "sd_server_max_vram": "-2",
+            "sd_server_model_args": "qwen_image_2_1_prefix_cache=false",
+            "sd_server_disable_prefetch": True,
+            "image_vae_tiling": True,
+            "image_vae_tile_size": "256x256",
             "quantization": "Q4_K_M",
             "no_download": True,
         },
@@ -167,6 +173,15 @@ def test_sdcpp_engine_runs_native_job_and_preserves_q4_provenance(
         "diffusion_model": {"filename": "model.gguf"},
         "text_encoder": {"filename": "encoder.gguf"},
         "vae": {"filename": "model.safetensors"},
+    }
+    assert result.metadata["memory"] == {
+        "params_backend": "diffusion=disk,te=cpu,vae=cpu",
+        "max_vram": "-2",
+        "model_args": "qwen_image_2_1_prefix_cache=false",
+        "mmap": False,
+        "disable_prefetch": True,
+        "vae_tiling": True,
+        "vae_tile_size": "256x256",
     }
     assert all(
         "local_path" not in artifact
