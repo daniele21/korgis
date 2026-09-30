@@ -97,6 +97,33 @@ def build_sd_server_command(
         cmd.append("--diffusion-fa")
     if bool(cfg.get("image_offload_to_cpu", True)):
         cmd.append("--offload-to-cpu")
+
+    params_backend = str(cfg.get("sd_server_params_backend") or "").strip()
+    if params_backend:
+        cmd.extend(["--params-backend", params_backend])
+
+    max_vram = cfg.get("sd_server_max_vram")
+    if max_vram is not None and str(max_vram).strip():
+        cmd.extend(["--max-vram", str(max_vram).strip()])
+
+    model_args = str(cfg.get("sd_server_model_args") or "").strip()
+    if model_args:
+        cmd.extend(["--model-args", model_args])
+
+    if bool(cfg.get("sd_server_mmap", False)):
+        cmd.append("--mmap")
+    if bool(cfg.get("sd_server_disable_prefetch", False)):
+        cmd.append("--disable-prefetch")
+
+    vae_tiling = bool(cfg.get("image_vae_tiling", False))
+    vae_tile_size = str(cfg.get("image_vae_tile_size") or "").strip()
+    if vae_tile_size and not vae_tiling:
+        raise ValueError("image_vae_tile_size requires image_vae_tiling")
+    if vae_tiling:
+        cmd.append("--vae-tiling")
+        if vae_tile_size:
+            cmd.extend(["--vae-tile-size", vae_tile_size])
+
     return cmd
 
 
