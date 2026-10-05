@@ -30,6 +30,7 @@ _ALLOWED_CONFIG_KEYS = frozenset({
     "llama_server_cont_batching",
     "llama_server_kv_unified",
     "llama_server_gpu_layers",
+    "llama_server_min_build",
     "llama_server_load_mode",
     "llama_server_fit",
     "llama_server_fit_target_mib",
