@@ -371,6 +371,6 @@ def test_builtin_registry_exposes_spark_x25_q4km_profile(
         "adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428"
     )
     assert entry["thinking_mode"] == "switchable"
-    assert entry["params"]["ctx_size"] == 131072
+    assert entry["params"]["ctx_size"] == 8192
     assert entry["params"]["enable_thinking"] is False
     assert entry["params"]["llama_server_min_build"] == 10828
