@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .runtime import ModelRuntimeManager
+from .resource_telemetry import RequestResourceSampler, request_evidence_payload
 
 logger = logging.getLogger("local-llm.server")
 
@@ -358,6 +359,7 @@ def _build_response(
     started_at: float,
     finished_at: float,
     show_thinking: bool,
+    korgis_evidence: dict[str, object] | None = None,
 ) -> dict[str, Any]:
     content = _extract_choice_content(raw)
     thinking, final_answer = _strip_thinking(content)
@@ -380,6 +382,8 @@ def _build_response(
     payload["final_answer"] = final_answer
     payload["backend"] = backend
     payload["stats"] = _usage_stats(raw, started_at, finished_at)
+    if korgis_evidence is not None:
+        payload["korgis"] = dict(korgis_evidence)
     return payload
 
 
@@ -1360,6 +1364,7 @@ def chat_completions(request: Request, req: ChatCompletionRequest):
                 started_at=started_at,
                 finished_at=time.perf_counter(),
                 show_thinking=show_thinking,
+                korgis_evidence=request_evidence_payload(execution_source="cache"),
             )
         logger.debug(
             "Inference cache miss | model=%s key=%s",
@@ -1369,26 +1374,46 @@ def chat_completions(request: Request, req: ChatCompletionRequest):
 
     with manager.lease_runtime(runtime):
         runtime.mark_started(int(max_tokens) if max_tokens else 0)
+        sampler = RequestResourceSampler().start()
+        raw_response: dict[str, Any] | None = None
+        failure: Exception | None = None
+        failure_trace: str | None = None
+        resource_evidence = None
 
         try:
             raw_response = runtime.engine.complete(kwargs)
-            if cache_key is not None:
-                response_cache.put(cache_key, raw_response)
-            return _build_response(
-                raw_response,
-                model_id=cfg["model_id"],
-                backend=getattr(runtime.engine, "backend", cfg.get("backend", "unknown")),
-                started_at=started_at,
-                finished_at=time.perf_counter(),
-                show_thinking=show_thinking,
-            )
-
         except Exception as exc:
             import traceback
-            logger.error("Inference error:\n%s", traceback.format_exc())
-            raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
+            failure = exc
+            failure_trace = traceback.format_exc()
         finally:
+            resource_evidence = sampler.stop()
+            runtime.latest_request_resource_evidence = resource_evidence
+            request.state.resource_snapshot_id = resource_evidence.snapshot_id
             runtime.mark_idle()
+
+        if failure is not None:
+            logger.error("Inference error:\n%s", failure_trace)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Inference failed: {failure}",
+            ) from failure
+
+        assert raw_response is not None
+        if cache_key is not None:
+            response_cache.put(cache_key, raw_response)
+        return _build_response(
+            raw_response,
+            model_id=cfg["model_id"],
+            backend=getattr(runtime.engine, "backend", cfg.get("backend", "unknown")),
+            started_at=started_at,
+            finished_at=time.perf_counter(),
+            show_thinking=show_thinking,
+            korgis_evidence=request_evidence_payload(
+                execution_source="inference",
+                resources=resource_evidence,
+            ),
+        )
 
 
 # ── Public entry point ──────────────────────────────────────────────────────────
