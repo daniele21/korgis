@@ -265,4 +265,7 @@ def test_streaming_response_releases_lease_when_client_disconnects():
     asyncio.run(consume_one_chunk_and_disconnect())
 
     assert runtime.active_requests == 0
+    evidence = runtime.latest_request_resource_evidence
+    assert evidence.snapshot_id.startswith("resource-")
+    assert evidence.sample_count >= 1 or evidence.sample_errors >= 1
     manager.unload("text")
