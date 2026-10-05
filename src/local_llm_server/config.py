@@ -221,6 +221,22 @@ def build_config(
             cfg[key] = explicit[key]
             continue
 
+        if key == "llama_server_bin":
+            model_bin_env = reg_params.get("llama_server_bin_env")
+            if model_bin_env is not None:
+                if not isinstance(model_bin_env, str) or not model_bin_env.strip():
+                    raise ValueError(
+                        f"Model '{model}' has invalid llama_server_bin_env"
+                    )
+                env_val = os.getenv(model_bin_env.strip(), "")
+                if not env_val:
+                    raise ValueError(
+                        f"Model '{model}' requires llama-server binary via "
+                        f"environment variable '{model_bin_env.strip()}'"
+                    )
+                cfg[key] = env_val
+                continue
+
         env_name = _ENV_MAP.get(key)
         env_val = os.getenv(env_name, "") if env_name else ""
         if env_val:
