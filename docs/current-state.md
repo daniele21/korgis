@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-09-28
+Last reviewed: 2026-10-05
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -46,7 +46,7 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
 
 ## Active workstreams
 
-- Request resource telemetry v1: active implementation on `agent/request-resource-telemetry-v1`; the first slice adds privacy-safe process-tree CPU/RAM sampling for non-streaming inference, additive request evidence and cache/non-cache semantics. Deterministic validation proves contract behavior only; representative hardware accuracy/overhead evidence remains required before broader performance claims. See `docs/workstreams/request-resource-telemetry-v1.md`.
+- Request resource telemetry v1: implementation is complete on `agent/request-resource-telemetry-v1` for the automated scope. Non-streaming and streaming request lifecycles now retain privacy-safe process-tree RSS and CPU-time-delta evidence, explicit memory/CPU provenance, cache semantics and canonical resource-snapshot linkage. Exact candidate `a9095d730ee99def7a03b20f7acc5b7a909c74e0` passed CI run 683 with the repository-selected release/FULL profile and Repository Health run 375. Representative Apple Silicon validation of real CPU/RAM behavior and sampler overhead remains REAL_ENVIRONMENT pending, so no new cross-device or request-exclusive resource claim is accepted yet. See `docs/workstreams/request-resource-telemetry-v1.md`.
 - Qwen Image 2.1 local generation: BF16 Diffusers, MFlux Q8 and the shared
   `/v1/images/generations` admission path are integrated. The active slice adds a distinct
   stable-diffusion.cpp GGUF Q4_K_M runtime composed of denoiser, Qwen3-VL text encoder and
