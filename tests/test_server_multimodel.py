@@ -8,7 +8,13 @@ import pytest
 from fastapi import HTTPException, Request
 
 from local_llm_server.runtime import ModelRuntimeManager
-from local_llm_server.server import ChatCompletionRequest, app, chat_completions, configure_runtime
+from local_llm_server.server import (
+    ChatCompletionRequest,
+    app,
+    chat_completions,
+    configure_runtime,
+    get_health,
+)
 
 
 def _request() -> Request:
@@ -75,6 +81,14 @@ def _install_manager(first_engine, second_engine):
     return manager
 
 
+def test_health_advertises_request_evidence_protocol():
+    _install_manager(_Engine("text"), _Engine("vision"))
+
+    health = get_health(_request())
+
+    assert health["request_evidence_versions"] == ["korgis-request-evidence-v1"]
+
+
 def test_chat_routes_to_requested_resident_model():
     text = _Engine("text response")
     vision = _Engine("vision response")
@@ -122,6 +136,11 @@ def test_deterministic_non_streaming_response_uses_lru_cache(caplog):
         second = chat_completions(_request(), req)
 
     assert first["content"] == second["content"] == "cached response"
+    assert first["korgis"]["evidence_version"] == "korgis-request-evidence-v1"
+    assert first["korgis"]["execution_source"] == "inference"
+    assert first["korgis"]["resources"]["snapshot_id"].startswith("resource-")
+    assert second["korgis"]["execution_source"] == "cache"
+    assert second["korgis"]["resources"] is None
     assert text.complete_calls == 1
     assert "Inference cache hit | model=text" in caplog.text
 
@@ -246,4 +265,7 @@ def test_streaming_response_releases_lease_when_client_disconnects():
     asyncio.run(consume_one_chunk_and_disconnect())
 
     assert runtime.active_requests == 0
+    evidence = runtime.latest_request_resource_evidence
+    assert evidence.snapshot_id.startswith("resource-")
+    assert evidence.sample_count >= 1 or evidence.sample_errors >= 1
     manager.unload("text")

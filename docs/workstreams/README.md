@@ -14,4 +14,5 @@ Do not create separate plan/progress/status files for the same workstream. Git h
 
 ## Active
 
+- [Request Resource Telemetry v1](request-resource-telemetry-v1.md) — per-request CPU/RAM evidence with explicit attribution and application-facing inference telemetry.
 - [Qwen Image 2.1 Local Generation](qwen-image-2-1.md) — first-class local image-generation capability, Diffusers runtime, API integration and validation.

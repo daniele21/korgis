@@ -49,6 +49,7 @@ def test_nonstreaming_json_response_records_real_usage_timings_and_wall_clock():
     @app.post("/v1/chat/completions")
     async def chat(request: Request):
         request.state.queue_wait_ms = 12.5
+        request.state.resource_snapshot_id = "resource-test"
         return JSONResponse(
             {
                 "choices": [{"message": {"role": "assistant", "content": "private answer"}}],
@@ -76,6 +77,7 @@ def test_nonstreaming_json_response_records_real_usage_timings_and_wall_clock():
     assert metrics.throughput.decode_tokens_per_second == 350.0
     assert metrics.sources["input_tokens"] == "response.usage.prompt_tokens"
     assert metrics.sources["queue_wait_ms"] == "request_scheduler.admission_wall_clock"
+    assert metrics.resource_snapshot_id == "resource-test"
     rendered = str(metrics.to_public_dict())
     assert "private answer" not in rendered
     assert "hello" not in rendered

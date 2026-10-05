@@ -3,7 +3,7 @@
 Status: active
 Owner: runtime-and-platform
 Canonical scope: current.resource-regression
-Last reviewed: 2026-09-27
+Last reviewed: 2026-10-05
 
 L2 hosted CI proves only configured/Python-owned resource-ledger behavior that is stable without a model or accelerator. `.engineering/resource-regression.json` maps each claim to an exact test and preserves explicit non-claims.
 
@@ -13,6 +13,8 @@ Resident runtimes and transient active requests are distinct reservation kinds i
 
 Memory envelopes are configured estimates, not measurements. Resident accounting can combine attributable model/projector artifact size with explicitly configured backend/context/cache/safety budgets; transient accounting can use an explicit total or configured request components. Image generation does not derive transient RAM from width/height alone; without configured or measured evidence its request-memory envelope remains unknown. Missing evidence remains unavailable and envelope completeness is exposed separately from known lower-bound bytes. No formula based only on `ctx_size` is treated as measured or trustworthy KV memory.
 
-This evidence does **not** prove native backend memory reclamation, Apple unified-memory or accelerator reclamation, RSS return-to-baseline, or automatic pressure-eviction safety. Those remain representative-device claims owned by the hardware evidence workstream.
+Per-request telemetry is a separate evidence contract. `korgis-request-evidence-v1` may report measured process-tree RSS and CPU-time-delta observations for an inference request, with explicit sources and `process_global` attribution. Those observations do not retroactively convert configured resource envelopes into measured admission requirements and are not used to weaken or bypass the resource ledger.
+
+This evidence does **not** prove native backend memory reclamation, Apple unified-memory or accelerator reclamation, RSS return-to-baseline, request-exclusive attribution under concurrency, or automatic pressure-eviction safety. Those remain representative-device claims owned by the hardware evidence workstream.
 
 Run `python3 scripts/verify_resource_regression.py` for contract integrity; normal pytest executes the behavioral and heap regression tests. Shared Repository Health integration remains L2-10.

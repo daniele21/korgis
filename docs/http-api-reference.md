@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-09-27
+Last reviewed: 2026-10-05
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
@@ -112,6 +112,55 @@ Consumers should primarily rely on standard OpenAI-compatible fields:
 `usage` and backend timing evidence are emitted only when the underlying runtime can supply trustworthy values. Missing metrics remain missing; they are not reconstructed from unrelated counters.
 
 The server may include provider-specific convenience/evidence fields in addition to the OpenAI-compatible response. Integrations that require reproducible semantics should explicitly document any such field they consume instead of treating all extras as stable API.
+
+### Korgis request evidence
+
+Successful non-streaming chat completions may include an additive `korgis` object using protocol `korgis-request-evidence-v1`. Generic OpenAI clients may ignore it. Korgis-aware applications can use it to correlate one inference with privacy-safe resource evidence.
+
+```json
+{
+  "korgis": {
+    "evidence_version": "korgis-request-evidence-v1",
+    "request_id": "opaque",
+    "execution_source": "inference",
+    "resources": {
+      "snapshot_id": "opaque",
+      "memory": {
+        "baseline_bytes": 0,
+        "peak_bytes": 0,
+        "end_bytes": 0,
+        "peak_delta_bytes": 0
+      },
+      "cpu": {
+        "average_percent": 0.0,
+        "peak_percent": 0.0
+      },
+      "sampling": {
+        "interval_ms": 100,
+        "sample_count": 0,
+        "errors": 0,
+        "cpu_observation_ms": 0.0
+      },
+      "attribution": {
+        "scope": "korgis_process_tree",
+        "quality": "process_global"
+      },
+      "sources": {
+        "memory": "ps_process_tree_rss_excluding_sampler",
+        "cpu": "ps_process_tree_cpu_time_delta_excluding_sampler"
+      }
+    }
+  }
+}
+```
+
+The current v1 sampler observes the Korgis process tree. RSS is sampled from that process tree while CPU percentages are computed from process CPU-time deltas over the request observation window; lifetime `ps %CPU` is not used as request evidence. `sampling.cpu_observation_ms` records the actual interval covered by usable CPU-delta samples.
+
+Memory and CPU provenance remain separate because they are different measurements. The sampler process itself is excluded from the process-tree totals. The evidence is deliberately labelled `process_global`: concurrent requests may share the measured process tree, so these values are not claimed as request-exclusive CPU/RAM ownership. Missing measurements remain unavailable rather than zero. Cache hits use `execution_source=cache` and do not replay historical inference resource measurements as fresh consumption.
+
+Streaming inference uses the same request-lifecycle sampler ownership. The sampler is closed and its latest privacy-safe snapshot is retained when the stream completes, fails or the iterator is closed. The ordinary SSE payload remains OpenAI-compatible; clients that need the completed resource snapshot can consume the runtime evidence surface after stream completion.
+
+The resource snapshot is distinct from `/api/v1/resources`, which remains configured budget/accounting state, and from `/v1/runtime/identity`, which remains stable execution identity.
 
 ### Streaming
 
