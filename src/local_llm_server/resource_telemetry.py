@@ -23,6 +23,7 @@ class ResourceSample:
     monotonic_s: float
     rss_bytes: int | None
     cpu_percent: float | None
+    cpu_interval_s: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +38,7 @@ class RequestResourceEvidence:
     interval_ms: int
     sample_count: int
     sample_errors: int
+    cpu_observation_ms: float | None
     source: str
     attribution_scope: str = "korgis_process_tree"
     attribution_quality: str = "process_global"
@@ -58,6 +60,7 @@ class RequestResourceEvidence:
                 "interval_ms": self.interval_ms,
                 "sample_count": self.sample_count,
                 "errors": self.sample_errors,
+                "cpu_observation_ms": self.cpu_observation_ms,
             },
             "attribution": {
                 "scope": self.attribution_scope,
@@ -80,14 +83,16 @@ class ResourceSampleSource(Protocol):
 class PsProcessTreeSampleSource:
     """Sample the current Korgis process tree through the local POSIX `ps` tool."""
 
-    source_name = "ps_process_tree_excluding_sampler"
+    source_name = "ps_process_tree_cpu_time_delta_excluding_sampler"
 
     def __init__(self, root_pid: int | None = None) -> None:
         self.root_pid = root_pid or os.getpid()
+        self._previous_cpu_seconds: dict[int, float] | None = None
+        self._previous_monotonic_s: float | None = None
 
     def sample(self) -> ResourceSample:
         process = subprocess.Popen(
-            ["ps", "-axo", "pid=,ppid=,rss=,pcpu="],
+            ["ps", "-axo", "pid=,ppid=,rss=,time="],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -114,10 +119,10 @@ class PsProcessTreeSampleSource:
                 pid = int(parts[0])
                 ppid = int(parts[1])
                 rss_kib = max(0, int(parts[2]))
-                cpu_percent = max(0.0, float(parts[3].replace(",", ".")))
+                cpu_seconds = _parse_cpu_time_seconds(parts[3])
             except (TypeError, ValueError):
                 continue
-            rows[pid] = (ppid, rss_kib, cpu_percent)
+            rows[pid] = (ppid, rss_kib, cpu_seconds)
 
         selected = {self.root_pid}
         changed = True
@@ -133,13 +138,62 @@ class PsProcessTreeSampleSource:
         if not present:
             raise RuntimeError("root process was not present in ps output")
 
+        sampled_at = time.monotonic()
         rss_bytes = sum(row[1] for row in present) * 1024
-        cpu_percent = sum(row[2] for row in present)
+        current_cpu_seconds = {
+            pid: rows[pid][2]
+            for pid in selected
+            if pid in rows
+        }
+
+        cpu_percent = None
+        cpu_interval_s = None
+        if (
+            self._previous_cpu_seconds is not None
+            and self._previous_monotonic_s is not None
+        ):
+            elapsed_s = sampled_at - self._previous_monotonic_s
+            if elapsed_s > 0:
+                cpu_delta_s = sum(
+                    max(
+                        0.0,
+                        cpu_seconds
+                        - self._previous_cpu_seconds.get(pid, 0.0),
+                    )
+                    for pid, cpu_seconds in current_cpu_seconds.items()
+                )
+                cpu_percent = cpu_delta_s / elapsed_s * 100.0
+                cpu_interval_s = elapsed_s
+
+        self._previous_cpu_seconds = current_cpu_seconds
+        self._previous_monotonic_s = sampled_at
         return ResourceSample(
-            monotonic_s=time.monotonic(),
+            monotonic_s=sampled_at,
             rss_bytes=rss_bytes,
             cpu_percent=cpu_percent,
+            cpu_interval_s=cpu_interval_s,
         )
+
+
+def _parse_cpu_time_seconds(raw: str) -> float:
+    """Parse POSIX ps TIME values without treating lifetime %CPU as request CPU."""
+    value = raw.strip()
+    if not value:
+        raise ValueError("empty CPU time")
+
+    days = 0
+    if "-" in value:
+        day_text, value = value.split("-", 1)
+        days = int(day_text)
+
+    parts = value.split(":")
+    if not 1 <= len(parts) <= 3:
+        raise ValueError(f"unsupported CPU time: {raw}")
+
+    seconds = float(parts[-1].replace(",", "."))
+    minutes = int(parts[-2]) if len(parts) >= 2 else 0
+    hours = int(parts[-3]) if len(parts) == 3 else 0
+    return days * 86400.0 + hours * 3600.0 + minutes * 60.0 + seconds
 
 
 def aggregate_resource_samples(
@@ -151,7 +205,15 @@ def aggregate_resource_samples(
     snapshot_id: str,
 ) -> RequestResourceEvidence:
     memory_values = [item.rss_bytes for item in samples if item.rss_bytes is not None]
-    cpu_values = [item.cpu_percent for item in samples if item.cpu_percent is not None]
+    cpu_values = [
+        (item.cpu_percent, item.cpu_interval_s)
+        for item in samples
+        if (
+            item.cpu_percent is not None
+            and item.cpu_interval_s is not None
+            and item.cpu_interval_s > 0
+        )
+    ]
 
     baseline_memory = memory_values[0] if memory_values else None
     peak_memory = max(memory_values) if memory_values else None
@@ -162,8 +224,14 @@ def aggregate_resource_samples(
         else None
     )
 
-    average_cpu = sum(cpu_values) / len(cpu_values) if cpu_values else None
-    peak_cpu = max(cpu_values) if cpu_values else None
+    cpu_observation_s = sum(interval for _, interval in cpu_values)
+    average_cpu = (
+        sum(percent * interval for percent, interval in cpu_values)
+        / cpu_observation_s
+        if cpu_observation_s > 0
+        else None
+    )
+    peak_cpu = max((percent for percent, _ in cpu_values), default=None)
 
     return RequestResourceEvidence(
         snapshot_id=snapshot_id,
@@ -176,6 +244,9 @@ def aggregate_resource_samples(
         interval_ms=interval_ms,
         sample_count=len(samples),
         sample_errors=sample_errors,
+        cpu_observation_ms=(
+            cpu_observation_s * 1000.0 if cpu_observation_s > 0 else None
+        ),
         source=source,
     )
 
