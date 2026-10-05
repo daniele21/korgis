@@ -98,7 +98,7 @@ models:
     backend: llama_server
     thinking_mode: switchable
     params:
-      ctx_size: 131072
+      ctx_size: 8192
       startup_timeout: 300
       max_concurrent_requests: 1
       default_temperature: 0.0
