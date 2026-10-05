@@ -12,6 +12,7 @@ from local_llm_server.metrics import (
     ThroughputMetrics,
 )
 from local_llm_server.runtime import ModelRuntimeManager
+from local_llm_server.resource_telemetry import RequestResourceEvidence
 from local_llm_server.runtime_evidence import RuntimeIdentitySnapshot, attach_runtime_identity
 
 
@@ -106,3 +107,29 @@ def test_manager_projection_contains_no_request_or_output_content():
     rendered = str(payload)
     assert "sensitive generated output" not in rendered
     assert "/private/models" not in rendered
+
+
+def test_runtime_evidence_exposes_latest_privacy_safe_request_resources():
+    _, runtime = _runtime()
+    runtime.latest_request_resource_evidence = RequestResourceEvidence(
+        snapshot_id="resource-test",
+        baseline_memory_bytes=100,
+        peak_memory_bytes=150,
+        end_memory_bytes=120,
+        peak_delta_bytes=50,
+        average_cpu_percent=125.0,
+        peak_cpu_percent=200.0,
+        interval_ms=100,
+        sample_count=3,
+        sample_errors=0,
+        source="test",
+    )
+
+    payload = runtime_evidence_payload(runtime)
+
+    assert payload["request_resources"]["snapshot_id"] == "resource-test"
+    assert payload["request_resources"]["memory"]["peak_bytes"] == 150
+    assert payload["request_resources"]["cpu"]["peak_percent"] == 200.0
+    rendered = str(payload["request_resources"])
+    assert "pid" not in rendered.lower()
+    assert "/private/" not in rendered
