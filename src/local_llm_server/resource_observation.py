@@ -6,7 +6,7 @@ import platform
 import resource
 import subprocess
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -162,7 +162,7 @@ def resource_observation_payload(
     *,
     observer: ResourceObserver | None = None,
     clock: Any = time.monotonic,
-    utc_now: Any = lambda: datetime.now(UTC),
+    utc_now: Any = lambda: datetime.now(timezone.utc),
 ) -> dict[str, object]:
     """Return measured resource evidence without paths, prompts or process IDs."""
     selected_observer = observer or _observer_for_platform()
