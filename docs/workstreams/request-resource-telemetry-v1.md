@@ -76,17 +76,17 @@ All values may be unavailable when they cannot be measured truthfully.
 | ID | Work | Owns/writes | Depends on | Parallel | State |
 | --- | --- | --- | --- | --- | --- |
 | KT-1 | Freeze resource-evidence vocabulary and privacy/attribution rules | this workstream, API docs | — | yes | DONE |
-| KT-2 | Implement bounded process-tree sampler and aggregation contract | `resource_telemetry.py`, unit tests | KT-1 | yes | ACTIVE |
-| KT-3 | Attach request evidence to non-streaming chat completions and cache semantics | `server.py`, server tests | KT-1 | yes | READY |
-| KT-4 | Link latest resource snapshot into runtime evidence / canonical metrics | `live_evidence.py`, `completion_metrics.py`, tests | KT-2, KT-3 | no | BLOCKED |
-| KT-5 | Extend streaming/failure/cancellation evidence ownership | streaming middleware / tests | KT-2 | yes | READY |
-| KT-6 | Update HTTP/resource docs and Studio consumers | docs/static | KT-3, KT-4 | yes | BLOCKED |
-| KT-7 | Deterministic strong validation | repository selectors/gates | KT-2..KT-6 | no | BLOCKED |
+| KT-2 | Implement bounded process-tree sampler and aggregation contract | `resource_telemetry.py`, unit tests | KT-1 | yes | DONE |
+| KT-3 | Attach request evidence to non-streaming chat completions and cache semantics | `server.py`, server tests | KT-1 | yes | DONE |
+| KT-4 | Link latest resource snapshot into runtime evidence / canonical metrics | `live_evidence.py`, `completion_metrics.py`, tests | KT-2, KT-3 | no | DONE |
+| KT-5 | Extend streaming/failure/cancellation evidence ownership | streaming middleware / tests | KT-2 | yes | ACTIVE |
+| KT-6 | Update HTTP/resource docs and Studio consumers | docs/static | KT-3, KT-4 | yes | ACTIVE |
+| KT-7 | Deterministic strong validation | repository selectors/gates | KT-2..KT-6 | no | ACTIVE |
 | KT-8 | Representative-device CPU/RAM and sampler-overhead evidence | device evidence campaign | KT-7 | no | BLOCKED |
 
 ## Current executable slice
 
-`KT-2 + KT-3`
+`KT-5 + KT-6`, with KT-2/KT-3/KT-4 accepted for the current exact branch evidence
 
 Acceptance:
 
@@ -128,7 +128,8 @@ Deterministic tests prove schema, aggregation, cleanup and failure semantics onl
 - branch: `agent/request-resource-telemetry-v1`
 - confirmed: existing resource manager is configured accounting; current canonical inference metrics already expose `resource_snapshot_id`; no CPU/RAM request sampler exists on main.
 - deferred: representative Apple Silicon evidence and streaming attribution.
-- next discriminating action: implement KT-2/KT-3 and run deterministic targeted tests.
+- exact accepted deterministic evidence: `agent/request-resource-telemetry-v1@9f687a16972d8d8ea2d5073a34d7205b29e27ba2`, CI run 674 and Repository Health run 366 both PASS.
+- next discriminating action: extend ownership semantics for streaming/failure/cancellation and then collect representative-device telemetry/overhead evidence.
 
 ## Completion
 
