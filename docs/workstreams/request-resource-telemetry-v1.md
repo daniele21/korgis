@@ -1,6 +1,6 @@
 # Request Resource Telemetry v1
 
-Status: active
+Status: implementation complete; REAL_ENVIRONMENT pending
 Owner: runtime observability
 Last reviewed: 2026-10-05
 Read when: implementing per-request CPU/RAM evidence, application-facing inference evidence, or consuming Korgis telemetry
@@ -58,11 +58,16 @@ For non-streaming inference, Korgis adds a bounded `korgis` object:
       "sampling": {
         "interval_ms": 100,
         "sample_count": 0,
-        "errors": 0
+        "errors": 0,
+        "cpu_observation_ms": 0.0
       },
       "attribution": {
         "scope": "korgis_process_tree",
         "quality": "process_global"
+      },
+      "sources": {
+        "memory": "ps_process_tree_rss_excluding_sampler",
+        "cpu": "ps_process_tree_cpu_time_delta_excluding_sampler"
       }
     }
   }
@@ -79,14 +84,14 @@ All values may be unavailable when they cannot be measured truthfully.
 | KT-2 | Implement bounded process-tree sampler and aggregation contract | `resource_telemetry.py`, unit tests | KT-1 | yes | DONE |
 | KT-3 | Attach request evidence to non-streaming chat completions and cache semantics | `server.py`, server tests | KT-1 | yes | DONE |
 | KT-4 | Link latest resource snapshot into runtime evidence / canonical metrics | `live_evidence.py`, `completion_metrics.py`, tests | KT-2, KT-3 | no | DONE |
-| KT-5 | Extend streaming/failure/cancellation evidence ownership | streaming middleware / tests | KT-2 | yes | ACTIVE |
-| KT-6 | Update HTTP/resource docs and Studio consumers | docs/static | KT-3, KT-4 | yes | ACTIVE |
-| KT-7 | Deterministic strong validation | repository selectors/gates | KT-2..KT-6 | no | ACTIVE |
-| KT-8 | Representative-device CPU/RAM and sampler-overhead evidence | device evidence campaign | KT-7 | no | BLOCKED |
+| KT-5 | Extend streaming/failure/cancellation evidence ownership | streaming middleware / tests | KT-2 | yes | DONE |
+| KT-6 | Update HTTP/resource integration docs and evidence consumers | docs/consumers | KT-3, KT-4 | yes | DONE |
+| KT-7 | Deterministic strong validation | repository selectors/gates | KT-2..KT-6 | no | DONE |
+| KT-8 | Representative-device CPU/RAM and sampler-overhead evidence | device evidence campaign | KT-7 | no | REAL_ENVIRONMENT PENDING |
 
 ## Current executable slice
 
-`KT-5 + KT-6`, with KT-2/KT-3/KT-4 accepted for the current exact branch evidence
+`KT-8`; automated implementation and release-profile validation are complete
 
 Acceptance:
 
@@ -129,10 +134,11 @@ Deterministic tests prove schema, aggregation, cleanup and failure semantics onl
 - branch: `agent/request-resource-telemetry-v1`
 - validation PR: #224 retargeted to `main` while remaining draft so the diff matches the branch origin and release/full selectors can run without implying merge readiness.
 - confirmed: existing resource manager is configured accounting; current canonical inference metrics already expose `resource_snapshot_id`; no CPU/RAM request sampler exists on main.
-- deferred: representative Apple Silicon evidence and streaming attribution.
-- latest iteration evidence before release-profile retarget: `agent/request-resource-telemetry-v1@002363f8a9a0151b4bf8f34b258ac5a23e8f2f79`, CI run 679 and Repository Health run 371 both PASS.
-- next discriminating action: extend ownership semantics for streaming/failure/cancellation and then collect representative-device telemetry/overhead evidence.
+- automated candidate evidence: `agent/request-resource-telemetry-v1@a9095d730ee99def7a03b20f7acc5b7a909c74e0`, CI run 683 selected release/FULL and passed all required gates; Repository Health run 375 PASS.
+- later documentation-only synchronization commits invalidate exact-head evidence until the final rerun completes; do not reuse run 683 as exact-head proof for a newer commit.
+- deferred: representative Apple Silicon CPU/RAM behavior and sampler-overhead evidence only.
+- next discriminating action: execute the RTE-1 representative-device procedure, retain bounded privacy-safe evidence and update durable current state with the result.
 
 ## Completion
 
-Complete only when inference, cache, failure/cancellation semantics, evidence provenance, consumers, deterministic validation and representative-device obligations agree. Transfer durable truth to owning docs/current-state and delete this workstream by default.
+Automated implementation is complete. Full completion remains blocked only by the declared REAL_ENVIRONMENT RTE-1 evidence. After that evidence is accepted, transfer the conclusion to `docs/current-state.md` and retire this workstream by default.
