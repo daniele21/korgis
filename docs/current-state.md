@@ -46,6 +46,7 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
 
 ## Active workstreams
 
+- Request resource telemetry v1: active implementation on `agent/request-resource-telemetry-v1`; the first slice adds privacy-safe process-tree CPU/RAM sampling for non-streaming inference, additive request evidence and cache/non-cache semantics. Deterministic validation proves contract behavior only; representative hardware accuracy/overhead evidence remains required before broader performance claims. See `docs/workstreams/request-resource-telemetry-v1.md`.
 - Qwen Image 2.1 local generation: BF16 Diffusers, MFlux Q8 and the shared
   `/v1/images/generations` admission path are integrated. The active slice adds a distinct
   stable-diffusion.cpp GGUF Q4_K_M runtime composed of denoiser, Qwen3-VL text encoder and
