@@ -80,24 +80,33 @@ class ResourceSampleSource(Protocol):
 class PsProcessTreeSampleSource:
     """Sample the current Korgis process tree through the local POSIX `ps` tool."""
 
-    source_name = "ps_process_tree"
+    source_name = "ps_process_tree_excluding_sampler"
 
     def __init__(self, root_pid: int | None = None) -> None:
         self.root_pid = root_pid or os.getpid()
 
     def sample(self) -> ResourceSample:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             ["ps", "-axo", "pid=,ppid=,rss=,pcpu="],
-            check=False,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=1.0,
         )
-        if completed.returncode != 0:
-            raise RuntimeError(f"ps failed with exit code {completed.returncode}")
+        sampler_pid = process.pid
+        try:
+            stdout, stderr = process.communicate(timeout=1.0)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
+            raise RuntimeError("ps sampling timed out") from None
+        if process.returncode != 0:
+            detail = stderr.strip()[:200]
+            raise RuntimeError(
+                f"ps failed with exit code {process.returncode}: {detail}"
+            )
 
         rows: dict[int, tuple[int, int, float]] = {}
-        for line in completed.stdout.splitlines():
+        for line in stdout.splitlines():
             parts = line.split()
             if len(parts) < 4:
                 continue
@@ -119,6 +128,7 @@ class PsProcessTreeSampleSource:
                     selected.add(pid)
                     changed = True
 
+        selected.discard(sampler_pid)
         present = [rows[pid] for pid in selected if pid in rows]
         if not present:
             raise RuntimeError("root process was not present in ps output")
