@@ -123,3 +123,18 @@ def test_model_specific_llama_server_binary_env_fails_closed_when_missing(
 
     with pytest.raises(ValueError, match="PRISM_LLAMA_SERVER_BIN"):
         build_config(model="demo")
+
+
+def test_model_specific_llama_server_min_build_flows_into_resolved_config(
+    monkeypatch,
+    tmp_path,
+):
+    _patch_registry(
+        monkeypatch,
+        tmp_path,
+        params={"llama_server_min_build": 10828},
+    )
+
+    cfg = build_config(model="demo")
+
+    assert cfg["llama_server_min_build"] == 10828
