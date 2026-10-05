@@ -6,6 +6,7 @@ from local_llm_server.resource_telemetry import (
     RequestResourceSampler,
     aggregate_resource_samples,
     request_evidence_payload,
+    _parse_cpu_time_seconds,
 )
 
 
@@ -28,9 +29,9 @@ class _SequenceSource:
 
 def test_aggregate_resource_samples_preserves_peak_and_cpu_semantics():
     samples = [
-        ResourceSample(1.0, 4_000, 100.0),
-        ResourceSample(1.1, 7_000, 250.0),
-        ResourceSample(1.2, 5_000, 150.0),
+        ResourceSample(1.0, 4_000, 100.0, 0.1),
+        ResourceSample(1.1, 7_000, 250.0, 0.2),
+        ResourceSample(1.2, 5_000, 150.0, 0.1),
     ]
 
     evidence = aggregate_resource_samples(
@@ -45,10 +46,17 @@ def test_aggregate_resource_samples_preserves_peak_and_cpu_semantics():
     assert evidence.peak_memory_bytes == 7_000
     assert evidence.end_memory_bytes == 5_000
     assert evidence.peak_delta_bytes == 3_000
-    assert evidence.average_cpu_percent == 500.0 / 3.0
+    assert evidence.average_cpu_percent == 187.5
     assert evidence.peak_cpu_percent == 250.0
+    assert evidence.cpu_observation_ms == 400.0
     assert evidence.attribution_quality == "process_global"
 
+
+
+def test_parse_cpu_time_seconds_supports_posix_shapes():
+    assert _parse_cpu_time_seconds("00:00:01") == 1.0
+    assert _parse_cpu_time_seconds("01:02:03.5") == 3723.5
+    assert _parse_cpu_time_seconds("2-01:00:00") == 176400.0
 
 def test_sampler_degrades_to_unavailable_when_sampling_fails():
     source = _SequenceSource([RuntimeError("no ps"), RuntimeError("still no ps")])
