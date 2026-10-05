@@ -91,7 +91,7 @@ All values may be unavailable when they cannot be measured truthfully.
 
 ## Current executable slice
 
-`KT-8`; automated implementation and release-profile validation are complete
+`KT-8`; automated implementation and release-profile validation are complete, and the representative runner/validator is implemented
 
 Acceptance:
 
@@ -106,6 +106,7 @@ Validation:
 
 - targeted telemetry unit tests;
 - targeted server/cache contract tests;
+- deterministic RTE-1 runner/validator unit tests;
 - repository validation selector before integration.
 
 ## Integration points
@@ -136,7 +137,7 @@ Deterministic tests prove schema, aggregation, cleanup and failure semantics onl
 - confirmed: existing resource manager is configured accounting; current canonical inference metrics already expose `resource_snapshot_id`; no CPU/RAM request sampler exists on main.
 - automated candidate evidence must be green on the PR's exact final HEAD; the merged code candidate passed FULL CI and Repository Health before this final documentation synchronization, so the final docs-only HEAD is revalidated rather than reusing stale evidence.
 - deferred: representative Apple Silicon CPU/RAM behavior and sampler-overhead evidence only.
-- next discriminating action: execute the RTE-1 representative-device procedure, retain bounded privacy-safe evidence and update durable current state with the result.
+- next discriminating action: run `python -m local_llm_server.request_telemetry_device_evidence capture` on the representative Mac for candidate and pre-telemetry baseline, compare the matched distributions, retain bounded privacy-safe evidence and update durable current state with the result.
 
 ## Completion
 

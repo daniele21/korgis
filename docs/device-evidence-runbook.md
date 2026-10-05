@@ -284,62 +284,99 @@ Do not enable automatic pressure eviction solely because the reviewer is suffici
 
 ## RTE-1 — request resource telemetry and sampler overhead
 
-RTE-1 validates the new `korgis-request-evidence-v1` observation path on representative Apple Silicon. It is separate from the existing minimum L2 bundle and must not be used to retroactively change accepted resource-policy claims.
+RTE-1 validates the new \`korgis-request-evidence-v1\` observation path on representative Apple Silicon. It is separate from the existing minimum L2 bundle and must not be used to retroactively change accepted resource-policy claims.
 
-Start the exact candidate with one verified local model and no unrelated heavy local-AI workload:
+The canonical runner is \`python -m local_llm_server.request_telemetry_device_evidence\`. It uses only loopback HTTP, synthetic prompts and public-safe identity/telemetry. It never serializes prompts, assistant output, PIDs or private model paths.
 
-```bash
+### Candidate capture
+
+Start the exact telemetry candidate with one verified local model and no unrelated heavy local-AI workload:
+
+\`\`\`bash
+MODEL="<model-key>"
+MODEL_PATH="<absolute-path-to-model.gguf>"
+RTE1_DIR="$HOME/.local-llm-server/evidence/$(date +%F)-rte1"
+mkdir -p "$RTE1_DIR"
+
 local-llm serve \
   --model "$MODEL" \
   --model-path "$MODEL_PATH" \
   --backend llama_cpp \
   --enable-admin-api
-```
+\`\`\`
 
-Use only synthetic, non-sensitive prompts. For each request retain the `korgis` evidence object plus runtime identity, never assistant content:
+From a second terminal in the same exact candidate checkout:
 
-```bash
-RTE1_DIR="$HOME/.local-llm-server/evidence/$(date +%F)-rte1"
-mkdir -p "$RTE1_DIR"
+\`\`\`bash
+CANDIDATE_SHA="$(git rev-parse HEAD)"
 
-for run in 1 2 3; do
-  curl -sS http://127.0.0.1:1235/v1/chat/completions \
-    -H 'Content-Type: application/json' \
-    -d "{
-      \"model\": \"$MODEL\",
-      \"messages\": [{\"role\": \"user\", \"content\": \"Return the word OK and no other text.\"}],
-      \"temperature\": 0,
-      \"max_tokens\": 8
-    }" |
-  python -c '
-import json, sys
-payload = json.load(sys.stdin)
-print(json.dumps({
-    "model": payload.get("model"),
-    "usage": payload.get("usage"),
-    "korgis": payload.get("korgis"),
-}, indent=2))
-' > "$RTE1_DIR/sequential-$run.json"
-done
-```
+python -m local_llm_server.request_telemetry_device_evidence capture \
+  --base-url http://127.0.0.1:1235 \
+  --model "$MODEL" \
+  --source-commit "$CANDIDATE_SHA" \
+  --mode candidate \
+  --sequential-runs 3 \
+  --output "$RTE1_DIR/candidate.json"
+\`\`\`
 
-Then repeat with a larger synthetic prompt and with two concurrent requests. The concurrency observation is intentionally expected to remain `attribution.quality=process_global`; it must never be relabelled as request-exclusive.
+The runner performs:
 
-Acceptance for the evidence contract requires:
+- repeated short synthetic uncached requests;
+- repeated larger synthetic uncached requests;
+- an explicit miss-then-hit cache probe;
+- two client-concurrent synthetic requests whose evidence must remain \`process_global\`;
+- one fully consumed stream;
+- one client-cancelled stream followed by bounded idle/evidence checks;
+- one source-qualified \`/api/v1/resources\` control-plane snapshot;
+- privacy-safe runtime identity and bounded Apple hardware profile capture.
 
-- `evidence_version=korgis-request-evidence-v1` on uncached inference;
-- memory source `ps_process_tree_rss_excluding_sampler` when RSS measurement is available;
-- CPU source `ps_process_tree_cpu_time_delta_excluding_sampler` when CPU measurement is available;
-- `cpu_observation_ms > 0` whenever average/peak CPU values are present;
-- non-negative baseline/peak/end RAM and `peak_delta_bytes`, with `peak >= baseline`;
-- no PID, private path, prompt or output retained in the evidence object;
-- cache hits carry `execution_source=cache` and no fresh resource measurement;
-- stream completion or cancellation leaves the runtime idle and retains at most the latest privacy-safe resource snapshot;
-- overlapping requests remain explicitly `process_global`.
+A non-zero exit is evidence of an incomplete or invalid campaign. Do not edit validation conditions merely to obtain PASS.
 
-Sampler overhead is an observational REAL_ENVIRONMENT result, not a pass/fail production claim. Record wall-clock latency for repeated comparable synthetic requests on the telemetry candidate and on the exact pre-telemetry baseline under otherwise equivalent runtime/model settings. Keep model identity, backend, context and request shape fixed. Report the distributions and delta; do not generalize a one-device result into a cross-device performance guarantee.
+### Pre-telemetry latency baseline
 
-The accepted RTE-1 conclusion must state the exact source commit, model/runtime fingerprint, Mac hardware profile, sample counts, memory/CPU source labels and whether any sample degraded to unavailable evidence. Do not commit raw assistant content or private model paths.
+Sampler overhead is observational, not a release threshold. Compare against the exact pre-telemetry branch base \`55372cabe0add38e3391974d85e8ad429cf7b3ab\` using the same Mac, model artifact, backend, runtime configuration and request counts.
+
+Run that baseline server on a different loopback port from a separate checkout/environment. The capture client may remain the candidate runner; it only talks to the selected loopback URL.
+
+\`\`\`bash
+BASELINE_SHA="55372cabe0add38e3391974d85e8ad429cf7b3ab"
+
+python -m local_llm_server.request_telemetry_device_evidence capture \
+  --base-url http://127.0.0.1:1236 \
+  --model "$MODEL" \
+  --source-commit "$BASELINE_SHA" \
+  --mode baseline \
+  --sequential-runs 3 \
+  --output "$RTE1_DIR/baseline.json"
+\`\`\`
+
+Then compare the matched short/long request distributions:
+
+\`\`\`bash
+python -m local_llm_server.request_telemetry_device_evidence compare \
+  --candidate "$RTE1_DIR/candidate.json" \
+  --baseline "$RTE1_DIR/baseline.json" \
+  --output "$RTE1_DIR/overhead-comparison.json"
+\`\`\`
+
+The comparison exits successfully only when model and runtime fingerprint are compatible. It reports mean/median/min/max wall-clock latency plus median delta and percentage delta. The result is deliberately labelled \`OBSERVATIONAL\`; no single-device threshold is promoted into a production or cross-device guarantee.
+
+### Acceptance
+
+The candidate capture requires:
+
+- \`evidence_version=korgis-request-evidence-v1\` on uncached inference;
+- memory source \`ps_process_tree_rss_excluding_sampler\` when memory values are present;
+- CPU source \`ps_process_tree_cpu_time_delta_excluding_sampler\` when CPU values are present;
+- \`cpu_observation_ms > 0\` whenever average/peak CPU values are present;
+- non-negative baseline/peak/end RAM and \`peak_delta_bytes\`, with \`peak >= baseline\`;
+- cache hit \`execution_source=cache\` with no fresh resource measurement;
+- concurrent-client evidence still explicitly qualified as \`process_global\`;
+- stream completion and client cancellation return the runtime to idle and leave a latest privacy-safe resource snapshot;
+- exact source commit, public runtime fingerprint and bounded Mac hardware profile;
+- no prompt, assistant output, PID or private model path retained.
+
+The accepted RTE-1 conclusion must retain \`candidate.json\`, \`baseline.json\` and \`overhead-comparison.json\` locally and transfer only the bounded public-safe conclusion into durable repository state.
 
 ## 5. Validate the complete minimum L2 hardware bundle
 
