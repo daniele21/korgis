@@ -6,6 +6,7 @@ from typing import Any
 from .metrics import InferenceMetrics
 from .metrics_adapters import metrics_from_runtime_status
 from .runtime_evidence import attached_runtime_identity
+from .resource_telemetry import RequestResourceEvidence
 from .transcription_metrics import latest_transcription_metrics
 
 
@@ -29,6 +30,7 @@ def runtime_evidence_payload(runtime: Any) -> dict[str, object]:
     metrics = latest_runtime_metrics(runtime)
     transcription = latest_transcription_metrics(runtime)
     resource_admission = status.get("resource_admission")
+    request_resources = getattr(runtime, "latest_request_resource_evidence", None)
 
     task_metrics: dict[str, object] = {}
     if transcription is not None:
@@ -48,6 +50,11 @@ def runtime_evidence_payload(runtime: Any) -> dict[str, object]:
             dict(resource_admission) if isinstance(resource_admission, dict) else None
         ),
         "metrics": metrics.to_public_dict(),
+        "request_resources": (
+            request_resources.to_public_dict()
+            if isinstance(request_resources, RequestResourceEvidence)
+            else None
+        ),
         "task_metrics": task_metrics,
         "identity": identity.to_public_dict() if identity is not None else None,
     }
