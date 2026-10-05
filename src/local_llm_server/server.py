@@ -1254,6 +1254,7 @@ def chat_completions(request: Request, req: ChatCompletionRequest):
     def generate_chat_completions_stream():
         with manager.lease_runtime(runtime):
             runtime.mark_started(int(max_tokens) if max_tokens else 0)
+            sampler = RequestResourceSampler().start()
 
             try:
                 print(
@@ -1343,6 +1344,9 @@ def chat_completions(request: Request, req: ChatCompletionRequest):
                 print(f"[LLM] Request failed | model={runtime.key} error={e}", flush=True)
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
             finally:
+                resource_evidence = sampler.stop()
+                runtime.latest_request_resource_evidence = resource_evidence
+                request.state.resource_snapshot_id = resource_evidence.snapshot_id
                 runtime.mark_idle()
 
     if wants_stream:
