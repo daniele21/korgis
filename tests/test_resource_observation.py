@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from local_llm_server import resource_observation
 from local_llm_server.resources import (
@@ -58,13 +59,13 @@ def test_resource_observation_is_source_backed_and_privacy_safe(monkeypatch):
         _Manager(),
         observer=_Observer(),
         clock=lambda: 11.0,
-        utc_now=lambda: __import__("datetime").datetime(
+        utc_now=lambda: datetime(
             2026,
             10,
             5,
             8,
             0,
-            tzinfo=__import__("datetime").UTC,
+            tzinfo=timezone.utc,
         ),
     )
 
