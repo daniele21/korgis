@@ -128,6 +128,10 @@ def test_resource_and_evidence_routes_are_public_safe_when_admin_enabled(tmp_pat
     assert resources.status_code == 200
     assert resources.json()["committed_bytes"] == 200
     assert resources.json()["usable_budget_bytes"] == 900
+    observation = resources.json()["observation"]
+    assert observation["schema_version"] == "1"
+    assert observation["runtimes"][0]["runtime_key"] == "text"
+    assert "pid" not in observation["runtimes"][0]
 
     evidence = client.get("/api/v1/evidence")
     assert evidence.status_code == 200
