@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .runtime import ModelRuntimeManager
+from .runtime_evidence import attached_runtime_identity
 
 logger = logging.getLogger("local-llm.server")
 
@@ -1090,17 +1091,24 @@ def _load_or_activate_model(
             app_state.cfg = runtime.cfg
             app_state.llm = runtime.engine
         logger.info("Model %s ready (newly loaded: %s)", req.model, loaded)
+        identity_snapshot = attached_runtime_identity(runtime)
         return {
             "ok": True,
             "model": runtime.model_id,
             "key": runtime.key,
             "loaded": loaded,
             "default": runtime.key == manager.default_model,
+            "runtime_identity": (
+                identity_snapshot.to_public_dict()
+                if identity_snapshot is not None
+                else None
+            ),
             "cfg": {
                 "model": runtime.cfg["model"],
                 "model_id": runtime.model_id,
                 "model_path": runtime.cfg["model_path"],
                 "backend": runtime.cfg["backend"],
+                "quantization": runtime.cfg.get("quantization"),
                 "llama_server_port": runtime.cfg.get("llama_server_port"),
                 "mlx_vlm_server_port": runtime.cfg.get("mlx_vlm_server_port"),
             },
