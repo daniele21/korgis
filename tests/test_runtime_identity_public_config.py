@@ -6,6 +6,7 @@ def test_public_runtime_config_payload_matches_digest_boundary() -> None:
         "backend": "llama_cpp",
         "ctx_size": 4096,
         "n_threads": 8,
+        "llama_server_min_build": 10828,
         "model_path": "/private/model.gguf",
         "download_url": "https://private.example/model",
     }
@@ -16,6 +17,7 @@ def test_public_runtime_config_payload_matches_digest_boundary() -> None:
         "backend": "llama_cpp",
         "ctx_size": 4096,
         "n_threads": 8,
+        "llama_server_min_build": 10828,
     }
     assert len(resolved_config_digest(config)) == 64
     assert "model_path" not in payload
