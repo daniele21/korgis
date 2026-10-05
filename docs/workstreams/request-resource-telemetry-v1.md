@@ -2,6 +2,7 @@
 
 Status: active
 Owner: runtime observability
+Last reviewed: 2026-10-05
 Read when: implementing per-request CPU/RAM evidence, application-facing inference evidence, or consuming Korgis telemetry
 
 ## Goal
