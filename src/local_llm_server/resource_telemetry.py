@@ -39,7 +39,8 @@ class RequestResourceEvidence:
     sample_count: int
     sample_errors: int
     cpu_observation_ms: float | None
-    source: str
+    memory_source: str
+    cpu_source: str
     attribution_scope: str = "korgis_process_tree"
     attribution_quality: str = "process_global"
 
@@ -67,14 +68,15 @@ class RequestResourceEvidence:
                 "quality": self.attribution_quality,
             },
             "sources": {
-                "memory": self.source,
-                "cpu": self.source,
+                "memory": self.memory_source,
+                "cpu": self.cpu_source,
             },
         }
 
 
 class ResourceSampleSource(Protocol):
-    source_name: str
+    memory_source_name: str
+    cpu_source_name: str
 
     def sample(self) -> ResourceSample:
         ...
@@ -83,7 +85,8 @@ class ResourceSampleSource(Protocol):
 class PsProcessTreeSampleSource:
     """Sample the current Korgis process tree through the local POSIX `ps` tool."""
 
-    source_name = "ps_process_tree_cpu_time_delta_excluding_sampler"
+    memory_source_name = "ps_process_tree_rss_excluding_sampler"
+    cpu_source_name = "ps_process_tree_cpu_time_delta_excluding_sampler"
 
     def __init__(self, root_pid: int | None = None) -> None:
         self.root_pid = root_pid or os.getpid()
@@ -201,7 +204,8 @@ def aggregate_resource_samples(
     *,
     interval_ms: int,
     sample_errors: int,
-    source: str,
+    memory_source: str,
+    cpu_source: str,
     snapshot_id: str,
 ) -> RequestResourceEvidence:
     memory_values = [item.rss_bytes for item in samples if item.rss_bytes is not None]
@@ -247,7 +251,8 @@ def aggregate_resource_samples(
         cpu_observation_ms=(
             cpu_observation_s * 1000.0 if cpu_observation_s > 0 else None
         ),
-        source=source,
+        memory_source=memory_source,
+        cpu_source=cpu_source,
     )
 
 
@@ -296,7 +301,8 @@ class RequestResourceSampler:
             self._samples,
             interval_ms=self.interval_ms,
             sample_errors=self._errors,
-            source=self.sample_source.source_name,
+            memory_source=self.sample_source.memory_source_name,
+            cpu_source=self.sample_source.cpu_source_name,
             snapshot_id=self.snapshot_id,
         )
 
