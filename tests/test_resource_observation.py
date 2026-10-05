@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from local_llm_server import resource_observation
 from local_llm_server.resources import (
@@ -32,12 +32,8 @@ class _Engine:
 class _Runtime:
     key: str = "runtime-a"
     model_id: str = "model-a"
-    engine: object = _Engine()
-    cfg: dict = None
-
-    def __post_init__(self):
-        if self.cfg is None:
-            self.cfg = {"backend": "fake"}
+    engine: object = field(default_factory=_Engine)
+    cfg: dict = field(default_factory=lambda: {"backend": "fake"})
 
 
 class _Manager:
