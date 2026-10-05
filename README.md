@@ -95,8 +95,9 @@ uv run --frozen local-llm serve \
 
 If the discovered llama-server is too old, update llama.cpp or point
 `LOCAL_LLM_SERVER_BIN` to a build >= 10828. The model supports a native 1M-token
-context; the built-in profile uses 131072 tokens as a practical local benchmark
-default. Thinking is switchable and disabled by default in this profile.
+context; the built-in benchmark profile uses 8192 tokens to avoid inflating KV-cache
+cost relative to the other local comparison models. Thinking is switchable and
+disabled by default in this profile.
 
 #### Ternary Bonsai 2 27B PTQ1_0
 
