@@ -18,6 +18,7 @@ from .evaluation_service import (
 )
 from .evaluation_testsets import CustomTestSetStore, parse_test_set_bytes
 from .live_evidence import manager_evidence_payload
+from .resource_observation import resource_observation_payload
 from .resource_policy import ResourcePolicySettings, resource_policy_snapshot
 from .scheduler_evidence import scheduler_evidence_payload
 from .transcription import ResidentTranscriptionService, TranscriptionRequest
@@ -130,7 +131,10 @@ def install_product_api(
             ResourcePolicySettings(),
         )
         manager = request.app.state.runtime_manager
-        return resource_policy_snapshot(policy_settings, manager.resource_manager)
+        return {
+            **resource_policy_snapshot(policy_settings, manager.resource_manager),
+            "observation": resource_observation_payload(manager),
+        }
 
     def get_evidence(request: Request):
         return manager_evidence_payload(request.app.state.runtime_manager)
