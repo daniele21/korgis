@@ -111,7 +111,7 @@ Validation:
 ## Integration points
 
 - `InferenceMetrics.resource_snapshot_id` is the canonical linkage point to request resource evidence.
-- `/api/v1/resources` remains configured budget/accounting state, not measured request telemetry.
+- `/api/v1/resources` owns configured budget/accounting plus source-qualified point-in-time host/runtime observations; it remains distinct from measured request-lifecycle telemetry.
 - `/v1/runtime/identity` remains stable execution identity.
 - `/status` remains mutable activity state.
 - `/api/v1/evidence` may expose the latest privacy-safe resource snapshot after KT-4.
@@ -130,12 +130,11 @@ Deterministic tests prove schema, aggregation, cleanup and failure semantics onl
 
 ## Resume checkpoint
 
-- base: `main@55372cabe0add38e3391974d85e8ad429cf7b3ab`
+- base: current `main` (includes measured resource observations from #225)
 - branch: `agent/request-resource-telemetry-v1`
 - validation PR: #224 retargeted to `main` while remaining draft so the diff matches the branch origin and release/full selectors can run without implying merge readiness.
 - confirmed: existing resource manager is configured accounting; current canonical inference metrics already expose `resource_snapshot_id`; no CPU/RAM request sampler exists on main.
-- automated candidate evidence: `agent/request-resource-telemetry-v1@a9095d730ee99def7a03b20f7acc5b7a909c74e0`, CI run 683 selected release/FULL and passed all required gates; Repository Health run 375 PASS.
-- later documentation-only synchronization commits invalidate exact-head evidence until the final rerun completes; do not reuse run 683 as exact-head proof for a newer commit.
+- automated candidate evidence must be green on the PR's exact final HEAD; the merged code candidate passed FULL CI and Repository Health before this final documentation synchronization, so the final docs-only HEAD is revalidated rather than reusing stale evidence.
 - deferred: representative Apple Silicon CPU/RAM behavior and sampler-overhead evidence only.
 - next discriminating action: execute the RTE-1 representative-device procedure, retain bounded privacy-safe evidence and update durable current state with the result.
 
