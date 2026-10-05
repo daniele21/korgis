@@ -87,6 +87,25 @@ models:
       show_thinking: false
     tags: [reasoning, qwen, local-benchmark, 9b]
 
+  ternary-bonsai2-27b-ptq1:
+    filename: "Ternary-Bonsai-2-27B-PTQ1_0.gguf"
+    url: "https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-PTQ1_0.gguf"
+    model_id: "prism-ml/Ternary-Bonsai-2-27B-gguf"
+    quantization: "PTQ1_0"
+    sha256: "53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3"
+    size_gb: 5.95
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 65536
+      startup_timeout: 600
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_bin_env: PRISM_LLAMA_SERVER_BIN
+    tags: [reasoning, ternary, bonsai, prismml, local-benchmark, 27b, ptq1]
+
   qwen3-vl-4b:
     model_id: "mlx-community/Qwen3-VL-4B-Instruct-4bit"
     lmstudio_path: "lmstudio-community/Qwen3-VL-4B-Instruct-MLX-4bit"
