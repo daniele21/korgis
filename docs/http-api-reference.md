@@ -235,7 +235,7 @@ These routes exist only when `--enable-admin-api` is active.
 | `POST` | `/api/v1/models/load` | load another runtime |
 | `POST` | `/api/v1/models/activate` | load/select the default runtime |
 | `DELETE` | `/api/v1/models/{model}` | unload an idle runtime |
-| `GET` | `/api/v1/resources` | resource budget and accounting evidence |
+| `GET` | `/api/v1/resources` | resource budget, accounting and measured observation evidence |
 | `GET` | `/api/v1/evidence` | privacy-safe runtime/task evidence |
 | `GET` | `/api/v1/scheduler` | queue/admission evidence |
 | `GET` | `/api/v1/policies` | effective policy evidence |
@@ -245,6 +245,8 @@ These routes exist only when `--enable-admin-api` is active.
 | `POST` | `/api/v1/residency/evict` | explicit administrative eviction attempt |
 | `GET/POST` | `/api/v1/evaluation/...` | test sets, runs, history and comparisons |
 | `GET` | `/api/v1/logs/stream` | live logs over SSE |
+
+When available, `GET /api/v1/resources` also includes an `observation` block with source-labelled host memory plus RSS and cumulative CPU time for the server or owned runtime backend process. Process IDs and private paths are not exposed. A consumer can derive average CPU utilization over its own sampling window from CPU-time deltas; unavailable metrics remain null and must not be treated as zero.
 
 Use Swagger for the exact request/response body of each administrative operation on the checked-out revision. The important policy boundary is stable: administrative mutation is opt-in, evidence surfaces must remain privacy-safe, and missing resource values are not fabricated as zero.
 
