@@ -90,6 +90,7 @@ All values may be unavailable when they cannot be measured truthfully.
 
 Acceptance:
 
+- CPU percentages are computed from process CPU-time deltas over the request sampling window, not lifetime `%CPU` reported by `ps`;
 - process-tree samples aggregate baseline/peak/end RAM, peak delta, average/peak CPU and sampling metadata;
 - sampling errors degrade evidence rather than inference;
 - successful non-streaming inference returns `korgis-request-evidence-v1`;
@@ -126,9 +127,10 @@ Deterministic tests prove schema, aggregation, cleanup and failure semantics onl
 
 - base: `main@55372cabe0add38e3391974d85e8ad429cf7b3ab`
 - branch: `agent/request-resource-telemetry-v1`
+- validation PR: #224 retargeted to `main` while remaining draft so the diff matches the branch origin and release/full selectors can run without implying merge readiness.
 - confirmed: existing resource manager is configured accounting; current canonical inference metrics already expose `resource_snapshot_id`; no CPU/RAM request sampler exists on main.
 - deferred: representative Apple Silicon evidence and streaming attribution.
-- exact accepted deterministic evidence: `agent/request-resource-telemetry-v1@9f687a16972d8d8ea2d5073a34d7205b29e27ba2`, CI run 674 and Repository Health run 366 both PASS.
+- latest iteration evidence before release-profile retarget: `agent/request-resource-telemetry-v1@002363f8a9a0151b4bf8f34b258ac5a23e8f2f79`, CI run 679 and Repository Health run 371 both PASS.
 - next discriminating action: extend ownership semantics for streaming/failure/cancellation and then collect representative-device telemetry/overhead evidence.
 
 ## Completion
