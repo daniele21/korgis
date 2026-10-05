@@ -78,6 +78,26 @@ uv run --frozen local-llm serve \
 
 The server binds to `127.0.0.1` by default.
 
+#### Spark-X2.5-4B Q4_K_M
+
+The built-in `spark-x2.5-4b-q4km` profile uses
+`XHToken/Spark-X2.5-4B-GGUF` and requires llama.cpp build **10828 or newer**.
+Korgis enforces that requirement before starting the subprocess.
+
+```bash
+uv run --frozen local-llm download spark-x2.5-4b-q4km
+
+uv run --frozen local-llm serve \
+  --model spark-x2.5-4b-q4km \
+  --enable-admin-api \
+  --no-download
+```
+
+If the discovered llama-server is too old, update llama.cpp or point
+`LOCAL_LLM_SERVER_BIN` to a build >= 10828. The model supports a native 1M-token
+context; the built-in profile uses 131072 tokens as a practical local benchmark
+default. Thinking is switchable and disabled by default in this profile.
+
 #### Ternary Bonsai 2 27B PTQ1_0
 
 The built-in `ternary-bonsai2-27b-ptq1` profile uses PrismML's
