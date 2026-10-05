@@ -93,6 +93,7 @@ models:
     model_id: "XHToken/Spark-X2.5-4B"
     quantization: "Q4_K_M"
     sha256: "adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428"
+    revision: "d313463f1ff7dc29db20193fddc4ad8386d16261"
     size_gb: 2.60
     backend: llama_server
     thinking_mode: switchable
