@@ -8,7 +8,13 @@ import pytest
 from fastapi import HTTPException, Request
 
 from local_llm_server.runtime import ModelRuntimeManager
-from local_llm_server.server import ChatCompletionRequest, app, chat_completions, configure_runtime
+from local_llm_server.server import (
+    ChatCompletionRequest,
+    app,
+    chat_completions,
+    configure_runtime,
+    get_health,
+)
 
 
 def _request() -> Request:
@@ -73,6 +79,14 @@ def _install_manager(first_engine, second_engine):
     manager.add(second_cfg, second_engine)
     configure_runtime(first_cfg, first_engine, manager)
     return manager
+
+
+def test_health_advertises_request_evidence_protocol():
+    _install_manager(_Engine("text"), _Engine("vision"))
+
+    health = get_health(_request())
+
+    assert health["request_evidence_versions"] == ["korgis-request-evidence-v1"]
 
 
 def test_chat_routes_to_requested_resident_model():
