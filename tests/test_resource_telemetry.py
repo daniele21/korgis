@@ -11,7 +11,8 @@ from local_llm_server.resource_telemetry import (
 
 
 class _SequenceSource:
-    source_name = "test_sequence"
+    memory_source_name = "test_memory"
+    cpu_source_name = "test_cpu"
 
     def __init__(self, values):
         self.values = list(values)
@@ -38,7 +39,8 @@ def test_aggregate_resource_samples_preserves_peak_and_cpu_semantics():
         samples,
         interval_ms=100,
         sample_errors=0,
-        source="test",
+        memory_source="test_memory",
+        cpu_source="test_cpu",
         snapshot_id="resource-test",
     )
 
@@ -49,6 +51,8 @@ def test_aggregate_resource_samples_preserves_peak_and_cpu_semantics():
     assert evidence.average_cpu_percent == 187.5
     assert evidence.peak_cpu_percent == 250.0
     assert evidence.cpu_observation_ms == 400.0
+    assert evidence.memory_source == "test_memory"
+    assert evidence.cpu_source == "test_cpu"
     assert evidence.attribution_quality == "process_global"
 
 
