@@ -5,7 +5,7 @@ Document type: operational-reference
 Owner: public API
 Canonical scope: operations.http-api
 Read when: integrating an application, evaluator, or operational tool with Local LLM Server
-Last reviewed: 2026-09-27
+Last reviewed: 2026-10-05
 
 This document explains the supported HTTP surfaces and their operational semantics. Swagger at `/docs` remains the executable schema for the checked-out revision; this guide owns the cross-endpoint meaning, compatibility expectations and usage patterns that are difficult to express in generated API docs.
 
@@ -138,18 +138,27 @@ Successful non-streaming chat completions may include an additive `korgis` objec
       "sampling": {
         "interval_ms": 100,
         "sample_count": 0,
-        "errors": 0
+        "errors": 0,
+        "cpu_observation_ms": 0.0
       },
       "attribution": {
         "scope": "korgis_process_tree",
         "quality": "process_global"
+      },
+      "sources": {
+        "memory": "ps_process_tree_rss_excluding_sampler",
+        "cpu": "ps_process_tree_cpu_time_delta_excluding_sampler"
       }
     }
   }
 }
 ```
 
-The current v1 sampler observes the Korgis process tree. It is deliberately labelled `process_global`: concurrent requests may share the measured process tree, so these values are not claimed as request-exclusive CPU/RAM ownership. Missing measurements remain unavailable rather than zero. Cache hits use `execution_source=cache` and do not replay historical inference resource measurements as fresh consumption.
+The current v1 sampler observes the Korgis process tree. RSS is sampled from that process tree while CPU percentages are computed from process CPU-time deltas over the request observation window; lifetime `ps %CPU` is not used as request evidence. `sampling.cpu_observation_ms` records the actual interval covered by usable CPU-delta samples.
+
+Memory and CPU provenance remain separate because they are different measurements. The sampler process itself is excluded from the process-tree totals. The evidence is deliberately labelled `process_global`: concurrent requests may share the measured process tree, so these values are not claimed as request-exclusive CPU/RAM ownership. Missing measurements remain unavailable rather than zero. Cache hits use `execution_source=cache` and do not replay historical inference resource measurements as fresh consumption.
+
+Streaming inference uses the same request-lifecycle sampler ownership. The sampler is closed and its latest privacy-safe snapshot is retained when the stream completes, fails or the iterator is closed. The ordinary SSE payload remains OpenAI-compatible; clients that need the completed resource snapshot can consume the runtime evidence surface after stream completion.
 
 The resource snapshot is distinct from `/api/v1/resources`, which remains configured budget/accounting state, and from `/v1/runtime/identity`, which remains stable execution identity.
 
