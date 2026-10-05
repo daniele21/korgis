@@ -113,6 +113,46 @@ Consumers should primarily rely on standard OpenAI-compatible fields:
 
 The server may include provider-specific convenience/evidence fields in addition to the OpenAI-compatible response. Integrations that require reproducible semantics should explicitly document any such field they consume instead of treating all extras as stable API.
 
+### Korgis request evidence
+
+Successful non-streaming chat completions may include an additive `korgis` object using protocol `korgis-request-evidence-v1`. Generic OpenAI clients may ignore it. Korgis-aware applications can use it to correlate one inference with privacy-safe resource evidence.
+
+```json
+{
+  "korgis": {
+    "evidence_version": "korgis-request-evidence-v1",
+    "request_id": "opaque",
+    "execution_source": "inference",
+    "resources": {
+      "snapshot_id": "opaque",
+      "memory": {
+        "baseline_bytes": 0,
+        "peak_bytes": 0,
+        "end_bytes": 0,
+        "peak_delta_bytes": 0
+      },
+      "cpu": {
+        "average_percent": 0.0,
+        "peak_percent": 0.0
+      },
+      "sampling": {
+        "interval_ms": 100,
+        "sample_count": 0,
+        "errors": 0
+      },
+      "attribution": {
+        "scope": "korgis_process_tree",
+        "quality": "process_global"
+      }
+    }
+  }
+}
+```
+
+The current v1 sampler observes the Korgis process tree. It is deliberately labelled `process_global`: concurrent requests may share the measured process tree, so these values are not claimed as request-exclusive CPU/RAM ownership. Missing measurements remain unavailable rather than zero. Cache hits use `execution_source=cache` and do not replay historical inference resource measurements as fresh consumption.
+
+The resource snapshot is distinct from `/api/v1/resources`, which remains configured budget/accounting state, and from `/v1/runtime/identity`, which remains stable execution identity.
+
 ### Streaming
 
 Set:
