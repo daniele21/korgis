@@ -186,7 +186,8 @@ def validate_registry(registry: dict[str, Any]) -> None:
             params = {}
         for field_name in (
             "ctx_size", "max_kv_size", "max_concurrent_requests",
-            "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout",
+            "llama_server_port", "llama_server_min_build",
+            "mlx_vlm_server_port", "sd_server_port", "startup_timeout",
             "image_width", "image_height", "image_num_inference_steps",
             "image_quantization_bits", "image_max_inference_steps", "image_max_pixels",
         ):
@@ -240,6 +241,12 @@ def validate_registry(registry: dict[str, Any]) -> None:
             errors.append(f"{label} with mflux_image needs path or model_id")
         if backend == "stable_diffusion_cpp_image":
             _validate_sdcpp_artifacts(entry, label, errors)
+        llama_server_min_build = params.get("llama_server_min_build")
+        if llama_server_min_build is not None and backend != "llama_server":
+            errors.append(
+                f"{label}.params.llama_server_min_build requires backend 'llama_server'"
+            )
+
         llama_server_bin_env = params.get("llama_server_bin_env")
         if llama_server_bin_env is not None:
             if backend != "llama_server":
