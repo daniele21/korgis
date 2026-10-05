@@ -240,6 +240,16 @@ def validate_registry(registry: dict[str, Any]) -> None:
             errors.append(f"{label} with mflux_image needs path or model_id")
         if backend == "stable_diffusion_cpp_image":
             _validate_sdcpp_artifacts(entry, label, errors)
+        llama_server_bin_env = params.get("llama_server_bin_env")
+        if llama_server_bin_env is not None:
+            if backend != "llama_server":
+                errors.append(
+                    f"{label}.params.llama_server_bin_env requires backend 'llama_server'"
+                )
+            elif not isinstance(llama_server_bin_env, str) or not llama_server_bin_env.strip():
+                errors.append(
+                    f"{label}.params.llama_server_bin_env must be a non-empty string"
+                )
         if backend == "llama_server" and multimodal and not (
             entry.get("mmproj_filename") or params.get("mmproj_path")
         ):
