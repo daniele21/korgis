@@ -123,7 +123,8 @@ def test_runtime_evidence_exposes_latest_privacy_safe_request_resources():
         sample_count=3,
         sample_errors=0,
         cpu_observation_ms=200.0,
-        source="test",
+        memory_source="test_memory",
+        cpu_source="test_cpu",
     )
 
     payload = runtime_evidence_payload(runtime)
@@ -132,6 +133,8 @@ def test_runtime_evidence_exposes_latest_privacy_safe_request_resources():
     assert payload["request_resources"]["memory"]["peak_bytes"] == 150
     assert payload["request_resources"]["cpu"]["peak_percent"] == 200.0
     assert payload["request_resources"]["sampling"]["cpu_observation_ms"] == 200.0
+    assert payload["request_resources"]["sources"]["memory"] == "test_memory"
+    assert payload["request_resources"]["sources"]["cpu"] == "test_cpu"
     rendered = str(payload["request_resources"])
     assert "pid" not in rendered.lower()
     assert "/private/" not in rendered
