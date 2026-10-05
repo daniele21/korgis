@@ -3,10 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from local_llm_server.config import build_config
 
 
-def _patch_registry(monkeypatch, tmp_path: Path) -> None:
+def _patch_registry(monkeypatch, tmp_path: Path, *, params: dict | None = None) -> None:
     monkeypatch.setattr(
         "local_llm_server.config.load_registry",
         lambda: {
@@ -17,7 +19,7 @@ def _patch_registry(monkeypatch, tmp_path: Path) -> None:
                 "demo": {
                     "model_id": "org/demo",
                     "backend": "llama_server",
-                    "params": {},
+                    "params": dict(params or {}),
                 }
             },
         },
@@ -78,3 +80,46 @@ def test_llama_server_environment_controls_are_typed(monkeypatch, tmp_path):
     assert cfg["llama_server_cache_type_k"] == "q8_0"
     assert cfg["llama_server_cache_type_v"] == "q4_0"
     assert cfg["llama_server_cache_ram_mib"] == 4096
+
+
+def test_model_specific_llama_server_binary_env_is_authoritative(monkeypatch, tmp_path):
+    _patch_registry(
+        monkeypatch,
+        tmp_path,
+        params={"llama_server_bin_env": "PRISM_LLAMA_SERVER_BIN"},
+    )
+    monkeypatch.setenv("PRISM_LLAMA_SERVER_BIN", "/opt/prism/llama-server")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_BIN", "/opt/stock/llama-server")
+
+    cfg = build_config(model="demo")
+
+    assert cfg["llama_server_bin"] == "/opt/prism/llama-server"
+
+
+def test_explicit_llama_server_binary_overrides_model_specific_env(monkeypatch, tmp_path):
+    _patch_registry(
+        monkeypatch,
+        tmp_path,
+        params={"llama_server_bin_env": "PRISM_LLAMA_SERVER_BIN"},
+    )
+    monkeypatch.setenv("PRISM_LLAMA_SERVER_BIN", "/opt/prism/llama-server")
+
+    cfg = build_config(model="demo", llama_server_bin="/tmp/explicit-llama-server")
+
+    assert cfg["llama_server_bin"] == "/tmp/explicit-llama-server"
+
+
+def test_model_specific_llama_server_binary_env_fails_closed_when_missing(
+    monkeypatch,
+    tmp_path,
+):
+    _patch_registry(
+        monkeypatch,
+        tmp_path,
+        params={"llama_server_bin_env": "PRISM_LLAMA_SERVER_BIN"},
+    )
+    monkeypatch.delenv("PRISM_LLAMA_SERVER_BIN", raising=False)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_BIN", "/opt/stock/llama-server")
+
+    with pytest.raises(ValueError, match="PRISM_LLAMA_SERVER_BIN"):
+        build_config(model="demo")
