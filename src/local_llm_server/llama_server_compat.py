@@ -147,6 +147,7 @@ def validate_llama_server_binary(
     binary: Path | str,
     *,
     allow_unvalidated: bool = False,
+    minimum_build: int = LLAMA_CPP_VALIDATED_MIN_BUILD,
     run_command: CommandRunner | None = None,
 ) -> LlamaServerCompatibility:
     """Validate an external server against the repository's v0.3 feature floor.
@@ -156,10 +157,17 @@ def validate_llama_server_binary(
     ``allow_unvalidated`` is a deliberate compatibility escape hatch for older
     or unparseable runtimes. Those runtimes never receive v0.3-only options.
     """
+    if isinstance(minimum_build, bool) or minimum_build <= 0:
+        raise ValueError("minimum_build must be a positive integer")
+
     identity = probe_llama_server_version(binary, run_command=run_command)
     if identity is None:
         if allow_unvalidated:
-            return LlamaServerCompatibility(identity=None, supported=False)
+            return LlamaServerCompatibility(
+                identity=None,
+                supported=False,
+                minimum_build=minimum_build,
+            )
         raise RuntimeError(
             "Cannot verify llama-server version. Local LLM Server requires an "
             f"attributable llama.cpp {LLAMA_CPP_VALIDATED_RELEASE}+ executable "
@@ -167,17 +175,25 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD:
+    if identity.build < minimum_build:
         if allow_unvalidated:
-            return LlamaServerCompatibility(identity=identity, supported=False)
+            return LlamaServerCompatibility(
+                identity=identity,
+                supported=False,
+                minimum_build=minimum_build,
+            )
         raise RuntimeError(
             "llama-server is older than the validated runtime floor: "
             f"found build {identity.build}, require build "
-            f"{LLAMA_CPP_VALIDATED_MIN_BUILD}+ "
+            f"{minimum_build}+ "
             f"({LLAMA_CPP_VALIDATED_RELEASE} or newer)."
         )
 
-    return LlamaServerCompatibility(identity=identity, supported=True)
+    return LlamaServerCompatibility(
+        identity=identity,
+        supported=True,
+        minimum_build=minimum_build,
+    )
 
 
 def resolve_llama_server_binary(
@@ -196,6 +212,14 @@ def resolve_llama_server_binary(
     """
     explicit = cfg.get("llama_server_bin") or os.getenv("LOCAL_LLM_SERVER_BIN")
     allow_unvalidated = bool(cfg.get("llama_server_allow_unvalidated", False))
+    configured_minimum_build = cfg.get("llama_server_min_build")
+    minimum_build = (
+        LLAMA_CPP_VALIDATED_MIN_BUILD
+        if configured_minimum_build is None
+        else int(configured_minimum_build)
+    )
+    if minimum_build <= 0:
+        raise ValueError("llama_server_min_build must be a positive integer")
 
     if explicit:
         path = Path(str(explicit)).expanduser()
@@ -203,6 +227,7 @@ def resolve_llama_server_binary(
         compatibility = validate_llama_server_binary(
             path,
             allow_unvalidated=allow_unvalidated,
+            minimum_build=minimum_build,
             run_command=run_command,
         )
         return path, compatibility
@@ -231,6 +256,7 @@ def resolve_llama_server_binary(
         compatibility = validate_llama_server_binary(
             candidate,
             allow_unvalidated=True,
+            minimum_build=minimum_build,
             run_command=run_command,
         )
         if compatibility.modern_runtime_options:
@@ -245,7 +271,7 @@ def resolve_llama_server_binary(
         raise RuntimeError(
             "No discovered llama-server satisfies the llama.cpp "
             f"{LLAMA_CPP_VALIDATED_RELEASE} / build "
-            f"{LLAMA_CPP_VALIDATED_MIN_BUILD}+ runtime floor. Set "
+            f"{minimum_build}+ runtime floor. Set "
             "LOCAL_LLM_SERVER_BIN to a supported executable, or explicitly "
             "allow an unvalidated legacy runtime."
         )
