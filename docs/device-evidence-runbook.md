@@ -2,8 +2,8 @@
 
 Status: active procedure
 Owner: local-llm-server
-Read when: executing TH-E1, EV-3, HE-2, RES-2 or RRG-5 on the representative Mac
-Last reviewed: 2026-08-30
+Read when: executing TH-E1, EV-3, HE-2, RES-2, RRG-5 or RTE-1 on the representative Mac
+Last reviewed: 2026-10-05
 
 This runbook turns hardware-dependent evidence into repeatable commands. Private model paths stay local. Validators emit bounded public-safe summaries and never promote repository maturity or automatic-eviction policy automatically.
 
@@ -281,6 +281,65 @@ python -m local_llm_server.multi_model_evidence_review \
 A `sufficient_observation_set` means only that the same attributable models/runtime procedure repeatedly exercised identity, transient overlap, cleanup and bounded shutdown successfully. RSS and available-memory deltas remain in the review as raw observations. The reviewer deliberately emits `automatic_eviction_recommendation=not_provided` and `reclamation_safety_claim=false`.
 
 Do not enable automatic pressure eviction solely because the reviewer is sufficient. A future policy decision must inspect the retained memory/pressure observations and define a separate acceptance contract; negative or mixed RRG-5 memory behavior is a valid outcome, not a reason to weaken the procedure.
+
+## RTE-1 — request resource telemetry and sampler overhead
+
+RTE-1 validates the new `korgis-request-evidence-v1` observation path on representative Apple Silicon. It is separate from the existing minimum L2 bundle and must not be used to retroactively change accepted resource-policy claims.
+
+Start the exact candidate with one verified local model and no unrelated heavy local-AI workload:
+
+```bash
+local-llm serve \
+  --model "$MODEL" \
+  --model-path "$MODEL_PATH" \
+  --backend llama_cpp \
+  --enable-admin-api
+```
+
+Use only synthetic, non-sensitive prompts. For each request retain the `korgis` evidence object plus runtime identity, never assistant content:
+
+```bash
+RTE1_DIR="$HOME/.local-llm-server/evidence/$(date +%F)-rte1"
+mkdir -p "$RTE1_DIR"
+
+for run in 1 2 3; do
+  curl -sS http://127.0.0.1:1235/v1/chat/completions \
+    -H 'Content-Type: application/json' \
+    -d "{
+      \"model\": \"$MODEL\",
+      \"messages\": [{\"role\": \"user\", \"content\": \"Return the word OK and no other text.\"}],
+      \"temperature\": 0,
+      \"max_tokens\": 8
+    }" |
+  python -c '
+import json, sys
+payload = json.load(sys.stdin)
+print(json.dumps({
+    "model": payload.get("model"),
+    "usage": payload.get("usage"),
+    "korgis": payload.get("korgis"),
+}, indent=2))
+' > "$RTE1_DIR/sequential-$run.json"
+done
+```
+
+Then repeat with a larger synthetic prompt and with two concurrent requests. The concurrency observation is intentionally expected to remain `attribution.quality=process_global`; it must never be relabelled as request-exclusive.
+
+Acceptance for the evidence contract requires:
+
+- `evidence_version=korgis-request-evidence-v1` on uncached inference;
+- memory source `ps_process_tree_rss_excluding_sampler` when RSS measurement is available;
+- CPU source `ps_process_tree_cpu_time_delta_excluding_sampler` when CPU measurement is available;
+- `cpu_observation_ms > 0` whenever average/peak CPU values are present;
+- non-negative baseline/peak/end RAM and `peak_delta_bytes`, with `peak >= baseline`;
+- no PID, private path, prompt or output retained in the evidence object;
+- cache hits carry `execution_source=cache` and no fresh resource measurement;
+- stream completion or cancellation leaves the runtime idle and retains at most the latest privacy-safe resource snapshot;
+- overlapping requests remain explicitly `process_global`.
+
+Sampler overhead is an observational REAL_ENVIRONMENT result, not a pass/fail production claim. Record wall-clock latency for repeated comparable synthetic requests on the telemetry candidate and on the exact pre-telemetry baseline under otherwise equivalent runtime/model settings. Keep model identity, backend, context and request shape fixed. Report the distributions and delta; do not generalize a one-device result into a cross-device performance guarantee.
+
+The accepted RTE-1 conclusion must state the exact source commit, model/runtime fingerprint, Mac hardware profile, sample counts, memory/CPU source labels and whether any sample degraded to unavailable evidence. Do not commit raw assistant content or private model paths.
 
 ## 5. Validate the complete minimum L2 hardware bundle
 
