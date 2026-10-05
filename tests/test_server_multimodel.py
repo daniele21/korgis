@@ -122,6 +122,11 @@ def test_deterministic_non_streaming_response_uses_lru_cache(caplog):
         second = chat_completions(_request(), req)
 
     assert first["content"] == second["content"] == "cached response"
+    assert first["korgis"]["evidence_version"] == "korgis-request-evidence-v1"
+    assert first["korgis"]["execution_source"] == "inference"
+    assert first["korgis"]["resources"]["snapshot_id"].startswith("resource-")
+    assert second["korgis"]["execution_source"] == "cache"
+    assert second["korgis"]["resources"] is None
     assert text.complete_calls == 1
     assert "Inference cache hit | model=text" in caplog.text
 
