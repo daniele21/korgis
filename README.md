@@ -78,6 +78,28 @@ uv run --frozen local-llm serve \
 
 The server binds to `127.0.0.1` by default.
 
+#### Ternary Bonsai 2 27B PTQ1_0
+
+The built-in `ternary-bonsai2-27b-ptq1` profile uses PrismML's
+`PTQ1_0` GGUF. This artifact requires the PrismML llama.cpp fork rather
+than stock llama.cpp. Keep that specialist runtime scoped to this model:
+
+```bash
+export PRISM_LLAMA_SERVER_BIN="/absolute/path/to/prism-llama.cpp/build/bin/llama-server"
+
+uv run --frozen local-llm download ternary-bonsai2-27b-ptq1
+
+uv run --frozen local-llm serve \
+  --model ternary-bonsai2-27b-ptq1 \
+  --enable-admin-api \
+  --no-download
+```
+
+Download or build the compatible runtime from
+`https://github.com/PrismML-Eng/llama.cpp`. The model-specific
+`PRISM_LLAMA_SERVER_BIN` setting is intentionally fail-closed: Korgis will
+not silently fall back to a stock `llama-server` for this model.
+
 Open:
 
 ```text
