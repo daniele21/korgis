@@ -88,6 +88,7 @@ models:
     tags: [reasoning, qwen, local-benchmark, 9b]
 
   qwen3.8-27b-q40:
+    path: "~/.lmstudio/models/unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_0.gguf"
     filename: "Qwen3.8-27B-Q4_0.gguf"
     lmstudio_path: "unsloth/Qwen3.8-27B-GGUF"
     url: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_0.gguf"
