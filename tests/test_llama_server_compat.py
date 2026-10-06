@@ -261,3 +261,53 @@ def test_model_specific_minimum_build_accepts_required_binary(tmp_path):
     assert compatibility.supported is True
     assert compatibility.minimum_build == 10828
     assert compatibility.backend_version == "build-10828@abcdef2"
+
+
+def test_auto_discovery_finds_standard_system_dir_candidate_when_which_is_empty(tmp_path):
+    system_dir = tmp_path / "opt" / "homebrew" / "bin"
+    supported = _make_executable(system_dir / "llama-server")
+    runner = _runner_for({str(supported): "version: 10621 (c1d0e7a)\n"})
+
+    binary, compatibility = resolve_llama_server_binary(
+        {},
+        home=tmp_path / "home",
+        which_resolver=lambda _name: None,
+        system_dirs=(system_dir,),
+        run_command=runner,
+    )
+
+    assert binary == supported
+    assert compatibility.exact_validated_release is True
+
+
+def test_auto_discovery_prefers_which_before_lmstudio(tmp_path):
+    lmstudio_dir = (
+        tmp_path
+        / ".lmstudio"
+        / "extensions"
+        / "backends"
+        / "llama.cpp-new"
+    )
+    lmstudio_binary = _make_executable(lmstudio_dir / "llama-server")
+    which_binary = _make_executable(tmp_path / "bin" / "llama-server")
+
+    probed_order: list[str] = []
+
+    def tracking_runner(path: Path) -> str:
+        probed_order.append(str(path))
+        if path == which_binary:
+            return "version: 10621 (c1d0e7a)\n"
+        return "version: 1 (legacy)\n"
+
+    binary, compatibility = resolve_llama_server_binary(
+        {},
+        home=tmp_path,
+        which_resolver=lambda _name: str(which_binary),
+        run_command=tracking_runner,
+    )
+
+    assert binary == which_binary
+    assert compatibility.exact_validated_release is True
+    # The PATH binary must be evaluated first, avoiding scanning lmstudio binaries
+    assert probed_order == [str(which_binary)]
+

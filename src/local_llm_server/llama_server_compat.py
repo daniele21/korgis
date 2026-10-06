@@ -7,6 +7,7 @@ repository's llama.cpp v0.3.0 / b10621 feature floor.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -15,6 +16,12 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
+
+logger = logging.getLogger("local-llm.llama_server_compat")
+
+DEFAULT_PROBE_TIMEOUT_SECONDS = float(
+    os.getenv("LOCAL_LLM_PROBE_TIMEOUT_SECONDS", "60.0")
+)
 
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
@@ -202,13 +209,15 @@ def resolve_llama_server_binary(
     run_command: CommandRunner | None = None,
     which_resolver: WhichResolver | None = None,
     home: Path | None = None,
+    system_dirs: tuple[Path, ...] | None = None,
 ) -> tuple[Path, LlamaServerCompatibility]:
     """Resolve one executable and its compatibility without hidden fallback.
 
     An explicit config/environment path is authoritative and is never silently
-    replaced. Automatic discovery prefers the first attributable v0.3-capable
-    candidate. A legacy candidate is considered only when the caller explicitly
-    enables ``llama_server_allow_unvalidated``.
+    replaced. Automatic discovery prefers PATH and standard installation
+    locations, followed by specialist runtime directories. A legacy candidate is
+    considered only when the caller explicitly enables
+    ``llama_server_allow_unvalidated``.
     """
     explicit = cfg.get("llama_server_bin") or os.getenv("LOCAL_LLM_SERVER_BIN")
     allow_unvalidated = bool(cfg.get("llama_server_allow_unvalidated", False))
@@ -234,6 +243,23 @@ def resolve_llama_server_binary(
 
     root = home or Path.home()
     candidates: list[Path] = []
+    resolver = which_resolver or shutil.which
+    discovered = resolver("llama-server")
+    if discovered:
+        candidates.append(Path(discovered))
+
+    dirs_to_check = (
+        system_dirs
+        if system_dirs is not None
+        else (
+            (Path("/opt/homebrew/bin"), Path("/usr/local/bin"), root / ".local" / "bin")
+            if home is None
+            else (root / ".local" / "bin",)
+        )
+    )
+    for standard_dir in dirs_to_check:
+        candidates.append(standard_dir / "llama-server")
+
     lmstudio_backends = root / ".lmstudio" / "extensions" / "backends"
     candidates.extend(
         sorted(
@@ -242,10 +268,6 @@ def resolve_llama_server_binary(
             reverse=True,
         )
     )
-    resolver = which_resolver or shutil.which
-    discovered = resolver("llama-server")
-    if discovered:
-        candidates.append(Path(discovered))
 
     first_legacy: tuple[Path, LlamaServerCompatibility] | None = None
     executable_candidates: list[Path] = []
@@ -410,10 +432,16 @@ def _probe_default_runner_cached(path: Path) -> LlamaServerBuildIdentity | None:
             return cached
         try:
             output = _default_runner(path)
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("Probing llama-server version for %s failed: %s", path, exc)
             return None
         identity = parse_llama_server_version(output)
         if identity is None:
+            logger.warning(
+                "Could not parse llama-server version from output for %s: %r",
+                path,
+                output,
+            )
             return None
 
         resolved_path = cache_key[0]
@@ -437,12 +465,12 @@ def _executable_cache_key(path: Path) -> _ExecutableCacheKey:
     )
 
 
-def _default_runner(binary: Path) -> str:
+def _default_runner(binary: Path, timeout: float | None = None) -> str:
     completed = subprocess.run(
         [str(binary), "--version"],
         capture_output=True,
         text=True,
-        timeout=10.0,
+        timeout=timeout if timeout is not None else DEFAULT_PROBE_TIMEOUT_SECONDS,
         check=False,
     )
     return "\n".join(
