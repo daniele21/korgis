@@ -87,6 +87,27 @@ models:
       show_thinking: false
     tags: [reasoning, qwen, local-benchmark, 9b]
 
+  qwen3.8-27b-q40:
+    filename: "Qwen3.8-27B-Q4_0.gguf"
+    lmstudio_path: "unsloth/Qwen3.8-27B-GGUF"
+    url: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_0.gguf"
+    model_id: "Qwen/Qwen3.8-27B"
+    quantization: "Q4_0"
+    sha256: "ede16c7b36e578ca87a8c70e011e4b4633a32c831c0ce76d0f474582384e671d"
+    size_gb: 16.1
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 600
+      max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
+      enable_thinking: false
+      show_thinking: false
+    tags: [reasoning, qwen, local-benchmark, 27b, q40]
+
   spark-x2.5-4b-q4km:
     filename: "Spark-X2.5-4B-Q4_K_M.gguf"
     lmstudio_path: "XHToken/Spark-X2.5-4B-GGUF"
