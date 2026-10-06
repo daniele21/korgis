@@ -231,3 +231,33 @@ def test_legacy_command_does_not_receive_modern_only_options():
     assert "--kv-unified" not in command
     assert "--load-mode" not in command
     assert "--fit" not in command
+
+
+def test_model_specific_minimum_build_rejects_globally_supported_older_binary(tmp_path):
+    binary = _make_executable(tmp_path / "llama-server")
+
+    with pytest.raises(RuntimeError, match="require build 10828"):
+        resolve_llama_server_binary(
+            {
+                "llama_server_bin": str(binary),
+                "llama_server_min_build": 10828,
+            },
+            run_command=lambda _path: "version: 10700 (abcdef1)\n",
+        )
+
+
+def test_model_specific_minimum_build_accepts_required_binary(tmp_path):
+    binary = _make_executable(tmp_path / "llama-server")
+
+    resolved, compatibility = resolve_llama_server_binary(
+        {
+            "llama_server_bin": str(binary),
+            "llama_server_min_build": 10828,
+        },
+        run_command=lambda _path: "version: 10828 (abcdef2)\n",
+    )
+
+    assert resolved == binary
+    assert compatibility.supported is True
+    assert compatibility.minimum_build == 10828
+    assert compatibility.backend_version == "build-10828@abcdef2"

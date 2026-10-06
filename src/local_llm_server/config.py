@@ -44,6 +44,7 @@ _FALLBACKS: dict[str, Any] = {
     "mmproj_path": None,
     "llama_server_port": 8091,
     "llama_server_bin": None,
+    "llama_server_min_build": None,
     "llama_server_allow_unvalidated": False,
     "llama_server_cont_batching": True,
     "llama_server_kv_unified": True,
@@ -107,6 +108,7 @@ _ENV_MAP: dict[str, str] = {
     "backend": "LOCAL_LLM_BACKEND",
     "llama_server_port": "LOCAL_LLM_SERVER_PORT",
     "llama_server_bin": "LOCAL_LLM_SERVER_BIN",
+    "llama_server_min_build": "LOCAL_LLM_SERVER_MIN_BUILD",
     "llama_server_allow_unvalidated": "LOCAL_LLM_SERVER_ALLOW_UNVALIDATED",
     "llama_server_cont_batching": "LOCAL_LLM_SERVER_CONT_BATCHING",
     "llama_server_kv_unified": "LOCAL_LLM_SERVER_KV_UNIFIED",
@@ -168,8 +170,9 @@ _INT_ENV = {
     "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout", "default_top_k",
     "image_width", "image_height", "image_num_inference_steps", "image_quantization_bits",
     "image_max_inference_steps", "image_max_pixels",
-    "max_concurrent_requests", "max_kv_size", "llama_server_fit_target_mib",
-    "llama_server_fit_ctx", "llama_server_cache_ram_mib",
+    "max_concurrent_requests", "max_kv_size", "llama_server_min_build",
+    "llama_server_fit_target_mib", "llama_server_fit_ctx",
+    "llama_server_cache_ram_mib",
 }
 _FLOAT_ENV = {
     "default_temperature", "default_top_p", "default_min_p",
@@ -220,6 +223,22 @@ def build_config(
         if key in explicit and explicit[key] is not None:
             cfg[key] = explicit[key]
             continue
+
+        if key == "llama_server_bin":
+            model_bin_env = reg_params.get("llama_server_bin_env")
+            if model_bin_env is not None:
+                if not isinstance(model_bin_env, str) or not model_bin_env.strip():
+                    raise ValueError(
+                        f"Model '{model}' has invalid llama_server_bin_env"
+                    )
+                env_val = os.getenv(model_bin_env.strip(), "")
+                if not env_val:
+                    raise ValueError(
+                        f"Model '{model}' requires llama-server binary via "
+                        f"environment variable '{model_bin_env.strip()}'"
+                    )
+                cfg[key] = env_val
+                continue
 
         env_name = _ENV_MAP.get(key)
         env_val = os.getenv(env_name, "") if env_name else ""

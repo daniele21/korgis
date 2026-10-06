@@ -3,12 +3,21 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException, Request
 
 from local_llm_server.runtime import ModelRuntimeManager
-from local_llm_server.server import ChatCompletionRequest, app, chat_completions, configure_runtime
+from local_llm_server.runtime_evidence import RuntimeIdentitySnapshot
+from local_llm_server.server import (
+    ChatCompletionRequest,
+    ModelActivateRequest,
+    _load_or_activate_model,
+    app,
+    chat_completions,
+    configure_runtime,
+)
 
 
 def _request() -> Request:
@@ -247,3 +256,62 @@ def test_streaming_response_releases_lease_when_client_disconnects():
 
     assert runtime.active_requests == 0
     manager.unload("text")
+
+
+def test_model_activation_exposes_privacy_safe_runtime_identity():
+    engine = _Engine("ready")
+    runtime = SimpleNamespace(
+        key="bonsai",
+        model_id="prism-ml/Ternary-Bonsai-2-27B-gguf",
+        engine=engine,
+        cfg={
+            "model": "bonsai",
+            "model_id": "prism-ml/Ternary-Bonsai-2-27B-gguf",
+            "model_path": "/private/models/bonsai.gguf",
+            "backend": "llama_server",
+            "quantization": "PTQ1_0",
+            "llama_server_port": 8091,
+            "mlx_vlm_server_port": None,
+        },
+        runtime_identity_snapshot=RuntimeIdentitySnapshot(
+            fingerprint="a" * 64,
+            payload={
+                "schema_version": 1,
+                "artifact_key": "b" * 64,
+                "backend": {
+                    "name": "llama_server",
+                    "version": "build-10709@prism123",
+                    "implementation": "LlamaServerEngine",
+                },
+                "config_digest": "c" * 64,
+                "hardware_key": "d" * 64,
+            },
+            captured_at=1.0,
+        ),
+    )
+
+    class _Manager:
+        default_model = None
+
+        def load(self, model, **explicit):
+            assert model == "bonsai"
+            assert explicit == {}
+            return runtime, True
+
+        def set_default(self, key):
+            self.default_model = key
+
+    state = SimpleNamespace(runtime_manager=_Manager(), cfg=None, llm=None)
+    payload = _load_or_activate_model(
+        ModelActivateRequest(model="bonsai"),
+        set_default=True,
+        app_state=state,
+    )
+
+    assert payload["runtime_identity"]["fingerprint"] == "a" * 64
+    assert (
+        payload["runtime_identity"]["identity"]["backend"]["version"]
+        == "build-10709@prism123"
+    )
+    assert payload["cfg"]["quantization"] == "PTQ1_0"
+    assert "/private/models" not in str(payload["runtime_identity"])

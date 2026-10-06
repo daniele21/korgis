@@ -78,6 +78,49 @@ uv run --frozen local-llm serve \
 
 The server binds to `127.0.0.1` by default.
 
+#### Spark-X2.5-4B Q4_K_M
+
+The built-in `spark-x2.5-4b-q4km` profile uses
+`XHToken/Spark-X2.5-4B-GGUF` and requires llama.cpp build **10828 or newer**.
+Korgis enforces that requirement before starting the subprocess.
+
+```bash
+uv run --frozen local-llm download spark-x2.5-4b-q4km
+
+uv run --frozen local-llm serve \
+  --model spark-x2.5-4b-q4km \
+  --enable-admin-api \
+  --no-download
+```
+
+If the discovered llama-server is too old, update llama.cpp or point
+`LOCAL_LLM_SERVER_BIN` to a build >= 10828. The model supports a native 1M-token
+context; the built-in benchmark profile uses 8192 tokens to avoid inflating KV-cache
+cost relative to the other local comparison models. Thinking is switchable and
+disabled by default in this profile.
+
+#### Ternary Bonsai 2 27B PTQ1_0
+
+The built-in `ternary-bonsai2-27b-ptq1` profile uses PrismML's
+`PTQ1_0` GGUF. This artifact requires the PrismML llama.cpp fork rather
+than stock llama.cpp. Keep that specialist runtime scoped to this model:
+
+```bash
+export PRISM_LLAMA_SERVER_BIN="/absolute/path/to/prism-llama.cpp/build/bin/llama-server"
+
+uv run --frozen local-llm download ternary-bonsai2-27b-ptq1
+
+uv run --frozen local-llm serve \
+  --model ternary-bonsai2-27b-ptq1 \
+  --enable-admin-api \
+  --no-download
+```
+
+Download or build the compatible runtime from
+`https://github.com/PrismML-Eng/llama.cpp`. The model-specific
+`PRISM_LLAMA_SERVER_BIN` setting is intentionally fail-closed: Korgis will
+not silently fall back to a stock `llama-server` for this model.
+
 Open:
 
 ```text
