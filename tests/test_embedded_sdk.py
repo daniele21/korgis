@@ -214,3 +214,27 @@ def test_managed_startup_failure_does_not_leave_owned_process(monkeypatch):
     with pytest.raises(KorgisUnavailable, match="managed_server_exited"):
         with Korgis.managed(_profile()):
             pass
+
+
+def test_sdk_builds_as_a_standalone_wheel(tmp_path):
+    """The consumer must remain installable without the heavyweight server package."""
+    import subprocess
+    import zipfile
+
+    root = Path(__file__).resolve().parents[1]
+    output = tmp_path / "wheels"
+    subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--no-isolation",
+         "--outdir", str(output), str(root / "sdk" / "python")],
+        check=True, capture_output=True, text=True, timeout=60,
+    )
+    wheels = list(output.glob("korgis_client-*.whl"))
+    assert len(wheels) == 1
+    with zipfile.ZipFile(wheels[0]) as archive:
+        files = set(archive.namelist())
+        metadata = next(name for name in files if name.endswith(".dist-info/METADATA"))
+        body = archive.read(metadata).decode("utf-8")
+        assert "Requires-Dist: llama-cpp-python" not in body
+        assert "Requires-Dist: fastapi" not in body
+        assert "korgis_sdk/client.py" in files
+        assert "korgis_sdk/managed.py" in files
