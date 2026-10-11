@@ -86,7 +86,7 @@ def test_http_loopback_required_and_redirects_disabled():
     for url in ("http://192.168.1.2:1235", "https://example.com", "http://user:pw@localhost:1235"):
         with pytest.raises(ValueError):
             KorgisConnection(AppBindings.from_dict(_profile()), base_url=url)
-    client, _ = _client()
+    client = KorgisConnection(AppBindings.from_dict(_profile()), base_url="http://127.0.0.1:1235")
     assert any(type(handler).__name__ == "_RejectRedirects" for handler in client._opener.handlers)
 
 
