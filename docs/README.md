@@ -162,3 +162,7 @@ When sources disagree:
 8. README summaries.
 
 Do not silently reconcile a contradiction that changes behavior. Correct the canonical owner and update planning/state only where necessary.
+
+## Application integration
+
+- [Python consumer SDK / embedding preview](developer-integration.md) — scoped role-to-model bindings, attach/managed developer integration and security limitations.
