@@ -1,13 +1,13 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-09-28
+Last reviewed: 2026-10-11
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
 ## Engineering baseline
 
-- Standard: `daniele21/repo-template-sw` **0.8.0**, revision `6677c5349d64ea6d935f1b460d03a47c236821bc`.
+- Standard: `daniele21/repo-template-sw` **0.10.0**, revision `f392e4ded5cd3ec5efbf806934789c6cb9f10ded`.
 - Target maturity: **L2** across Python, local-AI, TypeScript, macOS and `product-ui`.
 - Repository-side L2 acceptance: `d528b6c5b676e705e7ccf24800929da6d5534203`.
 - Representative Apple Silicon evidence is accepted for TH-E1, EV-3, HE-2, RES-2 and RRG-5.
@@ -23,6 +23,13 @@ Runtime hardening remains fail-conservative: routing/accounting persists until t
 Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by default. Explicit executable selection is authoritative. Local LLM Server maps admitted concurrency to `--parallel`; llama.cpp owns runtime-local batching/KV. Automatic pressure eviction remains disabled.
 
 Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
+
+## Post-0.4 developer integration (in dev)
+
+- The standalone dependency-free Python consumer SDK (PR #227) is integrated as an **experimental** loopback client with explicit role-to-model bindings, deterministic tests, and a developer-only managed CLI sidecar; its bindings do not constitute the M8 server contract.
+- M8.1-M8.2 (PR #230) add a **versioned experimental server-side ApplicationProfile parser and zero-resident capability validator**. They do not activate models, reserve memory, expose public profile endpoints, or implement resource fit planning.
+- M8.3 resource dry-run, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing profile integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
+- No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
 ## Accepted real evidence
 

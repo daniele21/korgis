@@ -3,7 +3,7 @@
 Status: active
 Owner: repository
 Read when: selecting the next capability milestone or understanding release dependencies
-Last reviewed: 2026-08-31
+Last reviewed: 2026-10-11
 
 This file owns milestone sequencing only. Detailed product intent belongs in [`implementation-plan.md`](implementation-plan.md), active implementation planning/progress belongs in `docs/workstreams/`, and integrated/blocker/next truth belongs in [`current-state.md`](current-state.md).
 
@@ -84,13 +84,15 @@ The program is intentionally sequenced from **declarative intent and planning** 
 
 | Milestone | State | Product outcome |
 | --- | --- | --- |
-| M8 Application Profiles & resource planner | PLANNED | application can declare exact specialist roles and inspect a validated/dry-run resource plan without loading everything |
+| M8 Application Profiles & resource planner | PARTIAL | application can declare exact specialist roles and inspect a validated/dry-run resource plan without loading everything |
 | M9 Explicit residency & on-demand lifecycle | PLANNED | profile can express pinned/warm/on-demand intent and trigger safe explicit load/unload policy under existing ownership guarantees |
 | M10 Workload-aware scheduling | PLANNED | role/task priorities, deadlines and bounded cross-runtime execution make multi-model application workloads predictable |
 | M11 Apple Silicon reference runtime | PLANNED | application-runtime lifecycle/resource behavior is evidenced on representative Apple Silicon configurations with claim-scoped support data |
 | M12 Developer integration & application-runtime candidate | PLANNED | external applications can adopt the runtime through stable versioned profile/integration contracts and pass the end-to-end product gate |
 
 No M8-M12 item is implemented merely because its target contract is documented here.
+
+M8.1–M8.2 now have an experimental core schema and zero-resident capability validator (PR #230). The M8.3 resource planner and M8.4 Studio adoption are still planned; this is not a stable M12 external profile contract. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
 
 ## M8 — Application Profiles & resource planner
 
