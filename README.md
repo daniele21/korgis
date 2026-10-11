@@ -191,6 +191,10 @@ Current limits still matter:
 
 See [`docs/current-state.md`](docs/current-state.md) for the exact current state.
 
+## Embed Korgis in an application (developer preview)
+
+The standalone, dependency-free [Python consumer SDK](sdk/python/) supports explicit application role bindings, attaching to an existing loopback control plane, and a developer-only managed CLI sidecar. See the [developer integration guide](docs/developer-integration.md) and [ClosedRoom-inspired example](examples/korgis-consumer/closedroom_analysis.py). The existing OpenAI-compatible API remains supported. Production-managed embedding is not yet claimed.
+
 ## Documentation
 
 | Need | Start here |

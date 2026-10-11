@@ -1,0 +1,7 @@
+{
+  "schema_version": "korgis-client-bindings-v1",
+  "app": "closedroom",
+  "roles": {
+    "analysis": {"model": "nemotron-nano-4b", "task": "chat"}
+  }
+}
