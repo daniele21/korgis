@@ -21,7 +21,10 @@ def browser_base_url(host: object, port: object) -> str:
 def _run_until_stopped(server: Any, *, sockets: list[socket.socket] | None = None) -> None:
     """Run Uvicorn while treating its re-raised SIGINT as a clean CLI stop."""
     try:
-        server.run(sockets=sockets) if sockets is not None else server.run()
+        if sockets is None:
+            server.run()
+        else:
+            server.run(sockets=sockets)
     except KeyboardInterrupt:
         print("\n[*] local-llm-server stopped.", flush=True)
 
@@ -105,13 +108,15 @@ def run_server(
     server = _shutdown_aware_server(uvicorn, config, application)
 
     inherited_socket = None
-    if listen_fd is not None:
-        inherited_socket = socket.socket(fileno=listen_fd)
-        if (inherited_socket.family != socket.AF_INET
-                or inherited_socket.getsockname() != ("127.0.0.1", int(resolved_cfg["port"]))):
-            inherited_socket.close()
-            raise ValueError("inherited listener must match exact configured loopback endpoint")
     try:
+        if listen_fd is not None:
+            inherited_socket = socket.socket(fileno=listen_fd)
+            if (
+                inherited_socket.family != socket.AF_INET
+                or inherited_socket.getsockname() != ("127.0.0.1", int(resolved_cfg["port"]))
+                or not inherited_socket.getsockopt(socket.SOL_SOCKET, socket.SO_ACCEPTCONN)
+            ):
+                raise ValueError("inherited listener must be the exact bound loopback socket")
         _run_until_stopped(server, sockets=[inherited_socket] if inherited_socket else None)
     finally:
         if inherited_socket is not None:
