@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import ipaddress
 import json
-import os
+import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -42,13 +44,18 @@ def _validate_url(base_url: str) -> str:
 class KorgisConnection:
     """Connect to a running control plane; the caller retains process ownership."""
 
-    def __init__(self, profile: AppBindings, *, base_url: str, timeout: float = 120.0):
+    def __init__(self, profile: AppBindings, *, base_url: str, timeout: float = 120.0,
+                 session_token: str | None = None):
         self.profile = profile
         self.base_url = _validate_url(base_url)
         if timeout <= 0:
             raise ValueError("timeout must be positive")
         self.timeout = timeout
-        self._opener = urllib.request.build_opener(_RejectRedirects())
+        if session_token is not None and (len(session_token) != 64 or
+                                          any(c not in "0123456789abcdef" for c in session_token)):
+            raise ValueError("invalid managed session credential")
+        self._session_token = session_token
+        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _RejectRedirects())
 
     def __enter__(self) -> "KorgisConnection":
         return self
@@ -80,13 +87,39 @@ class KorgisConnection:
         if not set(self.profile.models).issubset(resident):
             raise KorgisUnavailable("requested_model_not_resident")
 
+    def _attest(self) -> None:
+        """Prove server identity BEFORE sending a credential or sensitive prompt."""
+        if self._session_token is None:
+            return
+        challenge = secrets.token_hex(32)
+        request = urllib.request.Request(
+            self.base_url + "/_korgis/session/attest",
+            headers={"X-Korgis-Challenge": challenge},
+            method="GET",
+        )
+        try:
+            with self._opener.open(request, timeout=min(2.0, self.timeout)) as response:
+                proof = response.headers.get("X-Korgis-Session-Proof", "")
+                if response.status != 204:
+                    raise KorgisProtocolError("managed_session_identity_mismatch")
+        except urllib.error.HTTPError:
+            raise KorgisProtocolError("managed_session_identity_mismatch") from None
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise KorgisUnavailable("server_unreachable") from None
+        expected = hmac.new(
+            self._session_token.encode("ascii"), challenge.encode("ascii"), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(proof, expected):
+            raise KorgisProtocolError("managed_session_identity_mismatch")
+
     def _request(self, method: str, path: str, data: bytes | None = None,
                  content_type: str = "application/json") -> dict[str, Any]:
+        self._attest()
+        headers = {"Content-Type": content_type} if data is not None else {}
+        if self._session_token is not None:
+            headers["Authorization"] = "Bearer " + self._session_token
         req = urllib.request.Request(
-            self.base_url + path,
-            data=data,
-            headers={"Content-Type": content_type} if data is not None else {},
-            method=method,
+            self.base_url + path, data=data, headers=headers, method=method,
         )
         try:
             with self._opener.open(req, timeout=self.timeout) as response:
@@ -175,8 +208,10 @@ class Korgis:
     @staticmethod
     def connect(profile: AppBindings | dict[str, Any] | str | Path,
                 *, base_url: str = "http://127.0.0.1:1235",
-                timeout: float = 120.0) -> KorgisConnection:
-        connection = KorgisConnection(AppBindings.load(profile), base_url=base_url, timeout=timeout)
+                timeout: float = 120.0,
+                session_token: str | None = None) -> KorgisConnection:
+        connection = KorgisConnection(AppBindings.load(profile), base_url=base_url,
+                                      timeout=timeout, session_token=session_token)
         connection.ensure_ready()
         return connection
 

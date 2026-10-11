@@ -5,6 +5,7 @@ canonical product HTTP stack without editing the historical server monolith.
 """
 from __future__ import annotations
 
+import socket
 from typing import Any
 
 
@@ -17,10 +18,10 @@ def browser_base_url(host: object, port: object) -> str:
     return f"http://{browser_host}:{int(port)}/"
 
 
-def _run_until_stopped(server: Any) -> None:
+def _run_until_stopped(server: Any, *, sockets: list[socket.socket] | None = None) -> None:
     """Run Uvicorn while treating its re-raised SIGINT as a clean CLI stop."""
     try:
-        server.run()
+        server.run(sockets=sockets) if sockets is not None else server.run()
     except KeyboardInterrupt:
         print("\n[*] local-llm-server stopped.", flush=True)
 
@@ -60,10 +61,13 @@ def run_server(
     enable_admin_api: bool = False,
     cors_origins: list[str] | tuple[str, ...] | None = None,
     resource_policy_settings: Any | None = None,
+    listen_fd: int | None = None,
+    session_secret: str | None = None,
 ) -> None:
     import uvicorn
 
     from .product_composition import install_product_http_stack
+    from .embedded_session import install_embedded_session_guard
     from .product_runtime import effective_policy_for_manager
     from .server import (
         ServerSettings,
@@ -85,6 +89,10 @@ def run_server(
         else effective_policy_for_manager(manager)
     )
     install_product_http_stack(application)
+    if (listen_fd is None) != (session_secret is None):
+        raise ValueError("managed session requires both inherited listener and secret")
+    if session_secret is not None:
+        install_embedded_session_guard(application, session_secret)
     resolved_cfg = manager.resolve().cfg
 
     config = uvicorn.Config(
@@ -96,9 +104,18 @@ def run_server(
     )
     server = _shutdown_aware_server(uvicorn, config, application)
 
+    inherited_socket = None
+    if listen_fd is not None:
+        inherited_socket = socket.socket(fileno=listen_fd)
+        if (inherited_socket.family != socket.AF_INET
+                or inherited_socket.getsockname() != ("127.0.0.1", int(resolved_cfg["port"]))):
+            inherited_socket.close()
+            raise ValueError("inherited listener must match exact configured loopback endpoint")
     try:
-        _run_until_stopped(server)
+        _run_until_stopped(server, sockets=[inherited_socket] if inherited_socket else None)
     finally:
+        if inherited_socket is not None:
+            inherited_socket.close()
         # Idempotent fallback for normal programmatic exits or startup failures.
         begin_app_shutdown(application)
         manager.shutdown()

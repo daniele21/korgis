@@ -1,8 +1,9 @@
-"""Managed development sidecar. The Korgis CLI retains runtime and resource policy."""
+"""Owned local Korgis session: inherited listener, isolated credential, exact readiness."""
 
 from __future__ import annotations
 
 import os
+import secrets
 import shutil
 import signal
 import socket
@@ -14,16 +15,19 @@ from .errors import KorgisUnavailable
 from .profile import AppBindings
 
 
-def _ephemeral_port() -> int:
-    # The CLI owns the final bind; a race here must fail startup, not attach
-    # to an unknown external service. This helper is a developer preview.
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+def _bound_listener() -> socket.socket:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
         sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+        sock.listen(16)
+        return sock
+    except BaseException:
+        sock.close()
+        raise
 
 
 class ManagedKorgis:
-    """Owns one launched CLI process; never kills an attached external daemon."""
+    """Owns the child process and its exclusive local socket, never an attached daemon."""
 
     def __init__(self, profile: AppBindings, *, executable: str = "local-llm",
                  startup_timeout: float = 120.0):
@@ -33,30 +37,52 @@ class ManagedKorgis:
         self.executable = executable
         self.startup_timeout = startup_timeout
         self._process: subprocess.Popen | None = None
+        self._listener: socket.socket | None = None
         self._connection: KorgisConnection | None = None
 
     def __enter__(self) -> KorgisConnection:
         if self._process is not None:
             raise RuntimeError("managed context is already running")
+        if os.name != "posix":
+            raise KorgisUnavailable("managed_socket_handoff_unsupported")
         binary = shutil.which(self.executable)
         if binary is None:
             raise KorgisUnavailable("local_llm_cli_not_installed")
         models = self.profile.models
-        port = _ephemeral_port()
-        args = [binary, "serve", "--host", "127.0.0.1", "--port", str(port),
-                "--no-download"]
-        if len(models) == 1:
-            args.extend(["--model", models[0]])
-        else:
-            args.extend(["--models", *models, "--default-model", models[0]])
+        token = secrets.token_hex(32)
         try:
-            self._process = subprocess.Popen(
-                args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, close_fds=True, start_new_session=True,
-            )
+            listener = _bound_listener()
+            # Keep the parent's listener open for the entire lease. If the
+            # child crashes no foreign process can bind/reuse its endpoint.
+            self._listener = listener
+            port = listener.getsockname()[1]
+            read_fd, write_fd = os.pipe()
+            try:
+                try:
+                    os.write(write_fd, token.encode("ascii"))
+                finally:
+                    os.close(write_fd)
+                args = [
+                    binary, "serve", "--host", "127.0.0.1", "--port", str(port),
+                    "--no-download",
+                ]
+                if len(models) == 1:
+                    args.extend(["--model", models[0]])
+                else:
+                    args.extend(["--models", *models, "--default-model", models[0]])
+                args.extend([
+                    "--listen-fd", str(listener.fileno()), "--session-fd", str(read_fd),
+                ])
+                self._process = subprocess.Popen(
+                    args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, close_fds=True, start_new_session=True,
+                    pass_fds=(listener.fileno(), read_fd),
+                )
+            finally:
+                os.close(read_fd)
             candidate = KorgisConnection(
                 self.profile, base_url="http://127.0.0.1:" + str(port),
-                timeout=1.0,
+                timeout=1.0, session_token=token,
             )
             deadline = time.monotonic() + self.startup_timeout
             while time.monotonic() < deadline:
@@ -78,24 +104,30 @@ class ManagedKorgis:
         self.close()
 
     def close(self) -> None:
-        if self._connection is not None:
-            self._connection.close()
-            self._connection = None
+        connection = self._connection
+        self._connection = None
+        if connection is not None:
+            connection.close()
         process = self._process
         self._process = None
-        if process is None or process.poll() is not None:
-            return
-        # Only the process group created by start_new_session is signalled.
+        listener = self._listener
+        self._listener = None
         try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            if process.poll() is None:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=5)
+            if process is None or process.poll() is not None:
+                return
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                return
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                if process.poll() is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=5)
+        finally:
+            if listener is not None:
+                listener.close()

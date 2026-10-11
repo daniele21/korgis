@@ -31,6 +31,11 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
+## Managed session transport hardening (integration candidate)
+
+- Opt-in managed local sidecar now has proposed atomic inherited-listener ownership, one-session attestation and authorization for all HTTP paths, with a parent-held listener across child crashes. Existing anonymous loopback CLI/attach behavior remains unchanged.
+- The managed Python SDK still requires a separately installed CLI and native backend; macOS package/signing, physical process lifetime/resource evidence, OS-user/child-process threats and a consumer adoption test in ClosedRoom remain unproven. This is not a release-ready embedded distribution.
+
 ## Accepted real evidence
 
 The 2026-08-31 representative Mac campaign accepted:
