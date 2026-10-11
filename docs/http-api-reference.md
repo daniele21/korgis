@@ -201,6 +201,12 @@ Use Swagger for the exact request/response body of each administrative operation
 
 `POST /api/v1/evaluation/runs` accepts the backwards-compatible `retain_content` flag (default `true`) to control generated-output retention in private local history. Prompt and expected value remain attached to the immutable test-set context; when output retention is disabled, local history stores those definitions plus scores, errors and metrics but omits the generated output. The immediate response includes the output for the active local drill-down. The manifest field `content_retained` records whether output was stored. Legacy reports can recover prompt and expected value only when the matching test-set identity is still available. Generic/shareable `report_to_dict` serialization remains content-free unless a trusted caller opts in.
 
+## Experimental ApplicationProfile validation and resource preview (admin only)
+
+With --enable-admin-api, POST /api/v1/applications/profiles/validate checks a versioned ApplicationProfile against exact registered model keys and canonical task capability facts without requiring a resident runtime. POST /api/v1/applications/profiles/plan additionally produces a non-mutating configured resource preview using the existing ResourceManager and memory envelopes. Request body is the experimental JSON format documented in [Application Profiles](features/application-profiles.md).
+
+A plan decision of plausible means only that complete configured resident estimates fall within the configured budget at the snapshot; uncertain never means a fit, and rejected means a known minimum exceeds that budget. Cold on_demand roles do not consume intended persistent residency and are **not** guaranteed loadable later. No active reservation is created and resource state may change before activation. Neither endpoint implies a production-safe embedded sidecar, which additionally requires local authorization and process ownership.
+
 ## Failure semantics
 
 Supported product entrypoints validate task/media/capability policy before backend execution when the information is available. Clients should expect explicit HTTP failure for invalid input, unavailable routing/capability, disabled policy or backend failure rather than silent fallback.
