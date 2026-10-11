@@ -7,6 +7,8 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, sta
 from pydantic import BaseModel, Field
 
 from .cold_state import install_cold_state
+from .application_resource_planner import plan_application_profile
+from .core.application_profile import ApplicationProfile, ApplicationProfileError, validate_application_profile
 from .core.contracts import ErrorCode, InferenceError
 from .evaluation_builtin import GENERAL_PURPOSE_V1
 from .evaluation_history_api import install_evaluation_history_api
@@ -123,6 +125,48 @@ def install_product_api(
             test_set_store=request.app.state.evaluation_test_set_store,
         )
 
+    def _parsed_application_profile(body: dict[str, Any]):
+        try:
+            from .registry import load_registry
+            profile = ApplicationProfile.parse(body)
+            registry_models = load_registry()["models"]
+            validation = validate_application_profile(profile, registry_models)
+        except ApplicationProfileError as exc:
+            raise HTTPException(status_code=422, detail={
+                "code": "invalid_application_profile", "message": str(exc),
+            }) from exc
+        return profile, registry_models, validation
+
+    def validate_profile(body: dict[str, Any]):
+        _, _, validated = _parsed_application_profile(body)
+        return validated
+
+    def plan_profile(body: dict[str, Any], request: Request):
+        profile, registry_models, _ = _parsed_application_profile(body)
+        from .config import build_config
+
+        manager = request.app.state.runtime_manager
+        resident = {
+            runtime.key: runtime.resource_reservation_id
+            for runtime in manager.list()
+        }
+        policy = getattr(
+            request.app.state, "resource_policy_settings", ResourcePolicySettings()
+        )
+        try:
+            return plan_application_profile(
+                profile,
+                registry_models=registry_models,
+                settings=policy,
+                resource_manager=manager.resource_manager,
+                resident_runtime_reservations=resident,
+                config_for_model=lambda key: build_config(model=key, no_download=True),
+            )
+        except (ValueError, LookupError, OSError) as exc:
+            raise HTTPException(status_code=422, detail={
+                "code": "model_configuration_unavailable",
+            }) from exc
+
     def get_resource_state(request: Request):
         policy_settings = getattr(
             request.app.state,
@@ -202,6 +246,20 @@ def install_product_api(
             ),
         }
 
+    application.add_api_route(
+        "/api/v1/applications/profiles/validate",
+        validate_profile,
+        methods=["POST"],
+        tags=["Applications"],
+        name="validate_application_profile",
+    )
+    application.add_api_route(
+        "/api/v1/applications/profiles/plan",
+        plan_profile,
+        methods=["POST"],
+        tags=["Applications"],
+        name="plan_application_profile",
+    )
     application.add_api_route(
         "/api/v1/resources",
         get_resource_state,

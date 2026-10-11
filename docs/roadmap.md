@@ -92,7 +92,7 @@ The program is intentionally sequenced from **declarative intent and planning** 
 
 No M8-M12 item is implemented merely because its target contract is documented here.
 
-M8.1–M8.2 now have an experimental core schema and zero-resident capability validator (PR #230). The M8.3 resource planner and M8.4 Studio adoption are still planned; this is not a stable M12 external profile contract. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
+M8.1–M8.2 have an experimental core schema/zero-resident validator (PR #230). The M8.3 configured-residency dry-run and opt-in admin API are a candidate separate slice; Studio M8.4, measured peak/concurrency planning and the stable M12 external contract remain incomplete. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
 
 ## M8 — Application Profiles & resource planner
 
