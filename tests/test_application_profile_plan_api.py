@@ -9,7 +9,7 @@ from local_llm_server.control_plane_api import install_product_api
 from local_llm_server.resource_manager import ResourceManager
 from local_llm_server.resource_policy import ResourcePolicySettings
 from local_llm_server.resources import ResourceBudget
-from local_llm_server.runtime import ModelRuntimeManager
+from local_llm_server.product_runtime_manager import ProductRuntimeManager
 from local_llm_server.server import ServerSettings, create_app
 
 
@@ -46,8 +46,11 @@ def _client(tmp_path: Path, *, admin: bool, monkeypatch, memory_budget=1000):
         "resource_request_estimate_bytes": 90,
     })
     resource = ResourceManager(ResourceBudget(limit_bytes=memory_budget, headroom_bytes=100))
-    manager = ModelRuntimeManager(default_model=None, resource_manager=resource)
-    app = create_app(manager, settings=ServerSettings(enable_admin_api=admin))
+    manager = ProductRuntimeManager(default_model="text", resource_manager=resource)
+    app = create_app(settings=ServerSettings(enable_admin_api=admin))
+    app.state.runtime_manager = manager
+    app.state.cfg = None
+    app.state.llm = None
     app.state.resource_policy_settings = ResourcePolicySettings(
         memory_limit_bytes=memory_budget, headroom_bytes=100,
     )
