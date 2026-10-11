@@ -79,7 +79,7 @@ def test_validate_plan_exact_model_zero_resident_no_mutation(tmp_path, monkeypat
     assert result["planned"]["additional_estimated_bytes"] == 235
     assert result["mutated_runtime"] is False
     assert resource.snapshot() == before
-    assert runtime.list() == ()
+    assert runtime.list() == []
     assert "/home/private/" not in str(result)
 
 
