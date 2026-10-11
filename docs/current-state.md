@@ -26,15 +26,10 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 
 ## Post-0.4 developer integration (in dev)
 
-- The standalone dependency-free Python consumer SDK (PR #227) is integrated as an **experimental** loopback client with explicit role-to-model bindings, deterministic tests, and a developer-only managed CLI sidecar; its bindings do not constitute the M8 server contract.
+- The Python consumer SDK (#227) is experimental; its managed session hardening (#233) proposes owned socket and per-session authentication. Packaged macOS evidence is pending; it is not a stable M8 profile or released M12 SDK.
 - M8.1-M8.2 (PR #230) add a **versioned experimental server-side ApplicationProfile parser and zero-resident capability validator**. They do not activate models, reserve memory, expose public profile endpoints, or implement resource fit planning.
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
-
-## Managed session transport hardening (integration candidate)
-
-- Opt-in managed local sidecar now has proposed atomic inherited-listener ownership, one-session attestation and authorization for all HTTP paths, with a parent-held listener across child crashes. Existing anonymous loopback CLI/attach behavior remains unchanged.
-- The managed Python SDK still requires a separately installed CLI and native backend; macOS package/signing, physical process lifetime/resource evidence, OS-user/child-process threats and a consumer adoption test in ClosedRoom remain unproven. This is not a release-ready embedded distribution.
 
 ## Accepted real evidence
 
