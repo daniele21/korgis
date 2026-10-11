@@ -80,5 +80,7 @@ class _EmbeddedSessionMiddleware:
 
 def install_embedded_session_guard(application: FastAPI, secret: str) -> FastAPI:
     """Register last, outside product middleware; no unauthenticated bypasses."""
+    if not isinstance(secret, str) or not _TOKEN.fullmatch(secret):
+        raise ValueError("invalid embedded session secret")
     application.add_middleware(_EmbeddedSessionMiddleware, secret=secret)
     return application
