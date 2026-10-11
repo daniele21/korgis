@@ -94,6 +94,8 @@ No M8-M12 item is implemented merely because its target contract is documented h
 
 M8.1–M8.2 have an experimental core schema/zero-resident validator (PR #230). M8.3's conservative configured-residency preview and opt-in admin API are integrated (PR #231). Studio M8.4, compatible historical observed resident/peak and request-specific concurrency planning, and the stable M12 external contract remain incomplete. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
 
+The separately owned managed-sidecar hardening is an experimental transport/lifecycle integration tranche, not M9 automatic model residency and not a completed M12 packaged distribution. Attested inherited sockets do not prove representative target-Mac packaging or sandbox isolation.
+
 ## M8 — Application Profiles & resource planner
 
 ### Goal

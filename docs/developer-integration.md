@@ -37,8 +37,8 @@ The SDK supports chat/vision through /v1/chat/completions and first-class multip
 
 - Only HTTP loopback endpoints are accepted in this version. Redirects are blocked to prevent implicit network disclosure.
 - HTTP failure messages are intentionally sanitized so application error reporting does not repeat sensitive server bodies.
-- The current server has no loopback HTTP authentication. Another local process may be able to access the same server. Consequently managed mode is a **developer preview**; do not ship it in a privacy-sensitive packaged application without strengthening local access control and authenticated process ownership.
-- A dynamically selected loopback port is checked at launch, but the current CLI has no atomic inherited-listener handshake. This race must be removed before treating managed mode as a production embedding guarantee.
+- Managed mode now uses an exclusive inherited TCP listener and a 256-bit per-session secret transferred through a pipe. It attests the server with HMAC before sending a bearer token or user input; the core guards all HTTP endpoints, and the parent keeps the port occupied after a child crash until cleanup. Regular `connect` and CLI serving remain unchanged and unauthenticated by default. This opt-in hardening does **not** authorize shipping a bundled app until representative macOS/native process-group, binary signing, installer and crash-recovery evidence exists.
+- The former port release/rebind race is addressed by inherited-listener handoff on POSIX. The listener and secret are FD-scoped, no token appears in process arguments, environment or ordinary logs. FDs must survive the PyInstaller/native packaging chain; that has not been validated on target hardware.
 - The Korgis core remains authoritative for capability and resource admission. The client binding only fixes the declared role-to-model route; the server rejects unsupported requests.
 - Pinned, warm and on_demand residency are not exposed through this binding format yet. Managed mode starts its declared models resident. New residency behavior belongs in M8-M9 and must preserve exact runtime identity and lease safety.
 - Media processing and actual native model packages are not bundled into this Python-only SDK. Representative Apple Silicon packaging, cleanup and process tests remain required for end-user distribution.
@@ -59,3 +59,9 @@ Independent packaging smoke: python -m pip install ./sdk/python followed by impo
 A broader end-to-end acceptance slice should exercise exact model routing, launch failure, concurrent app exit, orphan-process checks, cancellation, port collision, resource denial and representative Apple Silicon packaged-app behavior before claiming production-readiness.
 
 Future sequencing remains the repository roadmap M8 (canonical profile/plan), M9 (on-demand lifecycle), M10 (workload scheduling) and M12 (stable integration contracts).
+
+## Opt-in managed session security (integration candidate)
+
+`Korgis.managed` now spawns the CLI with `--listen-fd` and `--session-fd` on POSIX, and fails explicitly otherwise. The CLI requires both together, a loopback host and no CORS origins. Its ASGI middleware authenticates API, UI and admin requests and denies WebSocket scopes. `GET /_korgis/session/attest` accepts a one-use client challenge and returns HMAC-SHA256 proof without receiving credentials. The client verifies this proof **before every private request**, not just startup. Keeping the parent listener open until the managed context exits prevents a foreign process from reusing the port after a crash. A `connect` caller can explicitly provide a `session_token` for an already authorized session, but Korgis does not expose any permanent shared credentials.
+
+This implements one app-owned sidecar only, not a globally shared daemon or OS-user isolation. A malicious process with access to the application memory or inherited FDs remains outside this boundary; do not describe the local loopback bearer as a sandbox. Exact packaged-app/native lifecycle evidence and adversarial process tests are still required before production-grade claims.

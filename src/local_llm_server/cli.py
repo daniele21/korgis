@@ -72,6 +72,8 @@ def main() -> None:
     )
     p_serve.add_argument("--host", default=None)
     p_serve.add_argument("--port", type=int, default=None)
+    p_serve.add_argument("--listen-fd", type=int, default=None, help="Parent-owned listening socket fd (managed session only).")
+    p_serve.add_argument("--session-fd", type=int, default=None, help="Parent-owned secret pipe fd (managed session only).")
     p_serve.add_argument("--ctx-size", type=int, default=None, dest="ctx_size")
     p_serve.add_argument(
         "--max-kv-size", type=int, default=None, dest="max_kv_size",
@@ -244,6 +246,16 @@ def _cmd_serve(args: argparse.Namespace) -> None:
     from .config import build_config
     from .policy_server import browser_base_url, run_server
     from .product_runtime import bootstrap_product_runtimes
+    from .embedded_session import read_session_secret
+
+    paired = (args.listen_fd is None) == (args.session_fd is None)
+    if not paired:
+        raise ValueError("managed listener and session secret must be supplied together")
+    if args.listen_fd is not None and args.cors_origin:
+        raise ValueError("embedded sessions do not accept CORS origins")
+    session_secret = (
+        read_session_secret(args.session_fd) if args.session_fd is not None else None
+    )
 
     explicit: dict = {}
     for key in (
@@ -273,6 +285,8 @@ def _cmd_serve(args: argparse.Namespace) -> None:
         **explicit,
     )
     ui_url = browser_base_url(preview_cfg["host"], preview_cfg["port"])
+    if args.listen_fd is not None and preview_cfg["host"] != "127.0.0.1":
+        raise ValueError("managed sessions require 127.0.0.1 loopback")
     print(f"\n[*] Web UI configured at: {ui_url}", flush=True)
     print(
         "[*] Loading startup model; the HTTP server is not listening yet.",
@@ -297,6 +311,8 @@ def _cmd_serve(args: argparse.Namespace) -> None:
         enable_admin_api=args.enable_admin_api,
         cors_origins=args.cors_origin,
         resource_policy_settings=bootstrap.resource_policy,
+        listen_fd=args.listen_fd,
+        session_secret=session_secret,
     )
 
 

@@ -161,7 +161,9 @@ def test_malformed_inference_responses_fail_instead_of_repairing():
 
 
 def test_managed_launches_only_declared_models_and_stops_owned_process(monkeypatch):
+    import os
     import korgis_sdk.managed as managed
+    import socket
 
     starts = []
     signals = []
@@ -171,6 +173,16 @@ def test_managed_launches_only_declared_models_and_stops_owned_process(monkeypat
         returncode = None
 
         def __init__(self, args, **kwargs):
+            # Simulate inherited pipe consumption in the child, before parent closes it.
+            listener_fd, session_fd = kwargs["pass_fds"]
+            import socket
+            fd_socket = socket.socket(fileno=os.dup(listener_fd))
+            assert fd_socket.getsockname()[0] == "127.0.0.1"
+            assert int(args[args.index("--port") + 1]) == fd_socket.getsockname()[1]
+            fd_socket.close()
+            session = os.read(session_fd, 65).decode("ascii")
+            assert len(session) == 64 and all(ch in "0123456789abcdef" for ch in session)
+            assert session not in " ".join(args)
             starts.append((args, kwargs))
 
         def poll(self):
@@ -181,17 +193,24 @@ def test_managed_launches_only_declared_models_and_stops_owned_process(monkeypat
             return 0
 
     monkeypatch.setattr(managed.shutil, "which", lambda value: "/trusted/local-llm")
-    monkeypatch.setattr(managed, "_ephemeral_port", lambda: 49152)
     monkeypatch.setattr(managed.subprocess, "Popen", Process)
     monkeypatch.setattr(managed.os, "killpg", lambda pid, sig: signals.append((pid, sig)))
     monkeypatch.setattr(KorgisConnection, "ensure_ready", lambda self: None)
     with Korgis.managed(_profile()) as ai:
+        assert ai._session_token is not None
         assert ai.role("analysis") is not None
+        port = int(starts[0][0][starts[0][0].index("--port") + 1])
+        with socket.socket() as foreign:
+            with pytest.raises(OSError):
+                foreign.bind(("127.0.0.1", port))
     argv, opts = starts[0]
-    assert argv == [
+    assert argv[:6] == [
         "/trusted/local-llm", "serve", "--host", "127.0.0.1",
-        "--port", "49152", "--no-download", "--model", "nemotron-nano-4b",
+        "--port", argv[5],
     ]
+    assert "--no-download" in argv
+    assert argv[argv.index("--model") + 1] == "nemotron-nano-4b"
+    assert "--listen-fd" in argv and "--session-fd" in argv
     assert opts["start_new_session"] is True
     assert signals and signals[0][0] == 321
 
@@ -209,11 +228,40 @@ def test_managed_startup_failure_does_not_leave_owned_process(monkeypatch):
             return 2
 
     monkeypatch.setattr(managed.shutil, "which", lambda x: "/trusted/local-llm")
-    monkeypatch.setattr(managed, "_ephemeral_port", lambda: 49152)
     monkeypatch.setattr(managed.subprocess, "Popen", FailedProcess)
     with pytest.raises(KorgisUnavailable, match="managed_server_exited"):
         with Korgis.managed(_profile()):
             pass
+
+
+def test_managed_identity_fails_before_sending_bearer_or_prompts(monkeypatch):
+    secret = "a" * 64
+    conn = KorgisConnection(AppBindings.from_dict(_profile()),
+                            base_url="http://127.0.0.1:1235", session_token=secret)
+    seen = []
+
+    class FakeReply:
+        status = 204
+        headers = {"X-Korgis-Session-Proof": "0" * 64}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    class FakeOpener:
+        def open(self, req, timeout):
+            seen.append(req)
+            return FakeReply()
+
+    conn._opener = FakeOpener()
+    with pytest.raises(KorgisProtocolError, match="managed_session_identity_mismatch"):
+        conn.role("analysis").generate("private transcript")
+    assert len(seen) == 1
+    assert seen[0].full_url.endswith("/_korgis/session/attest")
+    assert seen[0].get_header("Authorization") is None
+    assert b"private transcript" not in (seen[0].data or b"")
 
 
 def test_sdk_builds_as_a_standalone_wheel(tmp_path):
