@@ -79,7 +79,7 @@ The repositories share only the versioned wire contract:
 
 - `model.id` is the effective resident model ID.
 - `model.revision` is emitted only when explicitly known.
-- `model.artifact_digest` is emitted only from a valid explicit SHA-256 pin and uses the `sha256:<hex>` form.
+- `model.artifact_digest` is emitted only from a valid explicit SHA-256 pin **or a current receipt bound to the exact local artifact file**, and uses the `sha256:<hex>` form. Receipt validation follows the canonical artifact-verification store; paths and receipt filenames are never included in the HTTP response.
 - `model.artifact_key` is exposed only when the existing artifact-identity/fingerprint path has produced it.
 - `model.quantization` is explicit metadata from resolved configuration/registry. It is not inferred from a filename by the public identity API or by consumers.
 - `runtime.name` is the effective backend.
@@ -88,7 +88,7 @@ The repositories share only the versioned wire contract:
 - `runtime.fingerprint` and `captured_at` are present only when the existing evidence-grade runtime fingerprint was successfully captured.
 - `hardware` intentionally excludes hostname or other direct machine identifiers.
 
-`evidence_grade=verified` means the existing runtime fingerprint capture had both a verified artifact SHA-256 and a resolved backend version. A resident runtime may still expose useful partial identity when that stronger evidence is unavailable.
+`evidence_grade=verified` means the existing runtime fingerprint capture had both a verified artifact SHA-256 and a resolved backend version. When there is no explicit digest and a once-valid local receipt becomes stale or disappears, a previously attached fingerprint must not continue to be advertised as verified; the public projection returns partial/unverified identity until the canonical runtime can recapture a valid snapshot. A resident runtime may still expose useful partial identity when that stronger evidence is unavailable.
 
 ## Effective runtime configuration boundary
 

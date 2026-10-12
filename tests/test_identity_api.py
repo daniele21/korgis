@@ -4,6 +4,8 @@ import json
 
 from fastapi.testclient import TestClient
 
+from local_llm_server.artifact_identity import ArtifactVerificationReceipt, sha256_file
+from local_llm_server.artifact_verification import ArtifactVerificationStore
 from local_llm_server.product_composition import install_product_http_stack
 from local_llm_server.runtime import ModelRuntimeManager
 from local_llm_server.runtime_identity_capture import capture_verified_runtime_identity
@@ -107,3 +109,43 @@ def test_identity_endpoint_reports_each_resident_runtime_and_default():
     assert payload["default_model"] == "first"
     assert set(payload["models"]) == {"first", "second"}
     assert payload["models"]["second"]["model"]["id"] == "org/second"
+
+
+
+def test_identity_endpoint_recognizes_valid_local_artifact_receipt_and_rejects_stale(tmp_path, monkeypatch):
+    artifact = tmp_path / "demo.gguf"
+    artifact.write_bytes(b"verified model bytes")
+    digest = sha256_file(artifact)
+    monkeypatch.setenv("LOCAL_LLM_ARTIFACT_VERIFICATION_DIR", str(tmp_path / "receipts"))
+    store = ArtifactVerificationStore()
+    store.save(ArtifactVerificationReceipt.for_file("org/demo", artifact, sha256=digest))
+
+    cfg = _runtime_config("demo", verified=False)
+    cfg["model_path"] = str(artifact)
+    manager = ModelRuntimeManager(default_model="demo")
+    runtime = manager.add(cfg, _Engine())
+    assert capture_verified_runtime_identity(runtime) is not None
+    app = create_app(manager, settings=ServerSettings(enable_admin_api=False))
+    install_product_http_stack(app)
+
+    with TestClient(app) as client:
+        before = client.get("/v1/runtime/identity")
+        assert before.status_code == 200
+        identity = before.json()["models"]["demo"]
+        assert identity["model"]["artifact_digest"] == f"sha256:{digest}"
+        assert identity["model"]["verification"] == "verified"
+        assert identity["runtime"]["evidence_grade"] == "verified"
+        assert identity["runtime"]["fingerprint"]
+        assert str(tmp_path) not in json.dumps(before.json())
+
+        # Once the artifact stamp no longer matches the receipt, a stale
+        # previously captured fingerprint must not remain public proof.
+        artifact.write_bytes(b"modified artifact content, longer")
+        after = client.get("/v1/runtime/identity")
+        assert after.status_code == 200
+        identity = after.json()["models"]["demo"]
+        assert identity["model"]["artifact_digest"] is None
+        assert identity["model"]["verification"] == "available_unverified"
+        assert identity["runtime"]["fingerprint"] is None
+        assert identity["runtime"]["evidence_grade"] == "partial"
+        assert str(tmp_path) not in json.dumps(after.json())
