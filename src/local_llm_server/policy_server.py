@@ -60,6 +60,7 @@ def run_server(
     enable_admin_api: bool = False,
     cors_origins: list[str] | tuple[str, ...] | None = None,
     resource_policy_settings: Any | None = None,
+    inference_cache_max_entries: int = 256,
 ) -> None:
     import uvicorn
 
@@ -76,6 +77,7 @@ def run_server(
         settings=ServerSettings(
             enable_admin_api=enable_admin_api,
             cors_origins=tuple(cors_origins or ()),
+            inference_cache_max_entries=inference_cache_max_entries,
         )
     )
     manager = configure_runtime(cfg, llm, manager, target_app=application)
