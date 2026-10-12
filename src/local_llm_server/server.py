@@ -463,6 +463,7 @@ def get_health(request: Request):
         "default_model": manager.default_model,
         "loaded_models": [runtime.key for runtime in manager.list()],
         "admin_api_enabled": admin_enabled,
+        "inference_cache_max_entries": request.app.state.settings.inference_cache_max_entries,
         "config_capabilities": config_capabilities_for_backend(
             str(cfg.get("backend", "unknown")),
             thinking_mode=str(cfg.get("thinking_mode", "none")),

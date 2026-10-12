@@ -117,6 +117,10 @@ def main() -> None:
                          help="Fail if the model is not already downloaded.")
     p_serve.add_argument("--verbose", action="store_true", default=False)
     p_serve.add_argument(
+        "--inference-cache-max-entries", type=int, default=256,
+        help="Number of cached deterministic inference responses (0 disables cache for benchmarking).",
+    )
+    p_serve.add_argument(
         "--enable-admin-api",
         action="store_true",
         default=False,
@@ -307,6 +311,7 @@ def _cmd_serve(args: argparse.Namespace) -> None:
         enable_admin_api=args.enable_admin_api,
         cors_origins=args.cors_origin,
         resource_policy_settings=bootstrap.resource_policy,
+        inference_cache_max_entries=args.inference_cache_max_entries,
     )
 
 
