@@ -8,15 +8,15 @@ owners cannot collectively exceed the configured usable budget.
 from __future__ import annotations
 
 import threading
+from dataclasses import dataclass
+from enum import Enum
 from math import ceil
 from typing import TYPE_CHECKING
 
+from .resources import ResourceBudget
+
 if TYPE_CHECKING:
     from .resources import ResourceObserver
-from dataclasses import dataclass
-from enum import Enum
-
-from .resources import ResourceBudget
 
 
 class AdmissionDecision(str, Enum):

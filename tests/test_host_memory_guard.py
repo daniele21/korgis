@@ -117,3 +117,52 @@ def test_mac_guard_can_be_explicitly_disabled(monkeypatch):
         {"LOCAL_LLM_HOST_MEMORY_GUARD": "false"}
     )
     assert build_resource_manager(settings) is None
+
+
+def test_runtime_load_cleanup_after_host_pressure_rises(monkeypatch):
+    host = Host(available=13 * GIB)
+    resources = ResourceManager(ResourceBudget(limit_bytes=None), host_observer=host)
+    manager = ModelRuntimeManager(resource_manager=resources)
+
+    class Engine:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    engine = Engine()
+    calls = []
+
+    monkeypatch.setattr(
+        "local_llm_server.config.build_config",
+        lambda **kwargs: {
+            "model": "model", "model_id": "model",
+            "backend": "fake", "model_path": "/missing/model",
+            "resource_estimate_bytes": 3 * GIB,
+        },
+    )
+
+    def loading_backend(cfg):
+        calls.append(cfg)
+        # A competing process used RAM during startup; the commit must
+        # reject without publishing a supposedly safe resident model.
+        host.available = 5 * GIB
+        return engine
+
+    monkeypatch.setattr(
+        "local_llm_server.engine.load_llm", loading_backend,
+    )
+    with pytest.raises(ResourceAdmissionError, match="host available memory"):
+        manager.load("model")
+    assert len(calls) == 1
+    assert engine.closed is True
+    assert manager.list() == []
+    assert resources.snapshot() == ()
+
+
+def test_host_guard_invalid_environment_rejected():
+    with pytest.raises(ValueError, match="HOST_MEMORY_GUARD"):
+        ResourcePolicySettings.from_environment({
+            "LOCAL_LLM_HOST_MEMORY_GUARD": "sometimes",
+        })
