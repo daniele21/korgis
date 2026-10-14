@@ -1,0 +1,28 @@
+name: Local CI (dispatch)
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger central Mac runner
+        env:
+          GH_TOKEN: ${{ secrets.CENTRAL_DISPATCH_TOKEN }}
+          CENTRAL_REPO: "daniele21/local-runner-infra"
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$CENTRAL_REPO/dispatches" \
+            -f event_type=run-ci \
+            -f "client_payload[repository]=$SOURCE_REPO" \
+            -f "client_payload[sha]=$SOURCE_SHA"
