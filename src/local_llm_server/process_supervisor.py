@@ -18,7 +18,7 @@ import threading
 def _relay_output(stream) -> None:
     try:
         while True:
-            chunk = stream.read(8192)
+            chunk = os.read(stream.fileno(), 8192)
             if not chunk:
                 break
             try:
