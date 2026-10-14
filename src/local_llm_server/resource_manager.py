@@ -8,6 +8,11 @@ owners cannot collectively exceed the configured usable budget.
 from __future__ import annotations
 
 import threading
+from math import ceil
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .resources import ResourceObserver
 from dataclasses import dataclass
 from enum import Enum
 
@@ -52,10 +57,29 @@ class AdmissionResult:
 class ResourceManager:
     """Thread-safe configured-budget ledger shared by all memory owners."""
 
-    def __init__(self, budget: ResourceBudget) -> None:
+    def __init__(
+        self,
+        budget: ResourceBudget,
+        *,
+        host_observer: ResourceObserver | None = None,
+    ) -> None:
         self._budget = budget
+        self._host_observer = host_observer
         self._reservations: dict[str, ResourceReservation] = {}
         self._lock = threading.RLock()
+
+    @property
+    def host_protection_enabled(self) -> bool:
+        return self._host_observer is not None
+
+    def reject_unestimated_load(self) -> AdmissionResult:
+        """A missing size cannot silently bypass host admission on macOS."""
+        with self._lock:
+            return self._result(
+                AdmissionDecision.REJECT,
+                requested_bytes=0,
+                reason="resident memory estimate unavailable under host memory guard",
+            )
 
     @property
     def budget(self) -> ResourceBudget:
@@ -116,6 +140,11 @@ class ResourceManager:
                     requested_bytes=accounted,
                     reason="observed footprint exceeds configured usable budget",
                 )
+            # The new backend now occupies real host memory. Check that the
+            # system still has headroom before publishing the resident runtime.
+            host = self._check_host_available(0, exclude_reservation_id=reservation_id)
+            if host is not None and host.decision is AdmissionDecision.REJECT:
+                return host
             self._reservations[reservation_id] = ResourceReservation(
                 reservation_id=reservation_id,
                 requested_bytes=current.requested_bytes,
@@ -124,7 +153,9 @@ class ResourceManager:
                 kind=current.kind,
             )
             return self._result(
-                AdmissionDecision.ADMIT if usable is not None else AdmissionDecision.UNKNOWN,
+                AdmissionDecision.ADMIT
+                if usable is not None or self.host_protection_enabled
+                else AdmissionDecision.UNKNOWN,
                 requested_bytes=accounted,
                 reason=(
                     "committed within configured budget"
@@ -142,23 +173,79 @@ class ResourceManager:
 
     def _decision_for(self, requested_bytes: int) -> AdmissionResult:
         usable = self._budget.usable_bytes
-        if usable is None:
-            return self._result(
-                AdmissionDecision.UNKNOWN,
-                requested_bytes=requested_bytes,
-                reason="no configured resource limit",
-            )
         accounted = sum(item.accounted_bytes for item in self._reservations.values())
-        if accounted + requested_bytes > usable:
+        if usable is not None and accounted + requested_bytes > usable:
             return self._result(
                 AdmissionDecision.REJECT,
                 requested_bytes=requested_bytes,
                 reason="configured usable budget would be exceeded",
             )
+        host = self._check_host_available(requested_bytes)
+        if host is not None and host.decision is AdmissionDecision.REJECT:
+            return host
+        if usable is None and host is None:
+            return self._result(
+                AdmissionDecision.UNKNOWN,
+                requested_bytes=requested_bytes,
+                reason="no configured resource limit",
+            )
         return self._result(
             AdmissionDecision.ADMIT,
             requested_bytes=requested_bytes,
-            reason="reservation fits configured usable budget",
+            reason=(
+                "host headroom and configured budget admit reservation"
+                if usable is not None and host is not None
+                else "host headroom admits reservation"
+                if host is not None
+                else "reservation fits configured usable budget"
+            ),
+        )
+
+    def _check_host_available(
+        self, requested_bytes: int, *, exclude_reservation_id: str | None = None
+    ) -> AdmissionResult | None:
+        """Live admission, separate from the configured per-Korgis ledger.
+
+        Already COMMITTED processes are reflected in the host's measured
+        available memory. Count only still-pending reservations to avoid
+        double charging resident models. The 1.5x load allowance is a policy
+        safety estimate, not a proven native/GPU peak memory bound.
+        """
+        observer = self._host_observer
+        if observer is None:
+            return None
+        try:
+            snapshot = observer.snapshot()
+            total = snapshot.total_memory_bytes.value
+            available = snapshot.available_memory_bytes.value
+        except Exception:
+            total = available = None
+        if (
+            not isinstance(total, int) or not isinstance(available, int)
+            or total <= 0 or available < 0
+        ):
+            return self._result(
+                AdmissionDecision.REJECT,
+                requested_bytes=requested_bytes,
+                reason="host memory observation unavailable",
+            )
+        reserve = max(2 * 1024**3, min(6 * 1024**3, ceil(total * 0.1875)))
+        pending = sum(
+            entry.accounted_bytes
+            for key, entry in self._reservations.items()
+            if key != exclude_reservation_id and entry.state is ReservationState.RESERVED
+        )
+        projected = ceil((requested_bytes + pending) * 1.5)
+        if available - projected < reserve:
+            return self._result(
+                AdmissionDecision.REJECT,
+                requested_bytes=requested_bytes,
+                reason="host available memory cannot cover estimated growth and OS reserve",
+            )
+        return self._result(
+            AdmissionDecision.ADMIT,
+            requested_bytes=requested_bytes,
+            reason="host available memory above conservative admission floor",
         )
 
     def _result(
