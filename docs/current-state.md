@@ -31,6 +31,13 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
+## Runtime safety safeguards
+
+Managed macOS backends use parent-death supervision; model loading also checks
+live host headroom. CI verifies deterministic lifecycle/admission contracts.
+Packaged Apple Silicon validation is pending; automatic pressure eviction
+remains disabled.
+
 ## Accepted real evidence
 
 The 2026-08-31 representative Mac campaign accepted:
