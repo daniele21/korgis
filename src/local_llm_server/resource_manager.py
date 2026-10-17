@@ -13,7 +13,7 @@ from enum import Enum
 from math import ceil
 from typing import TYPE_CHECKING
 
-from .resources import ResourceBudget
+from .resources import ResourceBudget, ResourcePressure, ResourceValueSource, classify_memory_pressure
 
 if TYPE_CHECKING:
     from .resources import ResourceObserver
@@ -71,6 +71,53 @@ class ResourceManager:
     @property
     def host_protection_enabled(self) -> bool:
         return self._host_observer is not None
+
+    def host_memory_status(self) -> dict[str, object] | None:
+        """Public-safe observed host status; read-only, never an eviction command.
+
+        The pressure classification is a heuristic derived from reclaimable
+        host pages, NOT a native macOS memory-pressure notification.
+        """
+        observer = self._host_observer
+        if observer is None:
+            return None
+        try:
+            snapshot = observer.snapshot()
+        except Exception:
+            snapshot = None
+
+        if snapshot is None:
+            return {
+                "pressure": ResourcePressure.UNKNOWN.value,
+                "source": "unavailable",
+                "available_bytes": None,
+                "total_bytes": None,
+                "swap_used_bytes": None,
+                "alert": "unknown",
+                "automatic_pressure_eviction_enabled": False,
+            }
+
+        def measured(value: object) -> int | None:
+            if getattr(value, "source", None) is not ResourceValueSource.MEASURED:
+                return None
+            number = getattr(value, "value", None)
+            return number if isinstance(number, int) and not isinstance(number, bool) and number >= 0 else None
+
+        pressure = classify_memory_pressure(snapshot)
+        return {
+            "pressure": pressure.value,
+            "source": "derived_available_fraction" if pressure is not ResourcePressure.UNKNOWN else "unavailable",
+            "available_bytes": measured(snapshot.available_memory_bytes),
+            "total_bytes": measured(snapshot.total_memory_bytes),
+            "swap_used_bytes": measured(getattr(snapshot, "swap_used_bytes", None)),
+            "alert": (
+                "critical" if pressure is ResourcePressure.CRITICAL
+                else "warning" if pressure is ResourcePressure.ELEVATED
+                else "none" if pressure is ResourcePressure.NORMAL
+                else "unknown"
+            ),
+            "automatic_pressure_eviction_enabled": False,
+        }
 
     def reject_unestimated_load(self) -> AdmissionResult:
         """A missing size cannot silently bypass host admission on macOS."""
@@ -228,6 +275,16 @@ class ResourceManager:
                 AdmissionDecision.REJECT,
                 requested_bytes=requested_bytes,
                 reason="host memory observation unavailable",
+            )
+# The conservative OS reserve alone is not enough when the measured
+        # host is already under pressure (especially with a small new load).
+        # No resident runtime is unloaded here; admission only rejects.
+        pressure = classify_memory_pressure(snapshot)
+        if pressure in {ResourcePressure.ELEVATED, ResourcePressure.CRITICAL}:
+            return self._result(
+                AdmissionDecision.REJECT,
+                requested_bytes=requested_bytes,
+                reason=f"host memory pressure is {pressure.value}; rejecting new allocation",
             )
         reserve = max(2 * 1024**3, min(6 * 1024**3, ceil(total * 0.1875)))
         pending = sum(

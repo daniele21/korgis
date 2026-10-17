@@ -15,7 +15,7 @@ def policy_evidence_payload(application: Any) -> dict[str, object]:
     runtimes = manager.list() if manager is not None else []
     resource_manager = getattr(manager, "resource_manager", None) if manager is not None else None
     reservations = resource_manager.snapshot() if resource_manager is not None else ()
-    return {
+    payload = {
         "canonical_request_policy_installed": bool(
             getattr(application.state, "canonical_request_policy_installed", False)
         ),
@@ -62,6 +62,9 @@ def policy_evidence_payload(application: Any) -> dict[str, object]:
             for runtime in runtimes
         ],
     }
+    if resource_manager is not None and resource_manager.host_protection_enabled:
+        payload["host_memory"] = resource_manager.host_memory_status()
+    return payload
 
 
 def install_policy_evidence_api(application: FastAPI) -> FastAPI:

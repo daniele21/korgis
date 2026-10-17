@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fastapi import FastAPI
+
 import pytest
 
 from local_llm_server.resource_manager import AdmissionDecision, ResourceManager
@@ -166,3 +168,41 @@ def test_host_guard_invalid_environment_rejected():
         ResourcePolicySettings.from_environment({
             "LOCAL_LLM_HOST_MEMORY_GUARD": "sometimes",
         })
+
+
+def test_host_pressure_rejects_new_allocations_even_if_reserve_floor_passes():
+    host = Host(available=6 * GIB)
+    manager = ResourceManager(ResourceBudget(limit_bytes=None), host_observer=host)
+    result = manager.reserve("new-request", 0)
+    assert result.decision is AdmissionDecision.REJECT
+    assert "host memory pressure is elevated" in result.reason
+    assert manager.snapshot() == ()
+    host.available = 10 * GIB
+    assert manager.reserve("new-request", GIB).decision is AdmissionDecision.ADMIT
+
+
+def test_host_pressure_alert_exposes_public_safe_observations_without_eviction():
+    from local_llm_server.policy_evidence import policy_evidence_payload
+    from local_llm_server.product_runtime_manager import ProductRuntimeManager
+
+    host = Host(available=3 * GIB)
+    resources = ResourceManager(ResourceBudget(limit_bytes=None), host_observer=host)
+    status = resources.host_memory_status()
+    assert status == {
+        "pressure": "critical",
+        "source": "derived_available_fraction",
+        "available_bytes": 3 * GIB,
+        "total_bytes": 32 * GIB,
+        "swap_used_bytes": None,
+        "alert": "critical",
+        "automatic_pressure_eviction_enabled": False,
+    }
+    app = FastAPI()
+    app.state.runtime_manager = ProductRuntimeManager(resource_manager=resources)
+    assert policy_evidence_payload(app)["host_memory"] == status
+
+    host.available = None
+    missing = resources.host_memory_status()
+    assert missing["alert"] == "unknown"
+    assert missing["available_bytes"] is None
+    assert resources.reserve("no-guess", GIB).decision is AdmissionDecision.REJECT
