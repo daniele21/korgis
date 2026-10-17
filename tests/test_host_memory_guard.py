@@ -213,7 +213,7 @@ def test_host_pressure_api_exposes_swap_and_hides_runtime_identifiers():
     from fastapi.testclient import TestClient
     from local_llm_server.policy_evidence import install_policy_evidence_api
     from local_llm_server.product_runtime_manager import ProductRuntimeManager
-    from local_llm_server.server import ServerSettings, create_app
+    from local_llm_server.server import ServerSettings
 
     class HostWithSwap(Host):
         def snapshot(self):
@@ -225,10 +225,9 @@ def test_host_pressure_api_exposes_swap_and_hides_runtime_identifiers():
     resources = ResourceManager(
         ResourceBudget(limit_bytes=None), host_observer=HostWithSwap(available=3 * GIB)
     )
-    application = create_app(
-        ProductRuntimeManager(resource_manager=resources),
-        settings=ServerSettings(enable_admin_api=True),
-    )
+    application = FastAPI()
+    application.state.runtime_manager = ProductRuntimeManager(resource_manager=resources)
+    application.state.settings = ServerSettings(enable_admin_api=True)
     install_policy_evidence_api(application)
     response = TestClient(application).get("/api/v1/policies")
     assert response.status_code == 200
