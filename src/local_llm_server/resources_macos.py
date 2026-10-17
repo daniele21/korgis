@@ -6,6 +6,7 @@ OS counters; unsupported measurements remain explicitly unavailable.
 """
 from __future__ import annotations
 
+import math
 import os
 import re
 import subprocess
@@ -31,6 +32,7 @@ class MacOSResourceObserver:
         total = _read_total_memory(self._run_command)
         available = _read_available_memory(self._run_command)
         rss = read_process_rss(os.getpid(), run_command=self._run_command)
+        swap_used = _read_swap_used(self._run_command)
         return SystemResourceSnapshot(
             captured_at_monotonic=self._clock(),
             platform="darwin",
@@ -41,6 +43,7 @@ class MacOSResourceObserver:
             accelerator_memory_bytes=ResourceValue.unavailable("bytes"),
             process_rss_bytes=rss,
             thermal_pressure=ResourceValue.unavailable("level"),
+            swap_used_bytes=swap_used,
         )
 
 
@@ -96,6 +99,27 @@ def _read_available_memory(run_command: CommandRunner) -> ResourceValue:
         return ResourceValue.unavailable("bytes")
     pages = sum(counters[key] for key in required)
     return ResourceValue(pages * page_size, ResourceValueSource.MEASURED, "bytes")
+
+
+def _read_swap_used(run_command: CommandRunner) -> ResourceValue:
+    """Read macOS swap usage without interpreting cumulative swap as current pressure.
+
+    `vm.swapusage` reports approximate values with binary K/M/G/T units.
+    Missing or malformed counters stay unavailable: zero is never invented.
+    """
+    try:
+        raw = run_command(("sysctl", "vm.swapusage"))
+    except (OSError, KeyError, subprocess.SubprocessError):
+        return ResourceValue.unavailable("bytes")
+
+    match = re.search(r"\\bused\\s*=\\s*(\\d+(?:\\.\\d+)?)\\s*([KMGT])B?\\b", raw, flags=re.IGNORECASE)
+    if match is None:
+        return ResourceValue.unavailable("bytes")
+    used = float(match.group(1))
+    if not math.isfinite(used) or used < 0:
+        return ResourceValue.unavailable("bytes")
+    factor = {"K": 1, "M": 2, "G": 3, "T": 4}[match.group(2).upper()]
+    return ResourceValue(int(used * 1024 ** factor), ResourceValueSource.MEASURED, "bytes")
 
 
 def _parse_page_size(raw: str) -> int | None:
