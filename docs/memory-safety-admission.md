@@ -27,7 +27,7 @@ An unavailable measurement remains null/unknown, not zero/normal.
 Follow-ups before enabling pressure-triggered eviction: native macOS pressure
 notification integration, background sampling with bounded lifetime, workload
 lease-safe cancellation/TTL, model-specific post-unload reclamation measurement,
-and representative 32 GiB Apple Silicon real-hardware evidence (issue #239).
+and representative 32 GiB Apple Silicon real-hardware evidence (issues #239, #244).
 Hosted tests are deterministic evidence only. Observe Mac pressure, swap and
 memory peaks both at idle and during requests; do not infer that admission
 alone guarantees the machine cannot suffer OOM.

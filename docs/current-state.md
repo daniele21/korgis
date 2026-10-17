@@ -33,10 +33,10 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 
 ## Runtime safety safeguards
 
-Managed macOS backends use parent-death supervision; model loading also checks
-live host headroom. CI verifies deterministic lifecycle/admission contracts.
-Packaged Apple Silicon validation is pending; automatic pressure eviction
-remains disabled.
+macOS backends use parent-death supervision and guarded admission.
+Swap usage is observable and derived memory pressure blocks new allocations
+with read-only alerts. Continuous native pressure relief, packaged Mac proof
+and automatic pressure eviction remain pending (issues #239, #244).
 
 ## Accepted real evidence
 
