@@ -276,7 +276,7 @@ class ResourceManager:
                 requested_bytes=requested_bytes,
                 reason="host memory observation unavailable",
             )
-# The conservative OS reserve alone is not enough when the measured
+        # The conservative OS reserve alone is not enough when the measured
         # host is already under pressure (especially with a small new load).
         # No resident runtime is unloaded here; admission only rejects.
         pressure = classify_memory_pressure(snapshot)
@@ -284,7 +284,7 @@ class ResourceManager:
             return self._result(
                 AdmissionDecision.REJECT,
                 requested_bytes=requested_bytes,
-                reason=f"host memory pressure is {pressure.value}; rejecting new allocation",
+                reason=f"host available memory unsafe: host memory pressure is {pressure.value}; rejecting new allocation",
             )
         reserve = max(2 * 1024**3, min(6 * 1024**3, ceil(total * 0.1875)))
         pending = sum(
