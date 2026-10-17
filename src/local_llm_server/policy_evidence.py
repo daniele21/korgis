@@ -63,7 +63,14 @@ def policy_evidence_payload(application: Any) -> dict[str, object]:
         ],
     }
     if resource_manager is not None and resource_manager.host_protection_enabled:
-        payload["host_memory"] = resource_manager.host_memory_status()
+        monitor = getattr(application.state, "host_pressure_monitor", None)
+        sample = monitor.snapshot() if monitor is not None else None
+        if sample is not None:
+            payload["host_pressure_monitor"] = sample
+        cached = sample.get("host_memory") if sample is not None else None
+        payload["host_memory"] = (
+            cached if cached is not None else resource_manager.host_memory_status()
+        )
     return payload
 
 
