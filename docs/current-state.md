@@ -33,10 +33,10 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 
 ## Runtime safety safeguards
 
-macOS backends use parent-death supervision and guarded admission.
-Swap usage is observable and derived memory pressure blocks new allocations
-with read-only alerts. Continuous native pressure relief, packaged Mac proof
-and automatic pressure eviction remain pending (issues #239, #244).
+macOS backends have parent-death supervision and guarded admission.
+Swap and bounded, lifecycle-owned derived-pressure samples feed read-only alerts;
+elevated/critical pressure blocks new allocations. Native pressure events,
+automatic relief, real Mac proof and pressure eviction remain pending (#239, #244).
 
 ## Accepted real evidence
 

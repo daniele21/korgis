@@ -401,11 +401,29 @@ def begin_app_shutdown(application: FastAPI) -> None:
 @asynccontextmanager
 async def _app_lifespan(current_app: FastAPI):
     current_app.state.shutdown = False
+    manager = getattr(current_app.state, "runtime_manager", None)
+    resources = getattr(manager, "resource_manager", None)
+    monitor = None
+    if resources is not None and resources.host_protection_enabled:
+        from .host_pressure_monitor import HostPressureMonitor
+
+        snapshot = getattr(manager, "residency_policy_snapshot", None)
+        monitor = HostPressureMonitor(
+            resources,
+            residency_snapshot=snapshot if callable(snapshot) else None,
+        )
+        current_app.state.host_pressure_monitor = monitor
     try:
+        if monitor is not None:
+            monitor.start()
         yield
     finally:
         begin_app_shutdown(current_app)
-        _remove_log_handler(current_app)
+        try:
+            if monitor is not None:
+                monitor.stop()
+        finally:
+            _remove_log_handler(current_app)
 
 router = APIRouter()
 admin_router = APIRouter()

@@ -31,3 +31,22 @@ and representative 32 GiB Apple Silicon real-hardware evidence (issues #239, #24
 Hosted tests are deterministic evidence only. Observe Mac pressure, swap and
 memory peaks both at idle and during requests; do not infer that admission
 alone guarantees the machine cannot suffer OOM.
+
+## Continuous host sampling (experimental, `dev`)
+
+During the server ASGI lifespan, Korgis starts one bounded observation-only
+monitor when host memory guarding is configured. It samples the existing
+ResourceManager/macOS observer at 5-second intervals, keeps at most 16
+public-safe alert transitions, and uses the existing hysteretic residency policy
+to count idle eviction *candidates*, without unloading any model. The monitor
+stops before server teardown, and command calls have a 2-second timeout each.
+`GET /api/v1/policies` exposes `host_pressure_monitor` (status, bounded
+history, policy state and candidate count); it continues to expose
+`host_memory` and falls back to a fresh read until the first sample.
+
+Samples still use measured `vm_stat` counters and a **derived** pressure
+classification, not Apple's native Dispatch memory pressure notifications.
+No independent native event source is claimed. No cache trimming, active job
+cancellation, pinned-model eviction or automatic background unload is enabled;
+there is no validated production-grade prevention of OOM. Issue #244 tracks
+native events, backend-specific cooperative relief and Apple Silicon evidence.

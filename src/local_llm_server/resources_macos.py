@@ -150,6 +150,6 @@ def _default_run_command(command: tuple[str, ...]) -> str:
         capture_output=True,
         text=True,
         check=True,
-        timeout=5,
+        timeout=2,
     )
     return result.stdout
