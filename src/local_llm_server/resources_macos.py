@@ -112,7 +112,7 @@ def _read_swap_used(run_command: CommandRunner) -> ResourceValue:
     except (OSError, KeyError, subprocess.SubprocessError):
         return ResourceValue.unavailable("bytes")
 
-    match = re.search(r"\\bused\\s*=\\s*(\\d+(?:\\.\\d+)?)\\s*([KMGT])B?\\b", raw, flags=re.IGNORECASE)
+    match = re.search(r"\bused\s*=\s*(\d+(?:\.\d+)?)\s*([KMGT])B?\b", raw, flags=re.IGNORECASE)
     if match is None:
         return ResourceValue.unavailable("bytes")
     used = float(match.group(1))
