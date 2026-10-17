@@ -46,8 +46,8 @@ history, policy state and candidate count); it continues to expose
 
 Samples still use measured `vm_stat` counters and a **derived** pressure
 classification, not Apple's native Dispatch memory pressure notifications.
-No independent native event source is claimed. No cache trimming, active job
-cancellation, pinned-model eviction or automatic background unload is enabled;
+No independent native event source is claimed. No backend model/KV cache
+trimming, active-job cancellation, pinned eviction or background unload is enabled;
 there is no validated production-grade prevention of OOM. Issue #244 tracks
 native events, backend-specific cooperative relief and Apple Silicon evidence.
 

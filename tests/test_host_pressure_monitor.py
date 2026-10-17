@@ -219,3 +219,22 @@ def test_cache_trim_errors_do_not_crash_sampler_or_claim_success():
     assert status["pressure_policy_state"] == "triggered"
     assert status["response_cache_trim_count"] == 0
     assert status["events"][-1]["automatic_action"] is False
+
+
+def test_lifespan_monitor_really_clears_own_completed_response_cache():
+    host = Host(available=3 * GIB)
+    app = create_app(settings=ServerSettings(enable_admin_api=False))
+    app.state.runtime_manager = ProductRuntimeManager(resource_manager=_resources(host))
+    cache = app.state.inference_response_cache
+    cache.put("cache-key", {"choices": [{"message": {"content": "sensitive"}}]})
+    assert cache.get("cache-key")[0] is not None
+
+    with TestClient(app):
+        monitor = app.state.host_pressure_monitor
+        # Covers both possible orders with the initial background sample.
+        monitor.sample_once()
+        monitor.sample_once()
+        assert monitor.snapshot()["response_cache_trim_count"] == 1
+        assert cache.get("cache-key")[0] is None
+        assert monitor.snapshot()["automatic_pressure_eviction_enabled"] is False
+    assert monitor.snapshot()["running"] is False

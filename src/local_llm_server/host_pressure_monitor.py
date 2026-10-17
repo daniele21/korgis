@@ -2,8 +2,8 @@
 
 This adapter samples the canonical ResourceManager observer periodically, records
 bounded public-safe alert transitions and uses existing residency policy only
-to PREVIEW eligible candidates. It never unloads models, clears caches or
-claims native macOS pressure notification support. Native events have a separate
+to PREVIEW eligible candidates. It can clear only the application's own completed
+response cache; it never unloads models or claims native pressure events. Native events have a separate
 evidence gate and MUST NOT be inferred from these measurements.
 """
 from __future__ import annotations
