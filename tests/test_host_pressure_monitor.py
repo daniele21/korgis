@@ -116,7 +116,7 @@ def test_history_is_bounded_and_does_not_include_runtime_identity():
     view = monitor.sample_once()
     assert len(view["events"]) == 2
     assert all(set(item) == {
-        "at_monotonic", "alert", "policy_transition", "automatic_action",
+        "at_monotonic", "alert", "policy_transition", "automatic_action", "action",
     } for item in view["events"])
     assert "org/idle" not in str(view)
     assert "model_path" not in str(view)
@@ -177,3 +177,45 @@ def test_fastapi_lifespan_owns_sampler_and_admin_api_exposes_cached_alert():
 
     assert monitor.snapshot()["running"] is False
     assert monitor._thread is not None and not monitor._thread.is_alive()
+
+
+def test_critical_transition_trims_only_owned_response_cache_once_per_episode():
+    host = Host(available=14 * GIB)
+    clears = []
+    monitor = HostPressureMonitor(
+        _resources(host),
+        clear_response_cache=lambda: clears.append("cache"),
+    )
+    monitor.sample_once()
+    host.available = 3 * GIB
+    monitor.sample_once()
+    first = monitor.sample_once()
+    assert clears == ["cache"]
+    assert first["response_cache_trim_count"] == 1
+    assert first["reclamation_claim"] is False
+    assert first["events"][-1]["action"] == "response_cache_cleared"
+    assert first["events"][-1]["automatic_action"] is True
+    monitor.sample_once()
+    assert clears == ["cache"]
+    host.available = 14 * GIB
+    monitor.sample_once()
+    monitor.sample_once()
+    host.available = 3 * GIB
+    monitor.sample_once()
+    monitor.sample_once()
+    assert clears == ["cache", "cache"]
+    assert monitor.snapshot()["automatic_pressure_eviction_enabled"] is False
+
+
+def test_cache_trim_errors_do_not_crash_sampler_or_claim_success():
+    host = Host(available=3 * GIB)
+
+    def broken_cache():
+        raise RuntimeError("cache failure")
+
+    monitor = HostPressureMonitor(_resources(host), clear_response_cache=broken_cache)
+    monitor.sample_once()
+    status = monitor.sample_once()
+    assert status["pressure_policy_state"] == "triggered"
+    assert status["response_cache_trim_count"] == 0
+    assert status["events"][-1]["automatic_action"] is False

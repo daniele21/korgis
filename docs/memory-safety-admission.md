@@ -50,3 +50,11 @@ No independent native event source is claimed. No cache trimming, active job
 cancellation, pinned-model eviction or automatic background unload is enabled;
 there is no validated production-grade prevention of OOM. Issue #244 tracks
 native events, backend-specific cooperative relief and Apple Silicon evidence.
+
+On a sustained **critical** episode, the monitor may clear the server's own
+thread-safe, completed-response cache exactly once after hysteresis triggers.
+This is a safe, limited application-cache trim, **not** an MLX/llama.cpp
+weights/KV trim and never proof that RSS or unified-memory pressure decreased.
+It preserves active streams and model ownership and exposes
+`response_cache_trim_count` and a bounded action event. A failed cache clear
+does not trigger unload or infinite retry.

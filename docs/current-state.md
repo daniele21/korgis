@@ -35,7 +35,8 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 
 macOS backends have parent-death supervision and guarded admission.
 Swap and bounded, lifecycle-owned derived-pressure samples feed read-only alerts;
-elevated/critical pressure blocks new allocations. Native pressure events,
+critical episodes can trim Korgis response cache; admission blocks pressure.
+Native pressure events,
 automatic relief, real Mac proof and pressure eviction remain pending (#239, #244).
 
 ## Accepted real evidence

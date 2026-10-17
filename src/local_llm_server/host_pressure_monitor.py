@@ -34,6 +34,7 @@ class HostPressureMonitor:
         resource_manager: ResourceManager,
         *,
         residency_snapshot: Callable[[], Mapping[str, Any]] | None = None,
+        clear_response_cache: Callable[[], None] | None = None,
         interval_seconds: float = 5.0,
         history_limit: int = 16,
         clock: Callable[[], float] = time.monotonic,
@@ -46,6 +47,7 @@ class HostPressureMonitor:
             raise ValueError("history_limit must be between 1 and 128")
         self._manager = resource_manager
         self._residency_snapshot = residency_snapshot
+        self._clear_response_cache = clear_response_cache
         self._interval_seconds = interval_seconds
         self._clock = clock
         self._policy = PressureEvictionPolicy()
@@ -59,6 +61,7 @@ class HostPressureMonitor:
         self._sample_count = 0
         self._state = "normal"
         self._candidate_count = 0
+        self._cache_trim_count = 0
 
     def start(self) -> None:
         """Start exactly one daemon thread; never start during import."""
@@ -112,6 +115,20 @@ class HostPressureMonitor:
             evaluation = self._policy.observe(pressure, residency)
             sampled_at = self._clock()
             alert = str(host.get("alert", "unknown"))
+            cache_trimmed = False
+            # This only drops Korgis-owned, completed response-cache entries.
+            # Do not touch model/KV memory or infer host RSS was reclaimed.
+            if (
+                evaluation.transition == "triggered"
+                and pressure is ResourcePressure.CRITICAL
+                and self._clear_response_cache is not None
+                and not self._stop.is_set()
+            ):
+                try:
+                    self._clear_response_cache()
+                    cache_trimmed = True
+                except Exception:
+                    _LOG.exception("Korgis response-cache trim failed")
             with self._lock:
                 previous_alert = (
                     str(self._last_host.get("alert")) if self._last_host is not None else None
@@ -121,8 +138,11 @@ class HostPressureMonitor:
                         "at_monotonic": sampled_at,
                         "alert": alert,
                         "policy_transition": evaluation.transition,
-                        "automatic_action": False,
+                        "automatic_action": cache_trimmed,
+                        "action": "response_cache_cleared" if cache_trimmed else None,
                     })
+                if cache_trimmed:
+                    self._cache_trim_count += 1
                 self._last_host = dict(host)
                 self._last_at = sampled_at
                 self._sample_count += 1
@@ -145,6 +165,8 @@ class HostPressureMonitor:
                 "host_memory": dict(self._last_host) if self._last_host is not None else None,
                 "pressure_policy_state": self._state,
                 "eviction_candidate_count": self._candidate_count,
+                "response_cache_trim_count": self._cache_trim_count,
+                "reclamation_claim": False,
                 "automatic_pressure_eviction_enabled": False,
                 "events": [dict(item) for item in self._history],
             }

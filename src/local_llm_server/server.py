@@ -408,9 +408,12 @@ async def _app_lifespan(current_app: FastAPI):
         from .host_pressure_monitor import HostPressureMonitor
 
         snapshot = getattr(manager, "residency_policy_snapshot", None)
+        cache = getattr(current_app.state, "inference_response_cache", None)
+        clear_cache = getattr(cache, "clear", None)
         monitor = HostPressureMonitor(
             resources,
             residency_snapshot=snapshot if callable(snapshot) else None,
+            clear_response_cache=clear_cache if callable(clear_cache) else None,
         )
         current_app.state.host_pressure_monitor = monitor
     try:
