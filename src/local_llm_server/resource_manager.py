@@ -103,7 +103,12 @@ class ResourceManager:
             number = getattr(value, "value", None)
             return number if isinstance(number, int) and not isinstance(number, bool) and number >= 0 else None
 
-        pressure = classify_memory_pressure(snapshot)
+        pressure = (
+            classify_memory_pressure(snapshot)
+            if measured(snapshot.available_memory_bytes) is not None
+            and measured(snapshot.total_memory_bytes) is not None
+            else ResourcePressure.UNKNOWN
+        )
         return {
             "pressure": pressure.value,
             "source": "derived_available_fraction" if pressure is not ResourcePressure.UNKNOWN else "unavailable",
@@ -269,6 +274,8 @@ class ResourceManager:
             total = available = None
         if (
             not isinstance(total, int) or not isinstance(available, int)
+            or snapshot.total_memory_bytes.source is not ResourceValueSource.MEASURED
+            or snapshot.available_memory_bytes.source is not ResourceValueSource.MEASURED
             or total <= 0 or available < 0
         ):
             return self._result(

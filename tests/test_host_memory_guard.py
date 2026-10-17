@@ -206,3 +206,37 @@ def test_host_pressure_alert_exposes_public_safe_observations_without_eviction()
     assert missing["alert"] == "unknown"
     assert missing["available_bytes"] is None
     assert resources.reserve("no-guess", GIB).decision is AdmissionDecision.REJECT
+
+
+def test_host_pressure_api_exposes_swap_and_hides_runtime_identifiers():
+    from dataclasses import replace
+    from fastapi.testclient import TestClient
+    from local_llm_server.policy_evidence import install_policy_evidence_api
+    from local_llm_server.product_runtime_manager import ProductRuntimeManager
+    from local_llm_server.server import ServerSettings, create_app
+
+    class HostWithSwap(Host):
+        def snapshot(self):
+            return replace(
+                super().snapshot(),
+                swap_used_bytes=ResourceValue(2 * GIB, ResourceValueSource.MEASURED, "bytes"),
+            )
+
+    resources = ResourceManager(
+        ResourceBudget(limit_bytes=None), host_observer=HostWithSwap(available=3 * GIB)
+    )
+    application = create_app(
+        ProductRuntimeManager(resource_manager=resources),
+        settings=ServerSettings(enable_admin_api=True),
+    )
+    install_policy_evidence_api(application)
+    response = TestClient(application).get("/api/v1/policies")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["host_memory"]["pressure"] == "critical"
+    assert payload["host_memory"]["swap_used_bytes"] == 2 * GIB
+    assert payload["host_memory"]["automatic_pressure_eviction_enabled"] is False
+    assert "model_path" not in response.text
+
+    status = resources.host_memory_status()
+    assert status["source"] == "derived_available_fraction"
