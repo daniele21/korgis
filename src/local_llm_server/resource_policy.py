@@ -119,7 +119,8 @@ def resource_policy_snapshot(
     }
     if host_guard_enabled:
         result["host_memory_guard_enabled"] = True
-        result["host_memory_admission"] = "observed_available_with_configured_safety_factor"
+        result["host_memory_admission"] = "observed_available_with_configured_safety_factor_and_pressure_gate"
+        result["host_memory"] = manager.host_memory_status()
     return result
 
 
