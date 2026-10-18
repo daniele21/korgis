@@ -103,3 +103,20 @@ on parent stdin EOF. This gate does NOT create memory pressure or validate
 `normal/warning/critical` delivery on a 32-GiB Apple Silicon device.
 The helper remains explicit opt-in until package/signature and hardware
 ownership evidence is accepted.
+
+
+## Explicit unload observation (integration candidate)
+
+`POST /api/v1/residency/evict` continues to use the canonical lease-safe,
+manual unload API; it now takes one host-memory observation immediately before
+and after the *whole batch*. When the host guard is active,
+`host_memory_observation` contains host available and swap counters and
+their signed deltas (or null when unavailable). The signal is expressly
+`immediate_system_wide_before_after`, **unattributed**, and
+`reclamation_claim=false`. A successful logical teardown and a positive
+host-wide available-memory delta are separate facts; neither proves that
+the selected model physically reclaimed that amount. Concurrent external
+programs, delayed cleanup, compressed memory and allocator caching affect
+these numbers. There is no polling-until-target, no autonomous eviction,
+and no automatic use of these deltas for admission or safety thresholds.
+Representative 32-GiB Mac evidence (#239, #244) is still required.
