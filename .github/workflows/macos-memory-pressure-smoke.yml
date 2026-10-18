@@ -63,8 +63,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install 'build==1.2.2.post1' 'setuptools>=68.0' wheel
-          python3 scripts/build_artifacts.py \
+          python3 -m venv "$RUNNER_TEMP/korgis-native-build-venv"
+          "$RUNNER_TEMP/korgis-native-build-venv/bin/python" -m pip install \
+            'build==1.2.2.post1' 'setuptools>=68.0' wheel
+          "$RUNNER_TEMP/korgis-native-build-venv/bin/python" scripts/build_artifacts.py \
             --with-native-pressure-helper \
             --native-sign-identity - \
             --output-root "$RUNNER_TEMP/korgis-native-bundles"
