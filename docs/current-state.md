@@ -36,10 +36,9 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 macOS backends have parent-death supervision and guarded admission.
 Swap and bounded, lifecycle-owned derived-pressure samples feed read-only alerts;
 critical episodes can trim Korgis response cache; admission blocks pressure.
-A Swift Dispatch helper now supports explicit signed bundle builds and opt-in
-native signals. Manual unload exposes unattributed host deltas; MLX teardown
-drops model references. Real Mac reclamation proof and safe pressure eviction
-remain pending (#239, #244). Auto-eviction stays off.
+Native Swift helper is opt-in and bundle-signable; manual unload reports
+unattributed host deltas. MLX close drops owned model references.
+Mac reclamation remains unproven; auto-eviction stays off (#239, #244).
 
 ## Accepted real evidence
 
