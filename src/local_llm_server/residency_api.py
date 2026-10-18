@@ -37,6 +37,51 @@ def _eviction_settings(body: EvictionPolicyBody) -> EvictionPolicySettings:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def _host_memory_sample(manager: Any) -> dict[str, int | None] | None:
+    """Sample canonical observed host counters, never infer freed model bytes."""
+    resource_manager = getattr(manager, "resource_manager", None)
+    if resource_manager is None or not resource_manager.host_protection_enabled:
+        return None
+    status = resource_manager.host_memory_status()
+    if status is None:
+        return None
+
+    def measured(field: str) -> int | None:
+        value = status.get(field)
+        return value if type(value) is int and value >= 0 else None
+
+    return {
+        "available_bytes": measured("available_bytes"),
+        "swap_used_bytes": measured("swap_used_bytes"),
+    }
+
+
+def _host_memory_change(
+    before: dict[str, int | None] | None,
+    after: dict[str, int | None] | None,
+) -> dict[str, object] | None:
+    """Bounded *system-wide* correlation, not model-attributed reclamation."""
+    if before is None and after is None:
+        return None
+
+    def delta(name: str) -> int | None:
+        earlier = before.get(name) if before is not None else None
+        later = after.get(name) if after is not None else None
+        if earlier is None or later is None:
+            return None
+        return later - earlier
+
+    return {
+        "observation_kind": "immediate_system_wide_before_after",
+        "attribution": "unattributed_external_activity_possible",
+        "reclamation_claim": False,
+        "before": before,
+        "after": after,
+        "available_memory_delta_bytes": delta("available_bytes"),
+        "swap_used_delta_bytes": delta("swap_used_bytes"),
+    }
+
+
 def install_residency_api(application: FastAPI) -> FastAPI:
     """Install privacy-safe residency policy routes when admin API is enabled."""
     if getattr(application.state, "residency_api_installed", False):
@@ -110,6 +155,10 @@ def install_residency_api(application: FastAPI) -> FastAPI:
 
         policy = _eviction_settings(body)
         candidates = select_eviction_candidates(producer(), policy)
+        # Sample once before and once after the complete explicit unload batch.
+        # These host-wide counters cannot establish which model freed bytes,
+        # or prove actual allocator/memory pressure recovery.
+        before = _host_memory_sample(manager)
         evicted: list[dict[str, str]] = []
         skipped: list[dict[str, str]] = []
         for candidate in candidates:
@@ -130,9 +179,11 @@ def install_residency_api(application: FastAPI) -> FastAPI:
                 "reason": candidate.reason.value,
             })
 
+        after = _host_memory_sample(manager)
         return {
             "ok": len(skipped) == 0,
             "mode": policy.mode.value,
+            "host_memory_observation": _host_memory_change(before, after),
             "automatic": False,
             "reclamation_claim": False,
             "evicted": evicted,
