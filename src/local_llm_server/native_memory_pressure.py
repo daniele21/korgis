@@ -115,6 +115,9 @@ class MacOSNativePressureEvents:
         except (OSError, ValueError):
             _LOG.warning("macOS native pressure stream unavailable")
         finally:
+            # Reap any naturally exited child promptly, rather than leaving
+            # a zombie while the server continues to run.
+            proc.poll()
             with self._lock:
                 if not self._stopping:
                     self._state = "disconnected"
