@@ -103,3 +103,24 @@ on parent stdin EOF. This gate does NOT create memory pressure or validate
 `normal/warning/critical` delivery on a 32-GiB Apple Silicon device.
 The helper remains explicit opt-in until package/signature and hardware
 ownership evidence is accepted.
+
+
+## Immutable macOS helper build artifact (explicit opt-in)
+
+The canonical `scripts/build_artifacts.py` build supports
+`--with-native-pressure-helper --native-sign-identity IDENTITY` on macOS.
+The helper is compiled using `swiftc`, signed and verified with `codesign`,
+then placed at `package/native/korgis-memory-pressure` inside the uniquely
+identified immutable build bundle. `build-manifest.json` records the helper
+artifact SHA-256, source SHA-256, host architecture, and signature kind.
+The normal platform-neutral Python wheel and default build are unchanged.
+Build failures in compilation/signing abort bundle promotion.
+
+`--native-sign-identity -` is **ad-hoc developer/test signing**, not
+Developer ID signing or notarization. Even a Developer ID signature is not
+notarization evidence; release still needs codesign, artifact/identity
+verification, installed-app lifecycle and 32-GiB Apple Silicon proof.
+Korgis never silently executes a bundled helper: the consumer must explicitly
+select its verified absolute executable path using
+`LOCAL_LLM_MACOS_PRESSURE_HELPER`. Neither native pressure nor crash safety
+is implied by successful packaging alone.

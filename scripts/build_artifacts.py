@@ -69,6 +69,44 @@ def file_digest(root: Path, rel: str) -> str | None:
     return sha256_file(path) if path.is_file() else None
 
 
+def compile_native_pressure_helper(
+    root: Path, package_dir: Path, *, signing_identity: str,
+) -> dict[str, str]:
+    """Build a separately distributed, locally signed Darwin helper.
+
+    Compiled code is intentionally not inserted into the platform-neutral wheel.
+    The bundle manifest names its exact host architecture and signature kind;
+    a local ad-hoc signature (-) is NOT production Developer ID notarization.
+    """
+    if sys.platform != "darwin":
+        raise RuntimeError("native pressure helper can only be built on macOS")
+    if not signing_identity.strip():
+        raise ValueError("native pressure helper requires an explicit codesign identity")
+    source = root / "scripts" / "macos" / "memory_pressure.swift"
+    if not source.is_file():
+        raise FileNotFoundError("native memory pressure Swift source unavailable")
+    native_dir = package_dir / "native"
+    native_dir.mkdir(parents=True, exist_ok=False)
+    helper = native_dir / "korgis-memory-pressure"
+    subprocess.run(["swiftc", "-O", str(source), "-o", str(helper)], check=True)
+    subprocess.run(
+        ["codesign", "--force", "--sign", signing_identity, str(helper)],
+        check=True,
+    )
+    subprocess.run(
+        ["codesign", "--verify", "--strict", str(helper)],
+        check=True,
+    )
+    if not helper.is_file() or not os.access(helper, os.X_OK):
+        raise RuntimeError("native helper missing or not executable after signing")
+    return {
+        "artifact": "native/korgis-memory-pressure",
+        "architecture": platform.machine(),
+        "signature_kind": "adhoc" if signing_identity == "-" else "identity",
+        "source_sha256": sha256_file(source),
+    }
+
+
 def verify_wheel(wheel: Path) -> None:
     required = {
         "local_llm_server/audio.py",
@@ -160,11 +198,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--channel", default=os.environ.get("LOCAL_LLM_BUILD_CHANNEL", "local"))
     parser.add_argument("--variant", default=os.environ.get("LOCAL_LLM_BUILD_VARIANT", "wheel-sdist"))
     parser.add_argument("--skip-build", action="store_true", help="exercise metadata/promotion without invoking python -m build")
+    parser.add_argument(
+        "--with-native-pressure-helper", action="store_true",
+        help="build a separately signed host-architecture macOS helper into the immutable bundle",
+    )
+    parser.add_argument(
+        "--native-sign-identity", default=None,
+        help="codesign identity for native helper; '-' is ad-hoc test-only, not release signing",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.with_native_pressure_helper:
+        if args.skip_build:
+            raise ValueError("native helper requires real package build, not --skip-build")
+        if not args.native_sign_identity:
+            raise ValueError("--native-sign-identity required for native helper")
+        if sys.platform != "darwin":
+            raise RuntimeError("native pressure helper requires macOS build host")
+    elif args.native_sign_identity:
+        raise ValueError("--native-sign-identity requires --with-native-pressure-helper")
     root = Path(args.root).resolve()
     output_root = (root / args.output_root).resolve()
     version = project_version(root)
@@ -200,10 +255,20 @@ def main() -> int:
                 raise RuntimeError(f"expected one wheel, found {len(wheels)}")
             verify_wheel(wheels[0])
 
+        native_helper = None
+        if args.with_native_pressure_helper:
+            native_helper = compile_native_pressure_helper(
+                root, package_dir, signing_identity=args.native_sign_identity,
+            )
+
         artifacts = []
-        for path in sorted(package_dir.iterdir()):
+        for path in sorted(package_dir.rglob("*")):
             if path.is_file():
-                artifacts.append({"name": path.name, "bytes": path.stat().st_size, "sha256": sha256_file(path)})
+                artifacts.append({
+                    "name": path.relative_to(package_dir).as_posix(),
+                    "bytes": path.stat().st_size,
+                    "sha256": sha256_file(path),
+                })
 
         manifest = {
             "schema_version": 1,
@@ -218,7 +283,13 @@ def main() -> int:
             },
             "toolchain": {"python": platform.python_version(), "implementation": platform.python_implementation()},
             "artifacts": artifacts,
-            "validation": ["wheel-content-check"] if not args.skip_build else ["metadata-promotion-test"],
+            "native_pressure_helper": native_helper,
+            "validation": (
+                ["wheel-content-check", "macos-native-codesign-verify"]
+                if native_helper is not None else
+                ["wheel-content-check"] if not args.skip_build else
+                ["metadata-promotion-test"]
+            ),
         }
         (stage / MANIFEST).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         (stage / CHANGELOG).write_text(build_delta(manifest, previous), encoding="utf-8")

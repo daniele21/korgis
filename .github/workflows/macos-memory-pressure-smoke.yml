@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/macos/memory_pressure.swift"
+      - "scripts/build_artifacts.py"
       - "src/local_llm_server/native_memory_pressure.py"
       - "src/local_llm_server/resource_manager.py"
       - "src/local_llm_server/host_pressure_monitor.py"
@@ -57,6 +58,30 @@ jobs:
                   process.stdout.close()
               if process.stderr:
                   process.stderr.close()
+          PY
+      - name: Verify optional native signed bundle construction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install 'build==1.2.2.post1' 'setuptools>=68.0' wheel
+          python3 scripts/build_artifacts.py \
+            --with-native-pressure-helper \
+            --native-sign-identity - \
+            --output-root "$RUNNER_TEMP/korgis-native-bundles"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          root = Path(os.environ["RUNNER_TEMP"]) / "korgis-native-bundles" / "builds"
+          manifests = list(root.glob("*/*/build-manifest.json"))
+          assert len(manifests) == 1, manifests
+          manifest = json.loads(manifests[0].read_text())
+          helper = manifest["native_pressure_helper"]
+          assert helper["signature_kind"] == "adhoc"
+          assert helper["architecture"]
+          artifact = manifests[0].parent / "package" / helper["artifact"]
+          assert artifact.is_file()
+          assert any(item["name"] == helper["artifact"] for item in manifest["artifacts"])
           PY
       - name: Remove temporary helper
         if: always()
