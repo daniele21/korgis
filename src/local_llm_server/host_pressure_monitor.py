@@ -3,8 +3,9 @@
 This adapter samples the canonical ResourceManager observer periodically, records
 bounded public-safe alert transitions and uses existing residency policy only
 to PREVIEW eligible candidates. It can clear only the application's own completed
-response cache; it never unloads models or claims native pressure events. Native events have a separate
-evidence gate and MUST NOT be inferred from these measurements.
+response cache. A separately supervised opt-in Dispatch helper can supply
+native pressure transitions. It never unloads models or claims native events
+when the helper is absent or unhealthy.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from typing import Any, Mapping
 
 from .residency_pressure import PressureEvictionPolicy
 from .resource_manager import ResourceManager
+from .native_memory_pressure import MacOSNativePressureEvents
 from .resources import ResourcePressure
 
 _LOG = logging.getLogger(__name__)
@@ -46,6 +48,7 @@ class HostPressureMonitor:
         if history_limit < 1 or history_limit > 128:
             raise ValueError("history_limit must be between 1 and 128")
         self._manager = resource_manager
+        self._native = MacOSNativePressureEvents(resource_manager.update_native_pressure)
         self._residency_snapshot = residency_snapshot
         self._clear_response_cache = clear_response_cache
         self._interval_seconds = interval_seconds
@@ -78,6 +81,8 @@ class HostPressureMonitor:
                 daemon=True,
             )
             self._thread.start()
+        # This is a no-op without an explicit absolute native executable path.
+        self._native.start()
 
     def stop(self, *, timeout_seconds: float = 10.0) -> None:
         """Stop sampling before the owning server releases its runtimes.
@@ -86,12 +91,23 @@ class HostPressureMonitor:
         A blocked sampler never leads to unbounded shutdown waiting.
         """
         self._stop.set()
+        # Native helper EOF and termination are owner-scoped; clear the last
+        # native event before the next admission can observe stale values.
+        native_failure = None
+        try:
+            self._native.stop()
+        except Exception as exc:
+            native_failure = exc
+        finally:
+            self._manager.update_native_pressure(None)
         with self._lock:
             thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=timeout_seconds)
             if thread.is_alive():
                 raise RuntimeError("host pressure monitor did not stop within the bound")
+        if native_failure is not None:
+            raise RuntimeError("native pressure helper failed to stop cleanly") from native_failure
 
     def sample_once(self) -> dict[str, object]:
         """Perform one immediate sample, suitable for deterministic tests."""
@@ -159,6 +175,7 @@ class HostPressureMonitor:
             )
             return {
                 "running": running,
+                "native_source": self._native.public_status(),
                 "sample_interval_seconds": self._interval_seconds,
                 "sample_count": self._sample_count,
                 "sampled_at_monotonic": self._last_at,

@@ -58,3 +58,48 @@ weights/KV trim and never proof that RSS or unified-memory pressure decreased.
 It preserves active streams and model ownership and exposes
 `response_cache_trim_count` and a bounded action event. A failed cache clear
 does not trigger unload or infinite retry.
+
+## Native Darwin pressure events (opt-in engineering preview)
+
+Korgis includes a source-only Swift bridge at
+`scripts/macos/memory_pressure.swift`. On a Mac with Swift toolchain installed,
+compile it explicitly with `swiftc -O scripts/macos/memory_pressure.swift -o
+/path/to/korgis-memory-pressure` and set
+`LOCAL_LLM_MACOS_PRESSURE_HELPER=/path/to/korgis-memory-pressure` before launching
+Korgis. The path must be absolute and executable. Korgis does **not** compile,
+download or discover executable code at runtime. This preview is not part of
+the currently published wheel's native executable artifacts.
+
+The child uses Apple's `DispatchSource.makeMemoryPressureSource` and emits
+only `ready`, `normal`, `warning` or `critical` lines. It is tied to the
+app server lifespan: parent stdin EOF terminates it, and shutdown reaps only
+the owned child. No helper configured -> derived vm_stat observation remains
+the only source; native state shows `not_configured` (or `unsupported`).
+If the helper dies, the last native event is cleared, never treated as a
+new `normal` event.
+
+The canonical ResourceManager combines the last live native event with its
+derived pressure signal conservatively; the more severe observed level wins.
+Native `normal` cannot override low memory headroom or bypass unknown memory
+measurements; unknown derived memory plus a native normal event stays unknown.
+An event updates admission immediately; derived pressure is still
+refreshed on load/commit and by the existing 5-second sample loop. The admin
+policy payload marks `native_dispatch_event` when a native event is decisive,
+and otherwise reports its derived source; optional `native_last_event` and
+`derived_pressure` fields expose provenance without leaking process paths.
+These events are transitions, not a guaranteed initial measurement. There is
+no live-event claim unless the macOS helper is compiled, launched and
+validated on physical Apple Silicon. Automatic model eviction remains disabled.
+
+Engineering acceptance still requires packaged/signed helper, source/build
+provenance, representative Mac crash/SIGKILL and memory-pressure response
+tests (#239, #244) before production enablement.
+
+### Deterministic Mac compilation gate
+
+`.github/workflows/macos-memory-pressure-smoke.yml` compiles the Swift source
+on GitHub-hosted macOS and checks that the executable emits `ready` and exits
+on parent stdin EOF. This gate does NOT create memory pressure or validate
+`normal/warning/critical` delivery on a 32-GiB Apple Silicon device.
+The helper remains explicit opt-in until package/signature and hardware
+ownership evidence is accepted.

@@ -36,8 +36,9 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 macOS backends have parent-death supervision and guarded admission.
 Swap and bounded, lifecycle-owned derived-pressure samples feed read-only alerts;
 critical episodes can trim Korgis response cache; admission blocks pressure.
-Native events, backend model relief and Mac safety proof remain pending
-(#239, #244); automatic pressure eviction stays disabled.
+An opt-in, source-only Swift Dispatch helper now forwards real native
+pressure transitions when available; compiled/signed packaging, backend model
+relief and Mac evidence are pending (#239, #244). Auto-eviction stays off.
 
 ## Accepted real evidence
 
