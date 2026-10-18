@@ -146,6 +146,8 @@ class MLXEngine:
         logger.info("MLX model loaded.")
 
     def stream(self, payload: dict[str, Any]) -> Iterator[dict[str, Any]]:
+        if getattr(self, "model", None) is None or getattr(self, "tokenizer", None) is None:
+            raise RuntimeError("mlx runtime is closed")
         from mlx_lm import stream_generate
         from mlx_lm.sample_utils import make_logits_processors, make_sampler
 
@@ -263,7 +265,18 @@ class MLXEngine:
         return result
 
     def close(self) -> None:
-        return None
+        """Release this owner's in-process MLX model and tokenizer references.
+
+        The product runtime must hold leases until inference completes before
+        calling close(). Releasing refs is not proof of Metal allocator or host
+        memory reclamation: other live models, Python refs, and Metal caches may
+        retain allocations. Do not clear the *global* MLX/Metal cache here, as
+        that can disrupt or degrade unrelated resident engines.
+        """
+        self.model = None
+        self.tokenizer = None
+
+    shutdown = close
 
 
 class LlamaServerEngine:

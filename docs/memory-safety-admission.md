@@ -140,3 +140,16 @@ Korgis never silently executes a bundled helper: the consumer must explicitly
 select its verified absolute executable path using
 `LOCAL_LLM_MACOS_PRESSURE_HELPER`. Neither native pressure nor crash safety
 is implied by successful packaging alone.
+
+## MLX runtime owner teardown (reference-release correction)
+
+`MLXEngine.close()` no longer performs a no-op. On a lease-safe explicit
+unload/shutdown it drops the engine's model and tokenizer ownership references,
+is idempotent, and rejects subsequent inference. Other MLX models remain
+owned by their own runtimes. It deliberately does **not** call the shared
+`mlx.core.metal.clear_cache()`: a process-global trim would affect other
+active models and would require backend-compatibility and real-device proof.
+An unloaded model may still occupy unified memory due to external references,
+lazy stream lifetimes or Metal caching. A successful `close()` is therefore
+*not* physical reclamation evidence; host pre/post observations and real Mac
+evidence (#239/#244) remain necessary.
