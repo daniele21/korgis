@@ -150,7 +150,7 @@ def test_monitor_uses_native_dispatch_event_as_canonical_guard(tmp_path, monkeyp
     monitor.start()
     try:
         for _ in range(100):
-            if manager.host_memory_status()["native_last_event"] == "critical":
+            if manager.host_memory_status().get("native_last_event") == "critical":
                 break
             time.sleep(0.01)
         native = manager.host_memory_status()
