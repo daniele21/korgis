@@ -93,6 +93,11 @@ class ResourceManager:
             native = self._native_pressure
         if native is None:
             return derived
+        # A native NORMAL *transition* is not evidence that a missing
+        # vm_stat measurement is safe. Preserve unknown unless the event
+        # carries a warning/critical signal that should block new work.
+        if derived is ResourcePressure.UNKNOWN and native is ResourcePressure.NORMAL:
+            return ResourcePressure.UNKNOWN
         rank = {ResourcePressure.UNKNOWN: -1, ResourcePressure.NORMAL: 0,
                 ResourcePressure.ELEVATED: 1, ResourcePressure.CRITICAL: 2}
         return native if rank[native] > rank[derived] else derived

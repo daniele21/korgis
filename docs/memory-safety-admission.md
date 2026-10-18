@@ -81,7 +81,8 @@ new `normal` event.
 The canonical ResourceManager combines the last live native event with its
 derived pressure signal conservatively; the more severe observed level wins.
 Native `normal` cannot override low memory headroom or bypass unknown memory
-measurements. An event updates admission immediately; derived pressure is still
+measurements; unknown derived memory plus a native normal event stays unknown.
+An event updates admission immediately; derived pressure is still
 refreshed on load/commit and by the existing 5-second sample loop. The admin
 policy payload marks `native_dispatch_event` when a native event is decisive,
 and otherwise reports its derived source; optional `native_last_event` and
