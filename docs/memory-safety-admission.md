@@ -93,3 +93,12 @@ validated on physical Apple Silicon. Automatic model eviction remains disabled.
 Engineering acceptance still requires packaged/signed helper, source/build
 provenance, representative Mac crash/SIGKILL and memory-pressure response
 tests (#239, #244) before production enablement.
+
+### Deterministic Mac compilation gate
+
+`.github/workflows/macos-memory-pressure-smoke.yml` compiles the Swift source
+on GitHub-hosted macOS and checks that the executable emits `ready` and exits
+on parent stdin EOF. This gate does NOT create memory pressure or validate
+`normal/warning/critical` delivery on a 32-GiB Apple Silicon device.
+The helper remains explicit opt-in until package/signature and hardware
+ownership evidence is accepted.

@@ -17,7 +17,6 @@ import subprocess
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import TextIO
 
 from .resources import ResourcePressure
 

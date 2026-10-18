@@ -93,8 +93,11 @@ class HostPressureMonitor:
         self._stop.set()
         # Native helper EOF and termination are owner-scoped; clear the last
         # native event before the next admission can observe stale values.
+        native_failure = None
         try:
             self._native.stop()
+        except Exception as exc:
+            native_failure = exc
         finally:
             self._manager.update_native_pressure(None)
         with self._lock:
@@ -103,6 +106,8 @@ class HostPressureMonitor:
             thread.join(timeout=timeout_seconds)
             if thread.is_alive():
                 raise RuntimeError("host pressure monitor did not stop within the bound")
+        if native_failure is not None:
+            raise RuntimeError("native pressure helper failed to stop cleanly") from native_failure
 
     def sample_once(self) -> dict[str, object]:
         """Perform one immediate sample, suitable for deterministic tests."""
