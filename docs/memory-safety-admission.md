@@ -120,3 +120,17 @@ programs, delayed cleanup, compressed memory and allocator caching affect
 these numbers. There is no polling-until-target, no autonomous eviction,
 and no automatic use of these deltas for admission or safety thresholds.
 Representative 32-GiB Mac evidence (#239, #244) is still required.
+
+
+## MLX runtime owner teardown (reference-release correction)
+
+`MLXEngine.close()` no longer performs a no-op. On a lease-safe explicit
+unload/shutdown it drops the engine's model and tokenizer ownership references,
+is idempotent, and rejects subsequent inference. Other MLX models remain
+owned by their own runtimes. It deliberately does **not** call the shared
+`mlx.core.metal.clear_cache()`: a process-global trim would affect other
+active models and would require backend-compatibility and real-device proof.
+An unloaded model may still occupy unified memory due to external references,
+lazy stream lifetimes or Metal caching. A successful `close()` is therefore
+*not* physical reclamation evidence; host pre/post observations and real Mac
+evidence (#239/#244) remain necessary.
