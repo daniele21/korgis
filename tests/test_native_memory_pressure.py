@@ -69,7 +69,7 @@ def test_native_normal_cannot_hide_derived_pressure_or_bypass_missing_observatio
     assert manager.host_memory_status()["pressure"] == "unknown"
     host.fail = True
     assert manager.reserve("c", GIB).decision is AdmissionDecision.REJECT
-    assert manager.host_memory_status()["source"] == "native_dispatch_event"
+    assert manager.host_memory_status()["source"] == "unavailable"
     assert manager.host_memory_status()["pressure"] == "unknown"
     assert manager.host_memory_status()["available_bytes"] is None
 

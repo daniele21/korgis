@@ -122,7 +122,10 @@ class ResourceManager:
             pressure = self._effective_pressure(ResourcePressure.UNKNOWN)
             status = {
                 "pressure": pressure.value,
-                "source": "native_dispatch_event" if native is not None else "unavailable",
+                "source": (
+                    "native_dispatch_event" if native is not None
+                    and pressure is native else "unavailable"
+                ),
                 "available_bytes": None,
                 "total_bytes": None,
                 "swap_used_bytes": None,
@@ -151,8 +154,9 @@ class ResourceManager:
         status = {
             "pressure": effective.value,
             "source": (
-                "native_dispatch_event" if native is not None and
-                (pressure is ResourcePressure.UNKNOWN or effective is not pressure)
+                "native_dispatch_event" if native is not None
+                and effective is native
+                and (pressure is ResourcePressure.UNKNOWN or effective is not pressure)
                 else "derived_available_fraction" if pressure is not ResourcePressure.UNKNOWN
                 else "unavailable"
             ),
