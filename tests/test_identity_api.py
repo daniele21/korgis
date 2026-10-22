@@ -107,3 +107,37 @@ def test_identity_endpoint_reports_each_resident_runtime_and_default():
     assert payload["default_model"] == "first"
     assert set(payload["models"]) == {"first", "second"}
     assert payload["models"]["second"]["model"]["id"] == "org/second"
+
+
+def test_public_catalog_includes_downloaded_qwen_without_exposing_paths(monkeypatch):
+    from local_llm_server import list_models as original
+    import local_llm_server
+
+    def catalog():
+        return [
+            {"key": "qwen3.5-4b-q4km", "model_id": "Qwen/Qwen3.5-4B",
+             "downloaded": True, "backend": "llama_server",
+             "path": "/private/qwen.gguf", "url": "https://private.example"},
+            {"key": "qwen3.5-9b-q4km", "model_id": "Qwen/Qwen3.5-9B",
+             "downloaded": False, "backend": "llama_server"},
+            {"key": "qwen-image-2.1", "model_id": "Qwen/Qwen-Image-2.1",
+             "downloaded": True, "backend": "diffusers_image"},
+        ]
+
+    monkeypatch.setattr(local_llm_server, "list_models", catalog)
+    app = _app(verified=False)
+    with TestClient(app) as client:
+        response = client.get("/v1/runtime/catalog")
+        assert client.post("/api/v1/models/load", json={"model": "qwen3.5-4b-q4km"}).status_code == 404
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["protocol_version"] == "local-llm-catalog-v1"
+    assert payload["models"] == [
+        {"startup_key": "qwen3.5-4b-q4km", "model_id": "Qwen/Qwen3.5-4B",
+         "downloaded": True, "resident": False},
+        {"startup_key": "qwen3.5-9b-q4km", "model_id": "Qwen/Qwen3.5-9B",
+         "downloaded": False, "resident": False},
+    ]
+    assert "/private" not in json.dumps(payload)
+    assert "private.example" not in json.dumps(payload)
+    monkeypatch.setattr(local_llm_server, "list_models", original)
