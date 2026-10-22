@@ -62,10 +62,23 @@ def get_local_model_catalog(request: Request) -> dict[str, object]:
         if not isinstance(item, dict):
             continue
         backend = item.get("backend")
-        if backend not in {"llama_server", "llama_cpp", "gguf"}:
+        # Only configured text-chat runtime backends belong in the desktop
+        # selector; the canonical capability descriptor gates task/modality.
+        if backend not in {"llama_server", "llama_cpp", "gguf", "mlx"}:
             continue
         if item.get("multimodal"):
             continue
+        capabilities = item.get("capabilities")
+        if isinstance(capabilities, dict):
+            tasks = capabilities.get("tasks")
+            inputs = capabilities.get("input_modalities")
+            outputs = capabilities.get("output_modalities")
+            if not (
+                isinstance(tasks, list) and "chat" in tasks
+                and isinstance(inputs, list) and "text" in inputs
+                and isinstance(outputs, list) and "text" in outputs
+            ):
+                continue
         key, model_id = item.get("key"), item.get("model_id")
         if not isinstance(key, str) or not isinstance(model_id, str):
             continue

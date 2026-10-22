@@ -109,6 +109,36 @@ def test_identity_endpoint_reports_each_resident_runtime_and_default():
     assert payload["models"]["second"]["model"]["id"] == "org/second"
 
 
+def test_public_catalog_filters_by_text_chat_capability_and_supports_mlx(monkeypatch):
+    import local_llm_server
+
+    def catalog():
+        return [
+            {"key": "mlx-text", "model_id": "local/text", "downloaded": True,
+             "backend": "mlx", "multimodal": False,
+             "capabilities": {"tasks": ["chat", "structured_generation"],
+                              "input_modalities": ["text"], "output_modalities": ["text"]}},
+            {"key": "image-only", "model_id": "local/image", "downloaded": True,
+             "backend": "llama_server", "multimodal": False,
+             "capabilities": {"tasks": ["image_generation"],
+                              "input_modalities": ["text"], "output_modalities": ["image"]}},
+            {"key": "vision", "model_id": "local/vision", "downloaded": True,
+             "backend": "mlx", "multimodal": True,
+             "capabilities": {"tasks": ["chat"], "input_modalities": ["text", "image"],
+                              "output_modalities": ["text"]}},
+        ]
+
+    monkeypatch.setattr(local_llm_server, "list_models", catalog)
+    app = _app(verified=False)
+    with TestClient(app) as client:
+        response = client.get("/v1/runtime/catalog")
+    assert response.status_code == 200
+    assert response.json()["models"] == [
+        {"startup_key": "mlx-text", "model_id": "local/text",
+         "downloaded": True, "resident": False},
+    ]
+
+
 def test_public_catalog_includes_downloaded_qwen_without_exposing_paths(monkeypatch):
     from local_llm_server import list_models as original
     import local_llm_server
