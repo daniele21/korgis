@@ -45,6 +45,55 @@ def get_runtime_identity(request: Request) -> dict[str, object]:
     }
 
 
+@router.get("/v1/runtime/catalog", tags=["System"])
+def get_local_model_catalog(request: Request) -> dict[str, object]:
+    """Path-free installed text-model choices; no runtime mutation or download.
+
+    Registry entries are resolved by Korgis, not reconstructed by consumers.
+    Downloaded and resident are different states. The endpoint intentionally
+    excludes file paths, source URLs, and administrative load/unload controls.
+    """
+    from . import list_models
+
+    manager = request.app.state.runtime_manager
+    resident = {runtime.key for runtime in manager.list()}
+    choices: list[dict[str, object]] = []
+    for item in list_models():
+        if not isinstance(item, dict):
+            continue
+        backend = item.get("backend")
+        # Only configured text-chat runtime backends belong in the desktop
+        # selector; the canonical capability descriptor gates task/modality.
+        if backend not in {"llama_server", "llama_cpp", "gguf", "mlx"}:
+            continue
+        if item.get("multimodal"):
+            continue
+        capabilities = item.get("capabilities")
+        if isinstance(capabilities, dict):
+            tasks = capabilities.get("tasks")
+            inputs = capabilities.get("input_modalities")
+            outputs = capabilities.get("output_modalities")
+            if not (
+                isinstance(tasks, list) and "chat" in tasks
+                and isinstance(inputs, list) and "text" in inputs
+                and isinstance(outputs, list) and "text" in outputs
+            ):
+                continue
+        key, model_id = item.get("key"), item.get("model_id")
+        if not isinstance(key, str) or not isinstance(model_id, str):
+            continue
+        choices.append({
+            "startup_key": key,
+            "model_id": model_id,
+            "downloaded": bool(item.get("downloaded")),
+            "resident": key in resident,
+        })
+    return {
+        "protocol_version": "local-llm-catalog-v1",
+        "models": sorted(choices, key=lambda item: str(item["startup_key"])),
+    }
+
+
 def install_identity_api(application: FastAPI) -> FastAPI:
     """Install the public identity route exactly once on the supported stack."""
     if getattr(application.state, "identity_api_installed", False):
