@@ -136,13 +136,30 @@ class MLXEngine:
         cfg["model_path"] = self.model_ref
         self.cfg = cfg
 
+        trust_remote_code = bool(cfg.get("trust_remote_code", False))
         tokenizer_config = cfg.get("tokenizer_config") or {"trust_remote_code": True}
 
         logger.info("Loading MLX model: %s", self.model_ref)
         self.model, self.tokenizer = load(
             self.model_ref,
             tokenizer_config=tokenizer_config,
+            trust_remote_code=trust_remote_code,
         )
+        try:
+            import mlx.core as mx
+
+            _warmup_tokens = mx.array([[1]])
+            _warmup_cache = self.model.make_cache() if hasattr(self.model, "make_cache") else None
+            _warmup_out = (
+                self.model(_warmup_tokens, cache=_warmup_cache)
+                if _warmup_cache is not None
+                else self.model(_warmup_tokens)
+            )
+            mx.eval(_warmup_out)
+            mx.synchronize()
+            logger.debug("MLX model warmup complete.")
+        except Exception as exc:
+            logger.warning("MLX model warmup skipped: %s", exc)
         logger.info("MLX model loaded.")
 
     def stream(self, payload: dict[str, Any]) -> Iterator[dict[str, Any]]:
