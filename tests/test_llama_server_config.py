@@ -125,6 +125,26 @@ def test_model_specific_llama_server_binary_env_fails_closed_when_missing(
         build_config(model="demo")
 
 
+def test_model_specific_llama_server_binary_param_resolves_when_env_unset(
+    monkeypatch,
+    tmp_path,
+):
+    _patch_registry(
+        monkeypatch,
+        tmp_path,
+        params={
+            "llama_server_bin_env": "CUSTOM_LLAMA_SERVER_BIN",
+            "llama_server_bin": "/opt/custom/llama-server",
+        },
+    )
+    monkeypatch.delenv("CUSTOM_LLAMA_SERVER_BIN", raising=False)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_BIN", "/opt/stock/llama-server")
+
+    cfg = build_config(model="demo")
+
+    assert cfg["llama_server_bin"] == "/opt/custom/llama-server"
+
+
 def test_model_specific_llama_server_min_build_flows_into_resolved_config(
     monkeypatch,
     tmp_path,

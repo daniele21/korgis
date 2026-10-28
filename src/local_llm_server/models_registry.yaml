@@ -28,6 +28,38 @@ models:
       n_gpu_layers: -1
     tags: [local, open-weight, moe, local-benchmark]
 
+  lfm2.5-24b-a2b-ud-q4-k-xl:
+    model_id: lfm2.5-24b-a2b-ud-q4-k-xl
+    backend: llama_server
+    filename: LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+    lmstudio_path: unsloth/LFM2.5-24B-A2B-GGUF
+    quantization: UD-Q4_K_XL
+    params:
+      ctx_size: 8192
+      n_gpu_layers: -1
+    tags: [local, open-weight, moe, local-benchmark]
+
+  lfm3-1.7b-q8:
+    model_id: LiquidAI/LFM3-1.7B-GGUF
+    filename: LFM3-1.7B-Q8_0.gguf
+    lmstudio_path: LiquidAI/LFM3-1.7B-GGUF
+    quantization: Q8_0
+    size_gb: 1.70
+    sha256: "8f6b24182258205e9e01e21f1f24a1f208c1e8115578825d202ce39976af20b6"
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_min_build: 1
+      llama_server_bin_env: LFM3_LLAMA_SERVER_BIN
+      llama_server_bin: ~/.lmstudio/extensions/backends/llama.cpp-mac-arm64-apple-metal-advsimd-2.65.1/llama-server
+    tags: [local, open-weight, small, 1.7b, q8_0, local-benchmark]
+
   nemotron-nano-4b:
     filename: "NVIDIA-Nemotron-3-Nano-4B-Q4_K_M.gguf"
     url: "https://huggingface.co/lmstudio-community/NVIDIA-Nemotron-3-Nano-4B-GGUF/resolve/main/NVIDIA-Nemotron-3-Nano-4B-Q4_K_M.gguf"
@@ -139,6 +171,25 @@ models:
       enable_thinking: false
       show_thinking: false
       llama_server_min_build: 10828
+    tags: [reasoning, coding, agentic, spark, local-benchmark, small, 4b, q4km]
+
+  spark-x2.6-4b-q4km:
+    filename: "Spark-X2.6-4B-Q4_K_M.gguf"
+    lmstudio_path: "XHToken/Spark-X2.6-4B-GGUF"
+    model_id: "XHToken/Spark-X2.6-4B"
+    quantization: "Q4_K_M"
+    sha256: "91cb2811aebb47ac916aa619d27d4cdd7f4143106b7917accb8ead4cd7f5cbd9"
+    size_gb: 3.30
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_min_build: 11669
     tags: [reasoning, coding, agentic, spark, local-benchmark, small, 4b, q4km]
 
   ternary-bonsai2-27b-ptq1:

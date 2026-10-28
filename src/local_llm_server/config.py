@@ -233,11 +233,19 @@ def build_config(
                     )
                 env_val = os.getenv(model_bin_env.strip(), "")
                 if not env_val:
+                    model_bin = reg_params.get("llama_server_bin")
+                    if model_bin is not None:
+                        cfg[key] = str(Path(model_bin).expanduser())
+                        continue
                     raise ValueError(
                         f"Model '{model}' requires llama-server binary via "
                         f"environment variable '{model_bin_env.strip()}'"
                     )
                 cfg[key] = env_val
+                continue
+            model_bin = reg_params.get("llama_server_bin")
+            if model_bin is not None:
+                cfg[key] = str(Path(model_bin).expanduser())
                 continue
 
         env_name = _ENV_MAP.get(key)

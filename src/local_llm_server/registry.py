@@ -257,6 +257,17 @@ def validate_registry(registry: dict[str, Any]) -> None:
                 errors.append(
                     f"{label}.params.llama_server_bin_env must be a non-empty string"
                 )
+
+        llama_server_bin = params.get("llama_server_bin")
+        if llama_server_bin is not None:
+            if backend != "llama_server":
+                errors.append(
+                    f"{label}.params.llama_server_bin requires backend 'llama_server'"
+                )
+            elif not isinstance(llama_server_bin, str) or not llama_server_bin.strip():
+                errors.append(
+                    f"{label}.params.llama_server_bin must be a non-empty string"
+                )
         if backend == "llama_server" and multimodal and not (
             entry.get("mmproj_filename") or params.get("mmproj_path")
         ):
