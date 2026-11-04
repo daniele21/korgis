@@ -265,6 +265,7 @@ def build_llama_server_command(
     port: int,
     cfg: Mapping[str, Any],
     compatibility: LlamaServerCompatibility,
+    moe_stream_help_runner: Callable[[str], str] | None = None,
 ) -> list[str]:
     """Build the owned subprocess command from one compatibility decision."""
     cmd = [
@@ -282,6 +283,8 @@ def build_llama_server_command(
         cmd.extend(["--mmproj", str(mmproj_path)])
 
     if not compatibility.modern_runtime_options:
+        if cfg.get("llama_server_moe_stream_cache_gib") is not None:
+            raise ValueError("MoE expert streaming requires an attributable modern llama-server")
         return cmd
 
     parallel = _positive_int(
@@ -318,6 +321,25 @@ def build_llama_server_command(
             + ", ".join(sorted(_ALLOWED_LOAD_MODES))
         )
     cmd.extend(["--load-mode", load_mode])
+
+    stream_cache = cfg.get("llama_server_moe_stream_cache_gib")
+    stream_threads = cfg.get("llama_server_moe_stream_io_threads")
+    if stream_cache is None and stream_threads is not None:
+        raise ValueError("MoE streaming I/O threads require a cache budget")
+    if stream_cache is not None:
+        if load_mode not in {"auto", "none"}:
+            raise ValueError("MoE expert streaming cannot be combined with mmap/mlock/direct load mode")
+        cache_gib = _strict_positive_int(stream_cache, "llama_server_moe_stream_cache_gib")
+        required = ["--moe-stream-cache"]
+        if stream_threads is not None:
+            threads = _strict_positive_int(stream_threads, "llama_server_moe_stream_io_threads")
+            required.append("--moe-stream-io-threads")
+        _verify_moe_stream_options(binary, required, help_runner=moe_stream_help_runner)
+        # Experimental llama.cpp CLI: --moe-stream-cache implies --moe-stream.
+        # The engine disables mmap; Korgis deliberately retains conservative accounting.
+        cmd.extend(["--moe-stream-cache", f"{cache_gib}G"])
+        if stream_threads is not None:
+            cmd.extend(["--moe-stream-io-threads", str(threads)])
     cmd.extend(
         [
             "--fit",
@@ -367,6 +389,41 @@ def build_llama_server_command(
         cmd.extend(["--cache-ram", str(cache_ram)])
 
     return cmd
+
+
+def _strict_positive_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not (isinstance(value, int) or (
+        isinstance(value, str) and value.isascii() and value.isdecimal()
+    )):
+        raise ValueError(f"{name} must be a positive integer")
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
+def _verify_moe_stream_options(
+    binary: Path | str,
+    required: list[str],
+    *,
+    help_runner: Callable[[str], str] | None = None,
+) -> None:
+    # Newer build numbers do not establish experimental feature support.
+    if help_runner is not None:
+        help_text = help_runner(str(binary))
+    else:
+        try:
+            result = subprocess.run(
+                [str(binary), "--help"], capture_output=True, text=True,
+                timeout=10, check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError("Cannot verify MoE streaming options on selected llama-server") from exc
+        help_text = result.stdout + "\n" + result.stderr
+    if not all(option in help_text for option in required):
+        raise RuntimeError(
+            "Selected llama-server does not advertise required experimental MoE streaming options"
+        )
 
 
 def _probe_default_runner_cached(path: Path) -> LlamaServerBuildIdentity | None:
