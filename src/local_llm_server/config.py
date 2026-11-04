@@ -55,6 +55,8 @@ _FALLBACKS: dict[str, Any] = {
     "llama_server_cache_type_k": None,
     "llama_server_cache_type_v": None,
     "llama_server_cache_ram_mib": None,
+    "llama_server_moe_stream_cache_gib": None,
+    "llama_server_moe_stream_io_threads": None,
     "mlx_vlm_server_port": 8092,
     "sd_server_port": 8093,
     "sd_server_bin": None,
@@ -111,6 +113,8 @@ _ENV_MAP: dict[str, str] = {
     "llama_server_cache_type_k": "LOCAL_LLM_SERVER_CACHE_TYPE_K",
     "llama_server_cache_type_v": "LOCAL_LLM_SERVER_CACHE_TYPE_V",
     "llama_server_cache_ram_mib": "LOCAL_LLM_SERVER_CACHE_RAM_MIB",
+    "llama_server_moe_stream_cache_gib": "LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB",
+    "llama_server_moe_stream_io_threads": "LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS",
     "mlx_vlm_server_port": "LOCAL_LLM_MLX_VLM_SERVER_PORT",
     "sd_server_port": "LOCAL_LLM_SD_SERVER_PORT",
     "sd_server_bin": "LOCAL_LLM_SD_SERVER_BIN",
@@ -155,6 +159,7 @@ _INT_ENV = {
     "image_max_inference_steps", "image_max_pixels",
     "max_concurrent_requests", "max_kv_size", "llama_server_fit_target_mib",
     "llama_server_fit_ctx", "llama_server_cache_ram_mib",
+    "llama_server_moe_stream_cache_gib", "llama_server_moe_stream_io_threads",
 }
 _FLOAT_ENV = {
     "default_temperature", "default_top_p", "default_min_p",
@@ -246,6 +251,11 @@ def build_config(
     cfg["download_url"] = download_url
     cfg["models_dir"] = models_dir
     cfg["backend"] = backend
+    if cfg["llama_server_moe_stream_cache_gib"] is not None and backend != "llama_server":
+        raise ValueError("MoE expert streaming requires the llama_server backend")
+    if (cfg["llama_server_moe_stream_io_threads"] is not None
+            and cfg["llama_server_moe_stream_cache_gib"] is None):
+        raise ValueError("MoE streaming I/O threads require a cache budget")
     cfg["quantization"] = explicit.get("quantization") or entry.get("quantization")
     cfg["mmproj_filename"] = entry.get("mmproj_filename")
     cfg["mmproj_url"] = entry.get("mmproj_url", "")

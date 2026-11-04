@@ -86,6 +86,7 @@ def resident_memory_envelope(config: Mapping[str, Any]) -> MemoryEnvelope:
     """Build the configured resident-memory estimate for one runtime."""
     override = _non_negative_int(config.get("resource_estimate_bytes"))
     weights = _model_weights_component(config)
+    moe_stream_cache = _moe_stream_cache_component(config)
     backend_overhead = _configured_component(
         "backend_overhead",
         config.get("resource_backend_overhead_bytes"),
@@ -104,6 +105,7 @@ def resident_memory_envelope(config: Mapping[str, Any]) -> MemoryEnvelope:
         scope="resident",
         components=(
             weights,
+            *((moe_stream_cache,) if moe_stream_cache is not None else ()),
             backend_overhead,
             context_cache,
             prompt_cache,
@@ -176,6 +178,19 @@ def transcription_memory_envelope(
             runtime_config.get("resource_request_estimate_bytes")
         ),
     )
+
+
+def _moe_stream_cache_component(config: Mapping[str, Any]) -> MemoryComponent | None:
+    budget = config.get("llama_server_moe_stream_cache_gib")
+    if budget is None:
+        return None
+    if isinstance(budget, bool) or not (isinstance(budget, int) or (
+        isinstance(budget, str) and budget.isascii() and budget.isdecimal()
+    )) or int(budget) <= 0:
+        raise ValueError("llama_server_moe_stream_cache_gib must be a positive integer")
+    # Conservative additive estimate; not a substitute for the full GGUF.
+    # A smaller resident expert budget needs representative hardware calibration.
+    return MemoryComponent("moe_stream_cache", int(budget) * _GIB, "configured_cache_upper_budget")
 
 
 def _model_weights_component(config: Mapping[str, Any]) -> MemoryComponent:

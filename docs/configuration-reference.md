@@ -134,6 +134,42 @@ Request-level OpenAI-compatible generation values can still override applicable 
 
 Paths and executable locations are private deployment details and are intentionally excluded from the public execution-identity response.
 
+## Experimental MoE SSD expert streaming (llama-server only)
+
+The preview requires a separately installed **experimental llama.cpp build** that
+advertises `--moe-stream-cache` in its `--help` output. Stable/modern
+`llama-server` version attribution alone is **not** sufficient evidence.
+Korgis never downloads or substitutes such a binary; the explicitly selected
+`llama_server_bin` remains authoritative. The preview is off by default.
+
+| Key | Environment | Default | Meaning |
+| --- | --- | --- | --- |
+| `llama_server_moe_stream_cache_gib` | `LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB` | `null` | Opt in with a positive whole-GiB expert-cache budget; maps to `--moe-stream-cache <N>G` (which implies `--moe-stream` in the experimental implementation). |
+| `llama_server_moe_stream_io_threads` | `LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS` | `null` | Optional positive worker count for `--moe-stream-io-threads`; requires a cache budget. |
+
+The launcher verifies the **selected** binary's exact advertised options before
+starting a model. Unsupported binaries, legacy compatibility profiles, explicit
+`mmap`/`mlock`/`dio` load modes and I/O threads without a cache budget fail
+closed. The experimental backend itself disables memory mapping while expert
+streaming is enabled. Korgis does not silently rewrite the configured load mode.
+
+**Memory accounting is intentionally conservative:** the full GGUF artifact
+size **plus** configured expert-cache GiB and existing overhead/context/safety
+budgets remain reserved. This can reject models that exceed RAM, despite the
+upstream feature's technical intent. No reduced resident-set estimate, SSD page
+cache avoidance, output equivalence, token/s, or Apple Silicon memory-safety
+claim is approved without calibrated 32-GiB Mac evidence. A configuration
+override `resource_estimate_bytes` remains an operator assertion, not measured
+proof, and must not be reduced merely to bypass admission.
+
+Representative acceptance requires matched GGUF/model identity, standard
+mmap vs experimental MoE streaming comparisons, TTFT/prefill/decode, page
+fault/swap, real RSS/host headroom, cache behavior, error recovery,
+multi-runtime lease/shutdown and output comparison. A safe refusal is valid
+evidence. The upstream experimental proposal is
+[llama.cpp PR #25294](https://github.com/ggml-org/llama.cpp/pull/25294);
+it is not an endorsed stable backend contract.
+
 ## Security-sensitive settings
 
 | Key | Environment | Fallback | Rule |
