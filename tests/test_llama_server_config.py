@@ -78,3 +78,36 @@ def test_llama_server_environment_controls_are_typed(monkeypatch, tmp_path):
     assert cfg["llama_server_cache_type_k"] == "q8_0"
     assert cfg["llama_server_cache_type_v"] == "q4_0"
     assert cfg["llama_server_cache_ram_mib"] == 4096
+
+
+
+def test_llama_server_moe_streaming_environment_is_typed(monkeypatch, tmp_path):
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB", "4")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS", "2")
+
+    cfg = build_config(model="demo")
+
+    assert cfg["llama_server_moe_stream_cache_gib"] == 4
+    assert cfg["llama_server_moe_stream_io_threads"] == 2
+
+
+def test_llama_server_moe_streaming_rejects_non_llama_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "llama_cpp")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB", "4")
+
+    with pytest.raises(ValueError, match="requires the llama_server backend"):
+        build_config(model="demo")
+
+
+def test_llama_server_moe_io_threads_require_cache(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS", "4")
+
+    with pytest.raises(ValueError, match="require a cache budget"):
+        build_config(model="demo")
