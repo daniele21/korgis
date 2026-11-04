@@ -28,6 +28,39 @@ Rules:
 - do not lower safety/repetition thresholds merely to force a successful result;
 - do not generalize one-device or small-sample observations into production-safety/model-quality claims.
 
+## Experimental MoE SSD streaming: read-only Mac preflight
+
+The optional experimental MoE expert-streaming launcher preview is integrated
+only in `dev`; upstream llama.cpp PR #25294 is not a stable release.
+Before any model is started on the representative Mac, execute the **read-only**
+preflight against an explicitly selected, reviewed and attributable experimental
+`llama-server` binary. This task never starts inference and cannot assert
+large-model fit or native reclamation.
+
+```bash
+uv run --frozen python -m local_llm_server.moe_stream_preflight \
+  --binary "/absolute/path/to/reviewed/experimental/llama-server" \
+  --output "$HOME/.local-llm-server/evidence/moe-stream-preflight.json"
+```
+
+Optionally supply `--model-path "/absolute/path/to/verified/model.gguf"`
+to compute SHA-256 and file size via sequential reads; private paths are
+never serialized into the report. A missing/unsupported binary, unsupported
+host, absent flags, failed memory observation or insufficient headroom causes
+a nonzero exit with a typed `blocked` reason. A `ready_for_bounded_pilot`
+result proves **only** an attributable selected binary, advertised flags and
+an observational host-memory preflight. It does not prove the model will fit,
+that the selected GGUF is a supported MoE architecture or that a cache budget
+is safe. No binary is downloaded or installed automatically. On macOS, do not
+assume Linux `O_DIRECT` flags are usable; pilot streaming without direct I/O.
+
+Self-hosted runner notes: `source-owned-mac-pilot.yml` currently requires
+Korgis `main` ancestry and a source manifest; the preview is in `dev`.
+`central-ci.yml` instead requires a trusted pinned SHA and
+`.github/ci/local-test.sh`, currently absent. Do not bypass these security
+requirements simply to collect evidence. See issue #255 for the bounded
+evidence campaign and the required integration path.
+
 ## 0. Verify the exact artifact
 
 Before HE-2 and preferably before all comparable runs:
