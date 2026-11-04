@@ -105,7 +105,7 @@ def resident_memory_envelope(config: Mapping[str, Any]) -> MemoryEnvelope:
         scope="resident",
         components=(
             weights,
-            moe_stream_cache,
+            *((moe_stream_cache,) if moe_stream_cache is not None else ()),
             backend_overhead,
             context_cache,
             prompt_cache,
@@ -180,10 +180,10 @@ def transcription_memory_envelope(
     )
 
 
-def _moe_stream_cache_component(config: Mapping[str, Any]) -> MemoryComponent:
+def _moe_stream_cache_component(config: Mapping[str, Any]) -> MemoryComponent | None:
     budget = config.get("llama_server_moe_stream_cache_gib")
     if budget is None:
-        return MemoryComponent("moe_stream_cache", None, "not_configured", required=False)
+        return None
     if isinstance(budget, bool) or not (isinstance(budget, int) or (
         isinstance(budget, str) and budget.isascii() and budget.isdecimal()
     )) or int(budget) <= 0:
