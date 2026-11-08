@@ -428,6 +428,43 @@ print("Saved /tmp/korgis-qwen-turbo-smoke.png")
 PY
 ```
 
+### Experimental disk-backed memory admission (Turbo only)
+
+On Apple Silicon, Korgis' default host-memory guard estimates available
+reclaimable RAM from macOS `vm_stat` and reserves additional OS headroom.
+The raw ~10 GB size of three Qwen Image artifacts is a **disk footprint**,
+not a proven resident working-set peak when the native backend uses
+`diffusion=disk` with CPU offload.
+
+This Turbo registry entry now explicitly opts into
+`resource_admission_profile=disk_backed_image` with a provisional
+`resource_estimate_bytes=8589934592` (8 GiB). The Mac policy checks
+the host's measured available/reclaimable RAM with a 1.25× growth factor
+and a 2–3 GiB OS reserve, instead of the standard 1.5× and 2–6 GiB.
+For a 32 GiB Mac, the provisional pre-load floor is about 13 GiB
+available/reclaimable RAM. This is **not** a measured total unified-memory
+or GPU peak; one previous native image run measured ~4.92 GiB
+`sd-server` process RSS only.
+
+The policy remains fail-closed on unavailable measurements, elevated or
+critical *derived host* pressure, budget conflicts and insufficient
+reclaimable RAM. It continues to check the host after load. Swap used on
+SSD is reported but **never added to available RAM**. macOS's graphical
+pressure indicator and Korgis' derived pressure heuristic may disagree.
+The profile applies only to a native stable-diffusion.cpp image backend
+with `diffusion=disk`, CPU offload and an explicit resident estimate.
+
+Use the same serve command as above. No `LOCAL_LLM_HOST_MEMORY_GUARD=false`
+or manual `LOCAL_LLM_RESOURCE_ESTIMATE_BYTES` override is needed. If memory
+admission is still rejected, do not force the launch: close memory-heavy
+apps or reduce the workload and check available memory and swap activity.
+
+The guard blocks new allocations and rejects unsafe startup or commit;
+it **does not yet automatically interrupt an already-running GPU image
+generation** on a later macOS pressure event. Experiments records paging
+and native RSS so the provisional envelope can be calibrated with
+representative, repeated runs before declaring stable device fit.
+
 The Turbo preset enforces eight steps, Euler and CFG 1.0, with the
 nine-element native sigma list `qwen-image-2.1-turbo-v1`. A fake-server
 test only proves JSON wiring; real 1024×1024 PNG output, native version,
