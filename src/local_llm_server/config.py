@@ -78,6 +78,9 @@ _FALLBACKS: dict[str, Any] = {
     "image_output_format": "png",
     "image_sampling_method": "euler",
     "image_scheduler": None,
+    # Registry-owned schedule; deliberately no public arbitrary sigma-list input.
+    "image_sigma_schedule": None,
+    "image_verify_existing_artifacts": False,
     "image_diffusion_flash_attention": True,
     "image_offload_to_cpu": True,
     "image_vae_tiling": False,
