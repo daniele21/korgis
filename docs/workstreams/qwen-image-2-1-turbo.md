@@ -29,10 +29,10 @@ No local inference service is owned by Experiments.
 | Slice | State | Evidence / next gate |
 | --- | --- | --- |
 | K0 — reconcile required GGUF parts from main into dev | DONE | PR #258, hosted CI and Repository Health passed |
-| K1 — pinned separate Turbo artifact bundle | ACTIVE | Code and fake/registry tests in PR #259, CI pending |
-| K2 — model-specific exact Turbo sigma preset | ACTIVE | Native job and invalid-override tests in PR #259, CI pending |
-| K3 — config, API and lifecycle integration | ACTIVE | Runtime/config tests in PR #259, CI pending |
-| K4 — representative Mac proof | BLOCKED | Requires K1-K3 green, model artifacts and compatible native sd-server |
+| K1 — pinned separate Turbo artifact bundle | DONE | PR #259 deterministic registry tests included in green CI |
+| K2 — model-specific exact Turbo sigma preset | DONE | PR #259 native fake-job/override tests included in green CI |
+| K3 — config, API and lifecycle integration | DONE | PR #259 config + API contract tests included in green CI |
+| K4 — representative Mac proof | BLOCKED | K1-K3 CI green; real model artifacts, compatible sd-server and representative Mac evidence pending |
 | K5 — Q8 or MLX variants | READY | Only after K4 + benchmark evidence |
 
 Independent source streams K1 and K2 were developed on separate branches,
@@ -68,7 +68,7 @@ uv run --frozen pytest \
 uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82
 ```
 
-After CI is green, the Mac gate must verify a real PNG output from one resident
+CI / Repository Health on PR #259 passed at commit `138b0a9ffce19b3877a9ce01c02efec4896d5869`: 916 Python tests, lint and guards green. After CI is green, the Mac gate must verify a real PNG output from one resident
 Korgis model, correct runtime/config/seed/sigma provenance, cold/warm timings,
 bounded resource observation, no unexpected downloads, and clean process teardown.
 Do not interpret unit tests as Mac memory-fit, production readiness or visual
