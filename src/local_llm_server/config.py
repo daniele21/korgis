@@ -383,6 +383,9 @@ def build_config(
         if capability_key in entry and capability_key not in explicit:
             cfg[capability_key] = list(entry.get(capability_key) or [])
 
+    if cfg["image_editing_enabled"]:
+        cfg["input_modalities"] = sorted(set(cfg.get("input_modalities") or ["text"]) | {"image"})
+
     return cfg
 
 
