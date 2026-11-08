@@ -14,6 +14,7 @@ from typing import Any
 
 from .downloader import ensure_model
 from .image_generation_common import GeneratedImage
+from .image_sampling_presets import image_sigma_digest, resolve_image_sigma_schedule
 from .model_sources import artifact_download_url
 from .process import ManagedProcess
 from .stable_diffusion_cpp_compat import (
@@ -111,6 +112,7 @@ class StableDiffusionCppImageEngine:
                     if spec.get("sha256") is not None
                     else None
                 ),
+                verify_existing=bool(self.cfg.get("image_verify_existing_artifacts", False)),
             )
 
     def _start(self) -> None:
@@ -193,6 +195,17 @@ class StableDiffusionCppImageEngine:
         if scheduler:
             sample_params["scheduler"] = str(scheduler)
 
+        sigma_preset = self.cfg.get("image_sigma_schedule")
+        effective_sigmas = resolve_image_sigma_schedule(
+            str(sigma_preset) if sigma_preset else None,
+            steps=steps,
+            guidance_scale=guidance,
+            sampling_method=sample_method,
+            scheduler=str(scheduler) if scheduler is not None else None,
+        )
+        if effective_sigmas is not None:
+            sample_params["custom_sigmas"] = list(effective_sigmas)
+
         submission = self._json_request(
             "POST",
             "/sdcpp/v1/img_gen",
@@ -269,6 +282,11 @@ class StableDiffusionCppImageEngine:
                 },
                 "sampling_method": sample_method,
                 "scheduler": scheduler,
+                "sigma_schedule": str(sigma_preset) if sigma_preset else None,
+                "custom_sigmas": list(effective_sigmas) if effective_sigmas else None,
+                "sigma_schedule_sha256": (
+                    image_sigma_digest(effective_sigmas) if effective_sigmas else None
+                ),
                 "num_inference_steps": steps,
                 "guidance_scale": guidance,
                 "generation_time_seconds": generation_seconds,
