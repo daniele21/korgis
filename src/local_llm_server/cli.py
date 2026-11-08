@@ -102,6 +102,7 @@ def main() -> None:
     p_serve.add_argument("--image-scheduler", default=None, dest="image_scheduler")
     p_serve.add_argument("--image-diffusion-flash-attention", action=argparse.BooleanOptionalAction, default=None, dest="image_diffusion_flash_attention")
     p_serve.add_argument("--image-offload-to-cpu", action=argparse.BooleanOptionalAction, default=None, dest="image_offload_to_cpu")
+    p_serve.add_argument("--image-editing-enabled", action=argparse.BooleanOptionalAction, default=None, dest="image_editing_enabled", help="Opt into reference image editing; requires matching vision projector and additional memory")
     p_serve.add_argument("--startup-timeout", type=int, default=None, dest="startup_timeout")
     p_serve.add_argument("--max-concurrent-requests", type=int, default=None, dest="max_concurrent_requests")
     p_serve.add_argument("--chat-format", default=None, dest="chat_format")
@@ -267,6 +268,7 @@ def _cmd_serve(args: argparse.Namespace) -> None:
         "image_max_inference_steps", "image_max_pixels",
         "image_guidance_scale", "image_output_format", "image_sampling_method",
         "image_scheduler", "image_diffusion_flash_attention", "image_offload_to_cpu",
+        "image_editing_enabled",
         "startup_timeout", "max_concurrent_requests", "chat_format", "force_json", "show_thinking", "enable_thinking",
         "no_download", "verbose",
     ):
