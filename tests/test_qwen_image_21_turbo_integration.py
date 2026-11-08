@@ -15,7 +15,7 @@ def test_turbo_resolves_pinned_backend_and_sampling_profile_without_download():
     cfg = build_config(TURBO)
     assert cfg["model"] == TURBO
     assert cfg["backend"] == "stable_diffusion_cpp_image"
-    assert cfg["model_id"] == "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+    assert cfg["model_id"] == "unsloth/Qwen-Image-2.1-Turbo-GGUF"
     assert cfg["image_sigma_schedule"] == "qwen-image-2.1-turbo-v1"
     assert cfg["image_num_inference_steps"] == 8
     assert cfg["image_guidance_scale"] == 1.0
