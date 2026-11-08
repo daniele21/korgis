@@ -193,6 +193,61 @@ models:
       startup_timeout: 600
     tags: [image-generation, qwen, local, gguf, q4-k-m, stable-diffusion-cpp]
 
+  # Qwen Image 2.1 Turbo; keep separate from the full Qwen Image 2.1 profile.
+  # Qwen Research License: research/evaluation, not general commercial use.
+  qwen-image-2.1-turbo-gguf-q4km:
+    model_id: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+    backend: stable_diffusion_cpp_image
+    quantization: "Q4_K_M"
+    size_gb: 14.08  # combined artifact sizes, not RAM/VRAM requirement
+    license: "qwen-research"
+    thinking_mode: none
+    tasks: [image_generation]
+    input_modalities: [text]
+    output_modalities: [image]
+    artifacts:
+      diffusion_model:
+        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
+        filename: "qwen-image-2.1-turbo-Q4_K_M.gguf"
+        local_path: "diffusion/qwen-image-2.1-turbo-Q4_K_M.gguf"
+        sha256: "14be42ddc6e324682dd8e073ab32a0a4b3b8cd93657d6ec419dae3cc5f22ef78"
+      text_encoder:
+        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
+        filename: "text_encoders/qwen3vl_8b_int8_convrot.safetensors"
+        local_path: "text_encoder/qwen3vl_8b_int8_convrot.safetensors"
+        sha256: "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f"
+      vae:
+        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
+        filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        local_path: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        sha256: "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+    params:
+      sd_server_port: 8093
+      image_width: 1024
+      image_height: 1024
+      image_num_inference_steps: 8
+      image_max_inference_steps: 8
+      image_max_pixels: 4194304
+      image_guidance_scale: 1.0
+      image_sampling_method: euler
+      image_sigma_schedule: "qwen-image-2.1-turbo-v1"
+      image_verify_existing_artifacts: true
+      image_diffusion_flash_attention: true
+      image_offload_to_cpu: true
+      sd_server_params_backend: "diffusion=disk,te=cpu,vae=cpu"
+      sd_server_max_vram: "-2"
+      sd_server_model_args: "qwen_image_2_1_prefix_cache=false"
+      sd_server_disable_prefetch: true
+      image_vae_tiling: true
+      image_vae_tile_size: "256x256"
+      image_output_format: png
+      max_concurrent_requests: 1
+      startup_timeout: 600
+    tags: [image-generation, qwen, turbo, local, gguf, q4-k-m, stable-diffusion-cpp]
+
   # voxtral-mini-3b:
   #   filename: "mistralai_Voxtral-Mini-3B-2507-Q4_K_M.gguf"
   #   mmproj_filename: "mmproj-mistralai_Voxtral-Mini-3B-2507-f16.gguf"
