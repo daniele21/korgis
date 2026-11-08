@@ -378,8 +378,9 @@ Turbo uses a different three-artifact profile from standard Qwen Image 2.1:
 These are existing local files; there is **no need to download** the earlier
 ConvRot INT8 Safetensors text encoder. The registry records the exact source
 Hugging Face repositories and published SHA-256 values for each artifact.
-The source revision currently uses `main` (not a commit pin), so integrity
-depends on the configured SHA-256 and `image_verify_existing_artifacts=true`.
+Each source revision is pinned to a complete Hugging Face Git commit, and
+integrity is checked against the published SHA-256 using
+`image_verify_existing_artifacts=true`.
 The first startup may spend time hashing roughly 10 GB of existing artifacts.
 
 Verify that a compatible `sd-server` executable is installed. Modern
