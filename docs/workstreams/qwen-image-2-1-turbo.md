@@ -15,8 +15,10 @@ No local inference service is owned by Experiments.
 ## Invariants
 
 - The new runtime is local only: no cloud fallback, new scheduler or ad-hoc child process.
-- Three required artifacts have pinned Hugging Face revision + SHA-256: Turbo
-  Q4_K_M diffusion, ConvRot INT8 Qwen3VL text encoder and BF16 VAE.
+- Three Unsloth artifacts have published SHA-256 digests: Turbo Q4_K_M
+  diffusion GGUF, Qwen3-VL Q4_K_XL text encoder GGUF and BF16 VAE.
+  Source revisions currently use `main`; hashes pin bytes and fail closed
+  if upstream content changes. The local files must still be verified.
 - Native `sd-server` receives exact `sample_params.custom_sigmas` for 8 steps,
   Euler and CFG 1; incompatible overrides fail before native submission.
 - Korgis keeps the subprocess lease, request limits, safe path-free provenance
@@ -32,7 +34,7 @@ No local inference service is owned by Experiments.
 | K1 — pinned separate Turbo artifact bundle | DONE | PR #259 deterministic registry tests included in green CI |
 | K2 — model-specific exact Turbo sigma preset | DONE | PR #259 native fake-job/override tests included in green CI |
 | K3 — config, API and lifecycle integration | DONE | PR #259 config + API contract tests included in green CI |
-| K4 — representative Mac proof | BLOCKED | K1-K3 CI green; real model artifacts, compatible sd-server and representative Mac evidence pending |
+| K4 — representative Mac proof | ACTIVE | User has placed three local files; SHA-256, compatible sd-server, real PNG and memory evidence remain unverified |
 | K5 — Q8 or MLX variants | READY | Only after K4 + benchmark evidence |
 
 Independent source streams K1 and K2 were developed on separate branches,
@@ -41,15 +43,16 @@ The full design is recorded in planning PR [#257](https://github.com/daniele21/k
 
 ## Native reference & configuration
 
-- Checkpoint: `abenzerps/Qwen-Image-2.1-Turbo-Quantized`, pinned to
-  `24d33ddeffd21374e8b04a84f93eb73a645fc74e`.
+- Checkpoint: `unsloth/Qwen-Image-2.1-Turbo-GGUF`, text encoder:
+  `unsloth/Qwen3-VL-8B-Instruct-GGUF`, VAE:
+  `unsloth/Qwen-Image-2.1-FP8`. All three source digests are in the registry.
 - Runtime: `stable_diffusion_cpp_image`; model key
   `qwen-image-2.1-turbo-gguf-q4km`.
 - Initial request: 1024×1024, PNG, seed 42. Model defaults: eight steps,
   Euler, CFG 1, `qwen-image-2.1-turbo-v1` custom sigma schedule.
-- Built-in startup profile uses disk-backed diffusion weights, CPU
-  text encoder and tiled VAE as a conservative starting point, not
-  a proven memory target.
+- File root: `~/.local-llm/models/qwen-image-2.1-turbo-gguf-q4km/`.
+  Built-in startup uses disk-backed diffusion, CPU encoder and tiled VAE as
+  conservative starting settings, not a proven memory target.
 
 ## Validation
 
@@ -68,7 +71,7 @@ uv run --frozen pytest \
 uv run --frozen ruff check src/ tests/ --select E9,F63,F7,F82
 ```
 
-CI / Repository Health on PR #259 passed at commit `138b0a9ffce19b3877a9ce01c02efec4896d5869`: 916 Python tests, lint and guards green. After CI is green, the Mac gate must verify a real PNG output from one resident
+CI / Repository Health on PR #259 passed at commit `138b0a9ffce19b3877a9ce01c02efec4896d5869`: 916 Python tests, lint and guards green. After the revised Unsloth configuration passes CI, Mac validation must verify a real PNG output from one resident
 Korgis model, correct runtime/config/seed/sigma provenance, cold/warm timings,
 bounded resource observation, no unexpected downloads, and clean process teardown.
 Do not interpret unit tests as Mac memory-fit, production readiness or visual
@@ -83,5 +86,5 @@ keep prompt suites, evaluation, artifacts and dashboard in Experiments.
 OpenAI/Gemini routing through Korgis is a later distinct capability.
 
 Sources:
-- https://huggingface.co/abenzerps/Qwen-Image-2.1-Turbo-Quantized
+- https://huggingface.co/unsloth/Qwen-Image-2.1-Turbo-GGUF
 - https://github.com/leejet/stable-diffusion.cpp/blob/master/examples/server/api.md
