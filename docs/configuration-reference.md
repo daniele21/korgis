@@ -361,3 +361,73 @@ The public runtime identity exposes backend/version, Q4_K_M quantization and the
 configuration digest. Its evidence grade remains partial because the current generic
 `verify-artifact` command is single-file; Korgis does not collapse three component hashes into
 a fictitious single-file digest.
+
+
+### Qwen Image 2.1 Turbo GGUF (Unsloth)
+
+Turbo uses a different three-artifact profile from standard Qwen Image 2.1:
+`qwen-image-2.1-turbo-gguf-q4km`.
+
+```text
+~/.local-llm/models/qwen-image-2.1-turbo-gguf-q4km/
+├── diffusion/qwen-image-2.1-turbo-Q4_K_M.gguf
+├── text_encoder/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf
+└── vae/qwen_image_2.1_vae_bf16.safetensors
+```
+
+These are existing local files; there is **no need to download** the earlier
+ConvRot INT8 Safetensors text encoder. The registry records the exact source
+Hugging Face repositories and published SHA-256 values for each artifact.
+The source revision currently uses `main` (not a commit pin), so integrity
+depends on the configured SHA-256 and `image_verify_existing_artifacts=true`.
+The first startup may spend time hashing roughly 10 GB of existing artifacts.
+
+Verify that a compatible `sd-server` executable is installed. Modern
+stable-diffusion.cpp supports `sample_params.custom_sigmas`; old builds
+may silently ignore it, so a real native smoke must verify correct behavior.
+
+```bash
+command -v sd-server
+# If it is installed elsewhere:
+# export LOCAL_LLM_SD_SERVER_BIN="/absolute/path/to/sd-server"
+
+uv run --frozen local-llm models
+uv run --frozen local-llm serve \
+  --model qwen-image-2.1-turbo-gguf-q4km \
+  --no-download
+```
+
+With Korgis serving on loopback port 1235, request one image from another terminal:
+
+```bash
+curl --fail-with-body -sS http://127.0.0.1:1235/v1/images/generations \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen-image-2.1-turbo-gguf-q4km",
+    "prompt": "A red ceramic mug on a wooden desk, natural daylight, photograph",
+    "size": "1024x1024",
+    "num_inference_steps": 8,
+    "guidance_scale": 1.0,
+    "sampling_method": "euler",
+    "seed": 42,
+    "response_format": "b64_json"
+  }' > /tmp/korgis-qwen-turbo-response.json
+
+python3 - <<'PY'
+import base64
+import json
+from pathlib import Path
+
+response = json.loads(Path("/tmp/korgis-qwen-turbo-response.json").read_text())
+assert response.get("data"), response
+image = base64.b64decode(response["data"][0]["b64_json"], validate=True)
+assert image[:8] == b"\x89PNG\r\n\x1a\n"
+Path("/tmp/korgis-qwen-turbo-smoke.png").write_bytes(image)
+print("Saved /tmp/korgis-qwen-turbo-smoke.png")
+PY
+```
+
+The Turbo preset enforces eight steps, Euler and CFG 1.0, with the
+nine-element native sigma list `qwen-image-2.1-turbo-v1`. A fake-server
+test only proves JSON wiring; real 1024×1024 PNG output, native version,
+latency and peak RAM must be measured on the target Mac before acceptance.
