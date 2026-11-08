@@ -93,6 +93,15 @@ def build_sd_server_command(
         "--listen-port",
         str(_positive_int(port, "sd_server_port")),
     ]
+    if cfg.get("image_editing_enabled"):
+        projector = cfg.get("image_editing_projector_path")
+        if not projector or not Path(str(projector)).is_file():
+            raise FileNotFoundError(
+                "Qwen image editing requires the matching Qwen3-VL vision projector; "
+                "download it first or start without --image-editing-enabled"
+            )
+        cmd.extend(["--llm_vision", str(projector)])
+
     if bool(cfg.get("image_diffusion_flash_attention", True)):
         cmd.append("--diffusion-fa")
     if bool(cfg.get("image_offload_to_cpu", True)):
