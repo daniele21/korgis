@@ -73,6 +73,7 @@ def test_opt_in_uses_pinned_projector_and_extra_2g_budget():
     cfg = build_config(MODEL, image_editing_enabled=True)
     assert cfg["input_modalities"] == ["image", "text"]
     assert cfg["image_editing_extra_resident_bytes"] == 2 * 1024**3
+    assert cfg["resource_estimate_bytes"] == 10 * 1024**3
     spec = cfg["image_editing_projector_spec"]
     assert spec["revision"] == "174e4a339d8aceef41c87fda9f732c042d49e50b"
     assert spec["sha256"] == "6516bb64bae1503a0fcd7ec9fa39655f8c481580be0a0a066397941d9761c9f4"
@@ -183,3 +184,24 @@ def test_png_header_validation_does_not_decode_untrusted_pixels():
         validate_png_reference(data[:29] + b"AAAA" + data[33:])
     with pytest.raises(ValueError, match="pixel budget"):
         validate_png_reference(make_png(2048, 2048), max_pixels=512 * 512)
+
+def test_editing_output_over_1mp_is_rejected_before_native_submission():
+    client, engine = app_with_engine()
+    response = client.post(
+        "/v1/images/edits",
+        data={"prompt": "Edit", "size": "2048x1024"},
+        files={"image": ("a.png", make_png(), "image/png")},
+    )
+    assert response.status_code == 400
+    assert engine.calls == []
+
+
+def test_unaligned_output_is_rejected_before_native_submission():
+    client, engine = app_with_engine()
+    response = client.post(
+        "/v1/images/edits",
+        data={"prompt": "Edit", "size": "1000x1000"},
+        files={"image": ("a.png", make_png(), "image/png")},
+    )
+    assert response.status_code == 400
+    assert engine.calls == []
