@@ -14,6 +14,7 @@ from typing import Any
 
 from .downloader import ensure_model
 from .image_generation_common import GeneratedImage
+from .image_sampling_presets import image_sigma_digest, resolve_image_sigma_schedule
 from .model_sources import artifact_download_url
 from .process import ManagedProcess
 from .stable_diffusion_cpp_compat import (
@@ -50,6 +51,7 @@ class StableDiffusionCppImageEngine:
             str(name): Path(str(value)).expanduser().resolve()
             for name, value in raw_artifacts.items()
         }
+        self.artifact_provenance = self._build_artifact_provenance(raw_specs)
         self._ensure_artifacts(raw_specs)
 
         self.host = "127.0.0.1"
@@ -75,6 +77,24 @@ class StableDiffusionCppImageEngine:
         )
         self._start()
 
+    def _build_artifact_provenance(
+        self,
+        specs: Mapping[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        provenance: dict[str, dict[str, Any]] = {}
+        for name in ("diffusion_model", "text_encoder", "vae"):
+            path = self.artifacts.get(name)
+            spec = specs.get(name)
+            if path is None or not isinstance(spec, Mapping):
+                continue
+            item: dict[str, Any] = {"filename": path.name}
+            for field in ("repo", "revision", "sha256"):
+                value = spec.get(field)
+                if value is not None and str(value).strip():
+                    item[field] = str(value)
+            provenance[name] = item
+        return provenance
+
     def _ensure_artifacts(self, specs: Mapping[str, Any]) -> None:
         for name in ("diffusion_model", "text_encoder", "vae"):
             path = self.artifacts.get(name)
@@ -92,6 +112,7 @@ class StableDiffusionCppImageEngine:
                     if spec.get("sha256") is not None
                     else None
                 ),
+                verify_existing=bool(self.cfg.get("image_verify_existing_artifacts", False)),
             )
 
     def _start(self) -> None:
@@ -174,6 +195,17 @@ class StableDiffusionCppImageEngine:
         if scheduler:
             sample_params["scheduler"] = str(scheduler)
 
+        sigma_preset = self.cfg.get("image_sigma_schedule")
+        effective_sigmas = resolve_image_sigma_schedule(
+            str(sigma_preset) if sigma_preset else None,
+            steps=steps,
+            guidance_scale=guidance,
+            sampling_method=sample_method,
+            scheduler=str(scheduler) if scheduler is not None else None,
+        )
+        if effective_sigmas is not None:
+            sample_params["custom_sigmas"] = list(effective_sigmas)
+
         submission = self._json_request(
             "POST",
             "/sdcpp/v1/img_gen",
@@ -236,8 +268,25 @@ class StableDiffusionCppImageEngine:
                 "runtime": "stable-diffusion.cpp",
                 "backend_version": self.backend_version,
                 "quantization": self.cfg.get("quantization"),
+                "artifacts": self.artifact_provenance,
+                "memory": {
+                    "params_backend": self.cfg.get("sd_server_params_backend"),
+                    "max_vram": self.cfg.get("sd_server_max_vram"),
+                    "model_args": self.cfg.get("sd_server_model_args"),
+                    "mmap": bool(self.cfg.get("sd_server_mmap", False)),
+                    "disable_prefetch": bool(
+                        self.cfg.get("sd_server_disable_prefetch", False)
+                    ),
+                    "vae_tiling": bool(self.cfg.get("image_vae_tiling", False)),
+                    "vae_tile_size": self.cfg.get("image_vae_tile_size"),
+                },
                 "sampling_method": sample_method,
                 "scheduler": scheduler,
+                "sigma_schedule": str(sigma_preset) if sigma_preset else None,
+                "custom_sigmas": list(effective_sigmas) if effective_sigmas else None,
+                "sigma_schedule_sha256": (
+                    image_sigma_digest(effective_sigmas) if effective_sigmas else None
+                ),
                 "num_inference_steps": steps,
                 "guidance_scale": guidance,
                 "generation_time_seconds": generation_seconds,
