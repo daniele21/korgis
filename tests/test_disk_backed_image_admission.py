@@ -135,3 +135,16 @@ def test_runtime_rejects_invalid_profile_before_engine(monkeypatch, override: di
     with pytest.raises(ValueError, match="admission|disk_backed"):
         runtime.load("turbo")
     assert loaded == []
+
+def test_turbo_registry_uses_bounded_profile_not_a_global_guard_bypass() -> None:
+    from local_llm_server.config import build_config
+
+    turbo = build_config("qwen-image-2.1-turbo-gguf-q4km")
+    assert turbo["resource_admission_profile"] == "disk_backed_image"
+    assert turbo["resource_estimate_bytes"] == 8 * GIB
+    assert turbo["sd_server_params_backend"].startswith("diffusion=disk")
+    assert turbo["image_offload_to_cpu"] is True
+
+    standard = build_config("qwen-image-2.1-gguf-q4km")
+    assert standard["resource_admission_profile"] == "standard"
+    assert standard["resource_estimate_bytes"] is None
