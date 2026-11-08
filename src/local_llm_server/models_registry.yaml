@@ -195,11 +195,14 @@ models:
 
   # Qwen Image 2.1 Turbo; keep separate from the full Qwen Image 2.1 profile.
   # Qwen Research License: research/evaluation, not general commercial use.
+  # Turbo GGUF bundle aligned to local Unsloth GGUF+GGUF+VAE layout.
+  # Each SHA256 is published by its Hugging Face file page. The source
+  # revision is main; exact bytes are pinned and re-verified by SHA256.
   qwen-image-2.1-turbo-gguf-q4km:
-    model_id: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
+    model_id: "unsloth/Qwen-Image-2.1-Turbo-GGUF"
     backend: stable_diffusion_cpp_image
     quantization: "Q4_K_M"
-    size_gb: 14.08  # combined artifact sizes, not RAM/VRAM requirement
+    size_gb: 9.99  # combined artifact sizes (decimal GB), not RAM/VRAM
     license: "qwen-research"
     thinking_mode: none
     tasks: [image_generation]
@@ -207,23 +210,23 @@ models:
     output_modalities: [image]
     artifacts:
       diffusion_model:
-        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
-        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
+        repo: "unsloth/Qwen-Image-2.1-Turbo-GGUF"
+        revision: "main"
         filename: "qwen-image-2.1-turbo-Q4_K_M.gguf"
         local_path: "diffusion/qwen-image-2.1-turbo-Q4_K_M.gguf"
-        sha256: "14be42ddc6e324682dd8e073ab32a0a4b3b8cd93657d6ec419dae3cc5f22ef78"
+        sha256: "8940e8b522af886e0c0f5afddf720e82dd223cb9a43580b5f61c4d740452ac20"
       text_encoder:
-        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
-        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
-        filename: "text_encoders/qwen3vl_8b_int8_convrot.safetensors"
-        local_path: "text_encoder/qwen3vl_8b_int8_convrot.safetensors"
-        sha256: "8bfd0f6e12abf2d2d697ecc888e5e90b0d6741d6708f05799f53afa560452e8f"
+        repo: "unsloth/Qwen3-VL-8B-Instruct-GGUF"
+        revision: "main"
+        filename: "Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"
+        local_path: "text_encoder/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf"
+        sha256: "e3d1a6e87c5cb31e054f2c3bc0dd82ffde052f613de5eef3665b7bd33c9b703e"
       vae:
-        repo: "abenzerps/Qwen-Image-2.1-Turbo-Quantized"
-        revision: "24d33ddeffd21374e8b04a84f93eb73a645fc74e"
+        repo: "unsloth/Qwen-Image-2.1-FP8"
+        revision: "main"
         filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
         local_path: "vae/qwen_image_2.1_vae_bf16.safetensors"
-        sha256: "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9"
+        sha256: "71879ffd5321e6d10c3c87513e2b474b1252efa7f3dec2969214a9bf06a6dd5c"
     params:
       sd_server_port: 8093
       image_width: 1024
