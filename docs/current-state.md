@@ -24,6 +24,14 @@ Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by
 
 Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
 
+## macOS backend safety candidate
+
+The targeted fix adds parent-death supervision for managed `llama-server`
+subprocesses and live host-memory admission for new model loads.
+Deterministic checks are separate from the required representative Apple
+Silicon post-crash, packaged-runtime and memory-pressure evidence (#239).
+Automatic pressure eviction remains disabled.
+
 ## Accepted real evidence
 
 The 2026-08-31 representative Mac campaign accepted:

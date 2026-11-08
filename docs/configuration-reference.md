@@ -47,6 +47,34 @@ The public `/v1/runtime/identity` endpoint exposes only a safe allowlisted effec
 
 Boolean environment variables accept common truthy values such as `1`, `true`, `yes` and `on` case-insensitively.
 
+## Host memory safety (macOS)
+
+On macOS, Korgis enables a live host-memory admission guard by default, even if
+no configured resource budget is supplied. Each new managed runtime load checks
+the observed available system memory before starting the backend, and checks
+headroom again before committing residency. It reserves an operational OS
+margin of 18.75% of total RAM, bounded to 2–6 GiB (6 GiB on a 32 GiB Mac),
+and allows 1.5x the estimated load size when evaluating new allocations.
+Concurrent pending model reservations are included to prevent overlapping
+loads within one Korgis process from independently passing the same check.
+Unmeasurable available memory or entirely unknown resident load estimates
+cause rejection rather than silently bypassing host admission.
+
+Set `LOCAL_LLM_HOST_MEMORY_GUARD=0` to explicitly disable this guard, or
+`LOCAL_LLM_HOST_MEMORY_GUARD=1` to force it on. Explicit configured limits
+(`LOCAL_LLM_MEMORY_LIMIT_GIB` / `LOCAL_LLM_MEMORY_HEADROOM_GIB`) remain
+separate and are enforced alongside host admission. On other platforms the
+host guard is off by default; setting it on currently uses the macOS observer
+and will reject when unavailable, rather than fabricating memory measurements.
+
+This is a conservative best-effort **admission guard**, not a hard OS memory
+quota or validated native peak predictor. `vm_stat` provides an approximation
+of reclaimable host memory; concurrent non-Korgis allocations, memory-mapped
+pages, unified-memory backend peaks, and unknown context/cache sizes mean a
+safe outcome cannot be guaranteed by the heuristic. Representative Apple
+Silicon evidence remains required. Automatic memory-pressure eviction is
+still disabled.
+
 ## Request admission and global execution governor
 
 Request admission is explicitly opt-in and is configured independently from per-model `build_config`. Leaving all values unset preserves the existing no-queue/no-global-cap behavior.

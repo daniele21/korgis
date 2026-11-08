@@ -11,7 +11,7 @@ from local_llm_server.resource_policy import (
 
 
 def test_disabled_policy_does_not_construct_enforcing_manager():
-    settings = ResourcePolicySettings()
+    settings = ResourcePolicySettings(host_memory_guard_enabled=False)
     assert settings.enabled is False
     assert build_resource_manager(settings) is None
 
