@@ -227,11 +227,21 @@ models:
         filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
         local_path: "vae/qwen_image_2.1_vae_bf16.safetensors"
         sha256: "71879ffd5321e6d10c3c87513e2b474b1252efa7f3dec2969214a9bf06a6dd5c"
+    # Optional, only loaded when --image-editing-enabled is explicitly set.
+    # The text-to-image bundle stays valid with the original three files.
+    image_editing_projector:
+      repo: "unsloth/Qwen3-VL-8B-Instruct-GGUF"
+      revision: "174e4a339d8aceef41c87fda9f732c042d49e50b"
+      filename: "mmproj-BF16.gguf"
+      local_path: "text_encoder/mmproj-BF16.gguf"
+      sha256: "6516bb64bae1503a0fcd7ec9fa39655f8c481580be0a0a066397941d9761c9f4"
     params:
       # Experimental measured-RSS-informed envelope, NOT measured unified peak.
       # Must be recalibrated with memory/swap evidence on representative Macs.
       resource_admission_profile: disk_backed_image
       resource_estimate_bytes: 8589934592  # 8 GiB initial resident budget
+      # Extra safety allowance for projector + vision activations (provisional).
+      image_editing_extra_resident_bytes: 2147483648  # +2 GiB only in edit mode
       sd_server_port: 8093
       image_width: 1024
       image_height: 1024
