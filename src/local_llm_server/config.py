@@ -41,6 +41,7 @@ _FALLBACKS: dict[str, Any] = {
     "default_min_p": 0.0,
     "default_repeat_penalty": 1.0,
     "backend": "llama_cpp",
+    "resource_admission_profile": "standard",
     "mmproj_path": None,
     "llama_server_port": 8091,
     "llama_server_bin": None,
