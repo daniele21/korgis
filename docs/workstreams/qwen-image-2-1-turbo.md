@@ -17,8 +17,8 @@ No local inference service is owned by Experiments.
 - The new runtime is local only: no cloud fallback, new scheduler or ad-hoc child process.
 - Three Unsloth artifacts have published SHA-256 digests: Turbo Q4_K_M
   diffusion GGUF, Qwen3-VL Q4_K_XL text encoder GGUF and BF16 VAE.
-  Source revisions currently use `main`; hashes pin bytes and fail closed
-  if upstream content changes. The local files must still be verified.
+  Each source revision is pinned to a verified full Git commit; local files
+  still need SHA-256 verification before claiming device readiness.
 - Native `sd-server` receives exact `sample_params.custom_sigmas` for 8 steps,
   Euler and CFG 1; incompatible overrides fail before native submission.
 - Korgis keeps the subprocess lease, request limits, safe path-free provenance
@@ -39,7 +39,7 @@ No local inference service is owned by Experiments.
 
 Independent source streams K1 and K2 were developed on separate branches,
 combined into feature PR [#259](https://github.com/daniele21/korgis/pull/259).
-The full design is recorded in planning PR [#257](https://github.com/daniele21/korgis/pull/257).
+The original design is recorded in planning PR [#257](https://github.com/daniele21/korgis/pull/257).
 
 ## Native reference & configuration
 
