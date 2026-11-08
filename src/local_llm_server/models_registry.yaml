@@ -202,7 +202,7 @@ models:
     model_id: "unsloth/Qwen-Image-2.1-Turbo-GGUF"
     backend: stable_diffusion_cpp_image
     quantization: "Q4_K_M"
-    size_gb: 9.99  # combined artifact sizes (decimal GB), not RAM/VRAM
+    size_gb: 10.03  # combined artifact sizes (decimal GB), not RAM/VRAM
     license: "qwen-research"
     thinking_mode: none
     tasks: [image_generation]
