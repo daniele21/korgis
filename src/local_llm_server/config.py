@@ -173,12 +173,14 @@ _BOOL_ENV = {
     "llama_server_kv_unified", "llama_server_fit",
     "image_diffusion_flash_attention", "image_offload_to_cpu",
     "sd_server_mmap", "sd_server_disable_prefetch", "image_vae_tiling",
+    "image_editing_enabled",
 }
 _INT_ENV = {
     "port", "ctx_size", "n_gpu_layers", "n_threads", "n_batch", "n_ubatch", "timeout",
     "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout", "default_top_k",
     "image_width", "image_height", "image_num_inference_steps", "image_quantization_bits",
     "image_max_inference_steps", "image_max_pixels",
+    "image_editing_extra_resident_bytes",
     "max_concurrent_requests", "max_kv_size", "llama_server_fit_target_mib",
     "llama_server_fit_ctx", "llama_server_cache_ram_mib",
     "llama_server_moe_stream_cache_gib", "llama_server_moe_stream_io_threads",
@@ -333,6 +335,37 @@ def build_config(
         else {}
     )
     cfg["artifact_specs"] = dict(entry.get("artifacts") or {})
+
+    # Editing is an opt-in extension of the same image runtime. Keep projector
+    # metadata out of the required T2I bundle so existing installs stay valid.
+    projector_spec = entry.get("image_editing_projector")
+    if projector_spec is not None:
+        if not isinstance(projector_spec, dict):
+            raise ValueError("image_editing_projector must be a mapping")
+        raw_relative = projector_spec.get("local_path")
+        if not isinstance(raw_relative, str) or not raw_relative:
+            raise ValueError("image_editing_projector requires a relative local_path")
+        root = (models_dir / model).resolve()
+        projector_path = (root / raw_relative).resolve()
+        if projector_path == root or root not in projector_path.parents:
+            raise ValueError("image_editing_projector path escapes model bundle")
+        cfg["image_editing_projector_path"] = str(projector_path)
+        cfg["image_editing_projector_spec"] = dict(projector_spec)
+    else:
+        cfg["image_editing_projector_path"] = None
+        cfg["image_editing_projector_spec"] = None
+
+    if cfg["image_editing_enabled"]:
+        if backend != "stable_diffusion_cpp_image" or projector_spec is None:
+            raise ValueError(
+                "image editing is only available for an explicitly configured "
+                "stable-diffusion.cpp model with a vision projector"
+            )
+        if cfg["image_editing_extra_resident_bytes"] <= 0:
+            raise ValueError("image editing requires a positive extra resident budget")
+        # Per-runtime descriptor, not a claim about all GGUF models.
+        inputs = list(entry.get("input_modalities") or ["text"])
+        cfg["input_modalities"] = sorted(set(inputs + ["image"]))
 
     if not cfg.get("mmproj_path") and entry.get("mmproj_filename"):
         cfg["mmproj_path"] = str(
