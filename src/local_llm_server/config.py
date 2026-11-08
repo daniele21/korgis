@@ -363,6 +363,13 @@ def build_config(
             )
         if cfg["image_editing_extra_resident_bytes"] <= 0:
             raise ValueError("image editing requires a positive extra resident budget")
+        base_estimate = cfg.get("resource_estimate_bytes")
+        if not isinstance(base_estimate, int) or isinstance(base_estimate, bool) or base_estimate <= 0:
+            raise ValueError("image editing requires a calibrated baseline resident estimate")
+        # The resource envelope, admission policy and status must agree.
+        cfg["resource_estimate_bytes"] = (
+            base_estimate + cfg["image_editing_extra_resident_bytes"]
+        )
         # Per-runtime descriptor, not a claim about all GGUF models.
         inputs = list(entry.get("input_modalities") or ["text"])
         cfg["input_modalities"] = sorted(set(inputs + ["image"]))
