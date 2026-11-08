@@ -21,7 +21,7 @@ from .request_pipeline import public_error_detail
 from .task_policy import enforce_request_capabilities
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-MAX_SOURCE_PIXELS = 4_194_304
+MAX_SOURCE_PIXELS = 1_048_576  # first release: <=1 megapixel, to bound vision activations
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -113,6 +113,10 @@ def install_image_editing_api(application: FastAPI) -> FastAPI:
                 runtime_key=runtime.key,
                 runtime_config=runtime.cfg,
             )
+            if prepared.width % 32 or prepared.height % 32:
+                raise ValueError("Edited output dimensions must be multiples of 32")
+            if prepared.width * prepared.height > MAX_SOURCE_PIXELS:
+                raise ValueError("Edited output exceeds the first-release 1MP safety limit")
             # Describe the presence of an image without inserting raw image
             # bytes into the public canonical request or policy logs.
             canonical = replace(
@@ -155,6 +159,16 @@ def install_image_editing_api(application: FastAPI) -> FastAPI:
         started = time.perf_counter()
         try:
             with manager.lease_runtime(runtime):
+                # A concurrent queued request may wait while memory changes;
+                # re-check host pressure immediately before native submission.
+                if resource_manager is not None and resource_manager.host_protection_enabled:
+                    latest = resource_manager.host_memory_status()
+                    if latest is None or latest.get("pressure") != "normal":
+                        raise HTTPException(status_code=503, detail={
+                            "code": "resource_exhausted",
+                            "message": "Host memory pressure increased while edit was queued",
+                            "retryable": True,
+                        })
                 result = generate(params)
         except (RuntimeError, ValueError, TimeoutError) as exc:
             raise HTTPException(status_code=500, detail={
