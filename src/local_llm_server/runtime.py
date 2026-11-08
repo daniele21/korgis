@@ -667,6 +667,19 @@ class ModelRuntimeManager:
                     "diffusion=disk, CPU offload and explicit working-set estimate"
                 )
         estimate = estimated_runtime_load_bytes(cfg)
+        if cfg.get("image_editing_enabled"):
+            if cfg.get("backend") != "stable_diffusion_cpp_image":
+                raise ValueError("image editing is only supported by the native image backend")
+            extra = cfg.get("image_editing_extra_resident_bytes")
+            if (
+                not isinstance(extra, int) or isinstance(extra, bool)
+                or extra <= 0 or estimate is None
+            ):
+                raise ValueError("image editing requires a positive additional resident budget")
+            # Reserve editing-only projector and activation headroom in the
+            # *same* resident ledger before any extra model is loaded.
+            estimate += extra
+            cfg["image_editing_effective_estimate_bytes"] = estimate
         manager = self._resource_manager
         if manager is not None and manager.host_protection_enabled and estimate is None:
             raise ResourceAdmissionError(manager.reject_unestimated_load())
@@ -695,7 +708,7 @@ class ModelRuntimeManager:
         result = manager.commit(reservation_id)
         cfg["resource_admission"] = admission_metadata(
             result,
-            estimate_bytes=estimated_runtime_load_bytes(cfg),
+            estimate_bytes=cfg.get("image_editing_effective_estimate_bytes") or estimated_runtime_load_bytes(cfg),
         )
         if result.decision is AdmissionDecision.REJECT:
             # The caller owns the live backend and must close it before the
