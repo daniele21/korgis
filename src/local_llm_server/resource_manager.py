@@ -25,6 +25,13 @@ class AdmissionDecision(str, Enum):
     UNKNOWN = "unknown"
 
 
+class HostAdmissionProfile(str, Enum):
+    """The disk-backed policy is limited to explicitly configured image runtimes."""
+
+    STANDARD = "standard"
+    DISK_BACKED_IMAGE = "disk_backed_image"
+
+
 class ReservationState(str, Enum):
     RESERVED = "reserved"
     COMMITTED = "committed"
@@ -42,6 +49,7 @@ class ResourceReservation:
     accounted_bytes: int
     state: ReservationState
     kind: ReservationKind = ReservationKind.RESIDENT
+    admission_profile: HostAdmissionProfile = HostAdmissionProfile.STANDARD
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +209,12 @@ class ResourceManager:
         requested_bytes: int,
         *,
         kind: ReservationKind = ReservationKind.RESIDENT,
+        admission_profile: HostAdmissionProfile = HostAdmissionProfile.STANDARD,
     ) -> AdmissionResult:
+        if not isinstance(admission_profile, HostAdmissionProfile):
+            raise ValueError("unknown host admission profile")
+        if kind is not ReservationKind.RESIDENT and admission_profile is not HostAdmissionProfile.STANDARD:
+            raise ValueError("disk-backed host admission applies only to resident models")
         if not reservation_id.strip():
             raise ValueError("reservation_id must be non-empty")
         if requested_bytes < 0:
@@ -210,7 +223,7 @@ class ResourceManager:
         with self._lock:
             if reservation_id in self._reservations:
                 raise ValueError(f"reservation already exists: {reservation_id}")
-            decision = self._decision_for(requested_bytes)
+            decision = self._decision_for(requested_bytes, admission_profile=admission_profile)
             if decision.decision is AdmissionDecision.ADMIT:
                 self._reservations[reservation_id] = ResourceReservation(
                     reservation_id=reservation_id,
@@ -218,6 +231,7 @@ class ResourceManager:
                     accounted_bytes=requested_bytes,
                     state=ReservationState.RESERVED,
                     kind=kind,
+                    admission_profile=admission_profile,
                 )
             return decision
 
@@ -241,7 +255,11 @@ class ResourceManager:
                 )
             # The new backend now occupies real host memory. Check that the
             # system still has headroom before publishing the resident runtime.
-            host = self._check_host_available(0, exclude_reservation_id=reservation_id)
+            host = self._check_host_available(
+                0,
+                exclude_reservation_id=reservation_id,
+                admission_profile=current.admission_profile,
+            )
             if host is not None and host.decision is AdmissionDecision.REJECT:
                 return host
             self._reservations[reservation_id] = ResourceReservation(
@@ -250,6 +268,7 @@ class ResourceManager:
                 accounted_bytes=accounted,
                 state=ReservationState.COMMITTED,
                 kind=current.kind,
+                admission_profile=current.admission_profile,
             )
             return self._result(
                 AdmissionDecision.ADMIT
@@ -270,7 +289,12 @@ class ResourceManager:
     def rollback(self, reservation_id: str) -> bool:
         return self.release(reservation_id)
 
-    def _decision_for(self, requested_bytes: int) -> AdmissionResult:
+    def _decision_for(
+        self,
+        requested_bytes: int,
+        *,
+        admission_profile: HostAdmissionProfile = HostAdmissionProfile.STANDARD,
+    ) -> AdmissionResult:
         usable = self._budget.usable_bytes
         accounted = sum(item.accounted_bytes for item in self._reservations.values())
         if usable is not None and accounted + requested_bytes > usable:
@@ -279,7 +303,9 @@ class ResourceManager:
                 requested_bytes=requested_bytes,
                 reason="configured usable budget would be exceeded",
             )
-        host = self._check_host_available(requested_bytes)
+        host = self._check_host_available(
+            requested_bytes, admission_profile=admission_profile,
+        )
         if host is not None and host.decision is AdmissionDecision.REJECT:
             return host
         if usable is None and host is None:
@@ -301,7 +327,8 @@ class ResourceManager:
         )
 
     def _check_host_available(
-        self, requested_bytes: int, *, exclude_reservation_id: str | None = None
+        self, requested_bytes: int, *, exclude_reservation_id: str | None = None,
+        admission_profile: HostAdmissionProfile = HostAdmissionProfile.STANDARD,
     ) -> AdmissionResult | None:
         """Live admission, separate from the configured per-Korgis ledger.
 
@@ -342,13 +369,23 @@ class ResourceManager:
                 requested_bytes=requested_bytes,
                 reason=f"host available memory unsafe: host memory pressure is {pressure.value}; rejecting new allocation",
             )
-        reserve = max(2 * 1024**3, min(6 * 1024**3, ceil(total * 0.1875)))
+        # Disk-backed image engines stream model weights from disk. Their full
+        # file size is not a resident-memory estimate. A specific calibrated
+        # working-set estimate is required at the caller, with a smaller but
+        # non-zero OS reserve. Swap is NEVER added to available physical RAM.
+        # All measurement, pressure and post-load checks still apply.
+        if admission_profile is HostAdmissionProfile.DISK_BACKED_IMAGE:
+            reserve = max(2 * 1024**3, min(3 * 1024**3, ceil(total * 0.09375)))
+            growth_factor = 1.25
+        else:
+            reserve = max(2 * 1024**3, min(6 * 1024**3, ceil(total * 0.1875)))
+            growth_factor = 1.5
         pending = sum(
             entry.accounted_bytes
             for key, entry in self._reservations.items()
             if key != exclude_reservation_id and entry.state is ReservationState.RESERVED
         )
-        projected = ceil((requested_bytes + pending) * 1.5)
+        projected = ceil((requested_bytes + pending) * growth_factor)
         if available - projected < reserve:
             return self._result(
                 AdmissionDecision.REJECT,

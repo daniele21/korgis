@@ -185,7 +185,8 @@ Current limits still matter:
 - automatic pressure-triggered eviction remains disabled;
 - post-stop memory deltas are observations, not a general reclamation or production-safety guarantee;
 - Qwen Image 2.1 has the generic BF16 Diffusers baseline, an MFlux Q8 Apple/MLX-oriented
-  profile and a separate GGUF Q4_K_M profile managed through stable-diffusion.cpp; deterministic
+  profile, plus distinct standard and Turbo GGUF Q4_K_M profiles managed through
+  stable-diffusion.cpp; Turbo uses its own eight-step sigma schedule. Deterministic
   software validation does not establish real Mac peak-memory or performance claims;
 - new hardware, performance, cancellation, thermal or cross-device claims need matching representative evidence.
 

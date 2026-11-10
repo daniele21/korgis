@@ -14,6 +14,7 @@ from typing import Any
 
 from .downloader import ensure_model
 from .image_generation_common import GeneratedImage
+from .image_sampling_presets import image_sigma_digest, resolve_image_sigma_schedule
 from .model_sources import artifact_download_url
 from .process import ManagedProcess
 from .stable_diffusion_cpp_compat import (
@@ -50,6 +51,7 @@ class StableDiffusionCppImageEngine:
             str(name): Path(str(value)).expanduser().resolve()
             for name, value in raw_artifacts.items()
         }
+        self.artifact_provenance = self._build_artifact_provenance(raw_specs)
         self._ensure_artifacts(raw_specs)
 
         self.host = "127.0.0.1"
@@ -75,6 +77,34 @@ class StableDiffusionCppImageEngine:
         )
         self._start()
 
+    def _build_artifact_provenance(
+        self,
+        specs: Mapping[str, Any],
+    ) -> dict[str, dict[str, Any]]:
+        provenance: dict[str, dict[str, Any]] = {}
+        for name in ("diffusion_model", "text_encoder", "vae"):
+            path = self.artifacts.get(name)
+            spec = specs.get(name)
+            if path is None or not isinstance(spec, Mapping):
+                continue
+            item: dict[str, Any] = {"filename": path.name}
+            for field in ("repo", "revision", "sha256"):
+                value = spec.get(field)
+                if value is not None and str(value).strip():
+                    item[field] = str(value)
+            provenance[name] = item
+        if self.cfg.get("image_editing_enabled"):
+            spec = self.cfg.get("image_editing_projector_spec")
+            path = self.cfg.get("image_editing_projector_path")
+            if isinstance(spec, Mapping) and isinstance(path, str):
+                item = {"filename": Path(path).name}
+                for field in ("repo", "revision", "sha256"):
+                    value = spec.get(field)
+                    if value is not None and str(value).strip():
+                        item[field] = str(value)
+                provenance["vision_projector"] = item
+        return provenance
+
     def _ensure_artifacts(self, specs: Mapping[str, Any]) -> None:
         for name in ("diffusion_model", "text_encoder", "vae"):
             path = self.artifacts.get(name)
@@ -92,6 +122,20 @@ class StableDiffusionCppImageEngine:
                     if spec.get("sha256") is not None
                     else None
                 ),
+                verify_existing=bool(self.cfg.get("image_verify_existing_artifacts", False)),
+            )
+
+        if self.cfg.get("image_editing_enabled"):
+            spec = self.cfg.get("image_editing_projector_spec")
+            path = self.cfg.get("image_editing_projector_path")
+            if not isinstance(spec, Mapping) or not isinstance(path, str):
+                raise ValueError("image editing needs a pinned vision projector")
+            ensure_model(
+                url=artifact_download_url(dict(spec)),
+                dest=Path(path),
+                no_download=bool(self.cfg.get("no_download", False)),
+                expected_sha256=str(spec["sha256"]),
+                verify_existing=True,
             )
 
     def _start(self) -> None:
@@ -174,18 +218,47 @@ class StableDiffusionCppImageEngine:
         if scheduler:
             sample_params["scheduler"] = str(scheduler)
 
+        sigma_preset = self.cfg.get("image_sigma_schedule")
+        effective_sigmas = resolve_image_sigma_schedule(
+            str(sigma_preset) if sigma_preset else None,
+            steps=steps,
+            guidance_scale=guidance,
+            sampling_method=sample_method,
+            scheduler=str(scheduler) if scheduler is not None else None,
+        )
+        if effective_sigmas is not None:
+            sample_params["custom_sigmas"] = list(effective_sigmas)
+
+        # The same async native image job path handles text-only generation
+        # and Qwen reference-image editing. Input pixels are not logged or
+        # persisted by Korgis; only output bytes and bounded metadata return.
+        reference_images = payload.get("ref_images")
+        if reference_images is not None:
+            if not self.cfg.get("image_editing_enabled"):
+                raise ValueError("reference editing is disabled for this runtime")
+            if not isinstance(reference_images, list) or len(reference_images) != 1:
+                raise ValueError("first editing release supports one reference image")
+            if not isinstance(reference_images[0], str) or not reference_images[0].startswith(
+                "data:image/png;base64,"
+            ):
+                raise ValueError("editing reference must be a validated PNG data URL")
+
+        native_payload: dict[str, Any] = {
+            "prompt": prompt,
+            "width": width,
+            "height": height,
+            "seed": seed,
+            "batch_count": 1,
+            "sample_params": sample_params,
+            "output_format": output_format,
+        }
+        if reference_images is not None:
+            native_payload["ref_images"] = reference_images
+
         submission = self._json_request(
             "POST",
             "/sdcpp/v1/img_gen",
-            payload={
-                "prompt": prompt,
-                "width": width,
-                "height": height,
-                "seed": seed,
-                "batch_count": 1,
-                "sample_params": sample_params,
-                "output_format": output_format,
-            },
+            payload=native_payload,
         )
         job_id = str(submission.get("id") or "").strip()
         poll_url = str(
@@ -236,8 +309,26 @@ class StableDiffusionCppImageEngine:
                 "runtime": "stable-diffusion.cpp",
                 "backend_version": self.backend_version,
                 "quantization": self.cfg.get("quantization"),
+                "artifacts": self.artifact_provenance,
+                "memory": {
+                    "params_backend": self.cfg.get("sd_server_params_backend"),
+                    "max_vram": self.cfg.get("sd_server_max_vram"),
+                    "model_args": self.cfg.get("sd_server_model_args"),
+                    "mmap": bool(self.cfg.get("sd_server_mmap", False)),
+                    "disable_prefetch": bool(
+                        self.cfg.get("sd_server_disable_prefetch", False)
+                    ),
+                    "vae_tiling": bool(self.cfg.get("image_vae_tiling", False)),
+                    "vae_tile_size": self.cfg.get("image_vae_tile_size"),
+                },
+                "image_editing": reference_images is not None,
                 "sampling_method": sample_method,
                 "scheduler": scheduler,
+                "sigma_schedule": str(sigma_preset) if sigma_preset else None,
+                "custom_sigmas": list(effective_sigmas) if effective_sigmas else None,
+                "sigma_schedule_sha256": (
+                    image_sigma_digest(effective_sigmas) if effective_sigmas else None
+                ),
                 "num_inference_steps": steps,
                 "guidance_scale": guidance,
                 "generation_time_seconds": generation_seconds,

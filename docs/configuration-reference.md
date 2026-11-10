@@ -361,3 +361,111 @@ The public runtime identity exposes backend/version, Q4_K_M quantization and the
 configuration digest. Its evidence grade remains partial because the current generic
 `verify-artifact` command is single-file; Korgis does not collapse three component hashes into
 a fictitious single-file digest.
+
+
+### Qwen Image 2.1 Turbo GGUF (Unsloth)
+
+Turbo uses a different three-artifact profile from standard Qwen Image 2.1:
+`qwen-image-2.1-turbo-gguf-q4km`.
+
+```text
+~/.local-llm/models/qwen-image-2.1-turbo-gguf-q4km/
+├── diffusion/qwen-image-2.1-turbo-Q4_K_M.gguf
+├── text_encoder/Qwen3-VL-8B-Instruct-UD-Q4_K_XL.gguf
+└── vae/qwen_image_2.1_vae_bf16.safetensors
+```
+
+These are existing local files; there is **no need to download** the earlier
+ConvRot INT8 Safetensors text encoder. The registry records the exact source
+Hugging Face repositories and published SHA-256 values for each artifact.
+Each source revision is pinned to a complete Hugging Face Git commit, and
+integrity is checked against the published SHA-256 using
+`image_verify_existing_artifacts=true`.
+The first startup may spend time hashing roughly 10 GB of existing artifacts.
+
+Verify that a compatible `sd-server` executable is installed. Modern
+stable-diffusion.cpp supports `sample_params.custom_sigmas`; old builds
+may silently ignore it, so a real native smoke must verify correct behavior.
+
+```bash
+command -v sd-server
+# If it is installed elsewhere:
+# export LOCAL_LLM_SD_SERVER_BIN="/absolute/path/to/sd-server"
+
+uv run --frozen local-llm models
+uv run --frozen local-llm serve \
+  --model qwen-image-2.1-turbo-gguf-q4km \
+  --no-download
+```
+
+With Korgis serving on loopback port 1235, request one image from another terminal:
+
+```bash
+curl --fail-with-body -sS http://127.0.0.1:1235/v1/images/generations \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "qwen-image-2.1-turbo-gguf-q4km",
+    "prompt": "A red ceramic mug on a wooden desk, natural daylight, photograph",
+    "size": "1024x1024",
+    "num_inference_steps": 8,
+    "guidance_scale": 1.0,
+    "sampling_method": "euler",
+    "seed": 42,
+    "response_format": "b64_json"
+  }' > /tmp/korgis-qwen-turbo-response.json
+
+python3 - <<'PY'
+import base64
+import json
+from pathlib import Path
+
+response = json.loads(Path("/tmp/korgis-qwen-turbo-response.json").read_text())
+assert response.get("data"), response
+image = base64.b64decode(response["data"][0]["b64_json"], validate=True)
+assert image[:8] == b"\x89PNG\r\n\x1a\n"
+Path("/tmp/korgis-qwen-turbo-smoke.png").write_bytes(image)
+print("Saved /tmp/korgis-qwen-turbo-smoke.png")
+PY
+```
+
+### Experimental disk-backed memory admission (Turbo only)
+
+On Apple Silicon, Korgis' default host-memory guard estimates available
+reclaimable RAM from macOS `vm_stat` and reserves additional OS headroom.
+The raw ~10 GB size of three Qwen Image artifacts is a **disk footprint**,
+not a proven resident working-set peak when the native backend uses
+`diffusion=disk` with CPU offload.
+
+This Turbo registry entry now explicitly opts into
+`resource_admission_profile=disk_backed_image` with a provisional
+`resource_estimate_bytes=8589934592` (8 GiB). The Mac policy checks
+the host's measured available/reclaimable RAM with a 1.25× growth factor
+and a 2–3 GiB OS reserve, instead of the standard 1.5× and 2–6 GiB.
+For a 32 GiB Mac, the provisional pre-load floor is about 13 GiB
+available/reclaimable RAM. This is **not** a measured total unified-memory
+or GPU peak; one previous native image run measured ~4.92 GiB
+`sd-server` process RSS only.
+
+The policy remains fail-closed on unavailable measurements, elevated or
+critical *derived host* pressure, budget conflicts and insufficient
+reclaimable RAM. It continues to check the host after load. Swap used on
+SSD is reported but **never added to available RAM**. macOS's graphical
+pressure indicator and Korgis' derived pressure heuristic may disagree.
+The profile applies only to a native stable-diffusion.cpp image backend
+with `diffusion=disk`, CPU offload and an explicit resident estimate.
+
+Use the same serve command as above. No `LOCAL_LLM_HOST_MEMORY_GUARD=false`
+or manual `LOCAL_LLM_RESOURCE_ESTIMATE_BYTES` override is needed. If memory
+admission is still rejected, do not force the launch: close memory-heavy
+apps or reduce the workload and check available memory and swap activity.
+
+The guard blocks new allocations and rejects unsafe startup or commit;
+it **does not yet automatically interrupt an already-running GPU image
+generation** on a later macOS pressure event. Experiments records paging
+and native RSS so the provisional envelope can be calibrated with
+representative, repeated runs before declaring stable device fit.
+
+The Turbo preset enforces eight steps, Euler and CFG 1.0, with the
+nine-element native sigma list `qwen-image-2.1-turbo-v1`. A fake-server
+test only proves JSON wiring; real 1024×1024 PNG output, native version,
+latency and peak RAM must be measured on the target Mac before acceptance.

@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from .resource_manager import AdmissionDecision, AdmissionResult, ResourceManager
+from .resource_manager import AdmissionDecision, AdmissionResult, HostAdmissionProfile, ResourceManager
 from .runtime_admission import admission_metadata, estimated_runtime_load_bytes
 
 
@@ -640,7 +640,35 @@ class ModelRuntimeManager:
         )
 
     def _reserve_runtime_load(self, runtime_key: str, cfg: dict[str, Any]) -> str | None:
+        profile_name = str(cfg.get("resource_admission_profile") or "standard")
+        try:
+            profile = HostAdmissionProfile(profile_name)
+        except ValueError as exc:
+            raise ValueError(f"unknown resource admission profile: {profile_name!r}") from exc
+        if profile is HostAdmissionProfile.DISK_BACKED_IMAGE:
+            # Never extend the reduced footprint allowance to an arbitrary
+            # model. Only native image inference with disk-mapped diffusion
+            # and an explicit working-set estimate may use this profile.
+            backend = cfg.get("backend")
+            backend_params = str(cfg.get("sd_server_params_backend") or "")
+            tokens = {
+                pair.strip()
+                for pair in backend_params.split(",")
+                if pair.strip()
+            }
+            if (
+                backend != "stable_diffusion_cpp_image"
+                or "diffusion=disk" not in tokens
+                or cfg.get("resource_estimate_bytes") is None
+                or cfg.get("image_offload_to_cpu") is not True
+            ):
+                raise ValueError(
+                    "disk_backed_image admission requires native image backend, "
+                    "diffusion=disk, CPU offload and explicit working-set estimate"
+                )
         estimate = estimated_runtime_load_bytes(cfg)
+        # build_config has already combined base model and vision projector
+        # budgets for an opted-in edit runtime. Do not charge twice.
         manager = self._resource_manager
         if manager is not None and manager.host_protection_enabled and estimate is None:
             raise ResourceAdmissionError(manager.reject_unestimated_load())
@@ -649,8 +677,11 @@ class ModelRuntimeManager:
             return None
 
         reservation_id = self._next_reservation_id(runtime_key)
-        result = manager.reserve(reservation_id, estimate)
+        result = manager.reserve(
+            reservation_id, estimate, admission_profile=profile,
+        )
         cfg["resource_admission"] = admission_metadata(result, estimate_bytes=estimate)
+        cfg["resource_admission"]["profile"] = profile.value
         if result.decision is AdmissionDecision.REJECT:
             raise ResourceAdmissionError(result)
         if result.decision is AdmissionDecision.UNKNOWN:
