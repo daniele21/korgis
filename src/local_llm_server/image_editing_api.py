@@ -14,6 +14,7 @@ import zlib
 from dataclasses import replace
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 
 from .core.contracts import InferenceError
 from .image_generation_request import ImageGenerationRequest, prepare_image_generation_request
@@ -157,10 +158,12 @@ def install_image_editing_api(application: FastAPI) -> FastAPI:
         ]
         source_digest = hashlib.sha256(source).hexdigest()
         started = time.perf_counter()
-        try:
+
+        def run_native_edit():
+            # Native submission and polling are synchronous I/O. Keeping the
+            # lease in this worker prevents blocking FastAPI's event loop for
+            # the minutes an image job may take.
             with manager.lease_runtime(runtime):
-                # A concurrent queued request may wait while memory changes;
-                # re-check host pressure immediately before native submission.
                 if resource_manager is not None and resource_manager.host_protection_enabled:
                     latest = resource_manager.host_memory_status()
                     if latest is None or latest.get("pressure") != "normal":
@@ -169,7 +172,10 @@ def install_image_editing_api(application: FastAPI) -> FastAPI:
                             "message": "Host memory pressure increased while edit was queued",
                             "retryable": True,
                         })
-                result = generate(params)
+                return generate(params)
+
+        try:
+            result = await run_in_threadpool(run_native_edit)
         except (RuntimeError, ValueError, TimeoutError) as exc:
             raise HTTPException(status_code=500, detail={
                 "code": "backend_error", "message": str(exc),
