@@ -205,3 +205,66 @@ def test_unaligned_output_is_rejected_before_native_submission():
     )
     assert response.status_code == 400
     assert engine.calls == []
+
+
+def test_long_edit_does_not_block_fastapi_health_requests():
+    """A waiting native image job must not freeze the ASGI event loop."""
+    from threading import Event, Thread
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    cfg = build_config(MODEL, image_editing_enabled=True)
+    manager = ModelRuntimeManager(default_model=MODEL)
+    engine = FakeImageEngine()
+    started = Event()
+    release = Event()
+    probe_done = Event()
+    original_generate = engine.generate_image
+
+    def held_generate(payload):
+        started.set()
+        if not release.wait(timeout=8):
+            raise TimeoutError("test image engine did not get released")
+        return original_generate(payload)
+
+    engine.generate_image = held_generate
+    manager.add(cfg, engine)
+    app = FastAPI()
+    app.state.runtime_manager = manager
+    install_image_generation_api(app)
+
+    @app.get("/probe")
+    async def probe():
+        return {"responsive": True}
+
+    result = {}
+    with TestClient(app) as client:
+        def do_edit():
+            result["edit"] = client.post(
+                "/v1/images/edits",
+                data={"prompt": "Change background"},
+                files={"image": ("source.png", make_png(), "image/png")},
+            )
+
+        def do_probe():
+            result["probe"] = client.get("/probe")
+            probe_done.set()
+
+        edit_thread = Thread(target=do_edit, daemon=True)
+        ping_thread = Thread(target=do_probe, daemon=True)
+        edit_thread.start()
+        try:
+            assert started.wait(timeout=4), "native edit was not submitted"
+            ping_thread.start()
+            # With synchronous generate() on the event loop, this would time
+            # out even though the native engine has its own worker/process.
+            assert probe_done.wait(timeout=2), "event loop blocked during native image edit"
+            assert result["probe"].json() == {"responsive": True}
+        finally:
+            release.set()
+            edit_thread.join(timeout=8)
+            if ping_thread.ident is not None:
+                ping_thread.join(timeout=4)
+        assert not edit_thread.is_alive()
+        assert result["edit"].status_code == 200
