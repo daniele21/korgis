@@ -19,6 +19,8 @@ from typing import Any, Callable, Mapping
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
 LLAMA_CPP_VALIDATED_RELEASE_COMMIT = "c1d0e7a004015f23bc0233470b747b596f29b264"
+LLAMA_CPP_V1_RELEASE_BUILD = 12360
+LLAMA_CPP_V1_RELEASE_COMMIT = "2d8a32502909ca065c41c4cf5f2fb1c427c047fc"
 
 _VERSION_PATTERNS = (
     re.compile(
@@ -64,6 +66,14 @@ class LlamaServerBuildIdentity:
             and LLAMA_CPP_VALIDATED_RELEASE_COMMIT.startswith(self.commit)
         )
 
+    @property
+    def matches_v1_release(self) -> bool:
+        """Identify the exact v1.0.0 tag rather than any later build."""
+        return bool(
+            self.build == LLAMA_CPP_V1_RELEASE_BUILD
+            and LLAMA_CPP_V1_RELEASE_COMMIT.startswith(self.commit)
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class LlamaServerCompatibility:
@@ -91,7 +101,13 @@ class LlamaServerCompatibility:
         return bool(self.identity and self.identity.matches_validated_release)
 
     @property
+    def exact_v1_release(self) -> bool:
+        return bool(self.supported and self.identity and self.identity.matches_v1_release)
+
+    @property
     def profile(self) -> str:
+        if self.exact_v1_release:
+            return "attributed-v1.0.0"
         if self.exact_validated_release:
             return "validated-v0.3.0"
         if self.modern_runtime_options:
