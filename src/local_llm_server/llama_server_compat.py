@@ -282,6 +282,7 @@ def build_llama_server_command(
     cfg: Mapping[str, Any],
     compatibility: LlamaServerCompatibility,
     moe_stream_help_runner: Callable[[str], str] | None = None,
+    v1_help_runner: Callable[[str], str] | None = None,
 ) -> list[str]:
     """Build the owned subprocess command from one compatibility decision."""
     cmd = [
@@ -301,6 +302,10 @@ def build_llama_server_command(
     if not compatibility.modern_runtime_options:
         if cfg.get("llama_server_moe_stream_cache_gib") is not None:
             raise ValueError("MoE expert streaming requires an attributable modern llama-server")
+        if any(cfg.get(key) is not None for key in (
+            "llama_server_moe_cache_mib", "llama_server_moe_cache_cpu_share",
+        )):
+            raise ValueError("llama.cpp v1 features require an attributable v1.0.0 llama-server")
         return cmd
 
     parallel = _positive_int(
@@ -390,10 +395,13 @@ def build_llama_server_command(
         if value is None:
             continue
         cache_type = str(value).strip().lower()
-        if cache_type not in _ALLOWED_CACHE_TYPES:
+        if cache_type not in _ALLOWED_CACHE_TYPES and not (
+            cache_type == "f8_e4m3" and compatibility.exact_v1_release
+        ):
             raise ValueError(
                 f"{cfg_key} must be one of: "
                 + ", ".join(sorted(_ALLOWED_CACHE_TYPES))
+                + (" or f8_e4m3 for v1.0.0" if compatibility.exact_v1_release else "")
             )
         cmd.extend([flag, cache_type])
 
@@ -404,6 +412,15 @@ def build_llama_server_command(
         )
         cmd.extend(["--cache-ram", str(cache_ram)])
 
+    # Keep v1-only options out of the shared v0.3-compatible CLI owner.
+    from .llama_server_v1_options import build_v1_option_args
+
+    cmd.extend(build_v1_option_args(
+        cfg,
+        exact_v1_release=compatibility.exact_v1_release,
+        binary=binary,
+        help_runner=v1_help_runner,
+    ))
     return cmd
 
 
