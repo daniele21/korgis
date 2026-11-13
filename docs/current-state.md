@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-14
+Last reviewed: 2026-11-13
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -12,7 +12,6 @@ Local LLM Server is a local-first multi-backend **runtime control plane for loca
 - Repository-side L2 acceptance: `d528b6c5b676e705e7ccf24800929da6d5534203`.
 - Representative Apple Silicon evidence is accepted for TH-E1, EV-3, HE-2, RES-2 and RRG-5.
 - Bounded manual accessibility and representative-user usability evidence is accepted for tested source `a29e77c1ce4e65294440cfe4fc47e33c92173096`.
-- Full L2 evidence is complete; the current action is final FULL publication preflight and promotion to `main`.
 
 ## Accepted deterministic surface
 
@@ -22,7 +21,7 @@ Runtime hardening remains fail-conservative: routing/accounting persists until t
 
 Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by default. Explicit executable selection is authoritative. Local LLM Server maps admitted concurrency to `--parallel`; llama.cpp owns runtime-local batching/KV. Automatic pressure eviction remains disabled.
 
-Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
+Automated E2E covers browser/API and installed-wheel behavior, not representative hardware. New backend, performance, cancellation or cross-device claims require real evidence.
 
 ## Post-0.4 developer integration (in dev)
 
@@ -31,15 +30,10 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
-- llama.cpp v1.0.0 managed-server support (PR #262) adds an attributed
-  external-binary profile and opt-in FP8 KV / MoE host-cache settings while
-  retaining the v0.3-compatible path. Options fail closed when the selected
-  binary does not prove release identity or advertise required CLI flags;
-  the separate native `llama-cpp-python` binding is unchanged.
-  Deterministic CI confirms software contracts; the pinned-upstream CLI
-  build check is separate from actual GGUF inference. Mac peak memory,
-  performance, reclamation and production safety are not yet evidenced.
-  See `docs/workstreams/llama-cpp-v1-integration.md`.
+- llama.cpp v1.0.0 (PR #262): attributable external binary and opt-in
+  FP8/MoE cache with fail-closed checks. Native Python binding unchanged;
+  real Mac performance/reclamation evidence pending. See
+  `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
 
