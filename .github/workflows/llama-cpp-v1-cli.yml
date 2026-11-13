@@ -52,13 +52,26 @@ jobs:
           test -x "$BINARY"
           VERSION="$("$BINARY" --version 2>&1)"
           HELP="$("$BINARY" --help 2>&1)"
-          # A shallow source checkout may report build 1, but must retain exact tag semver and commit.
-          [[ "$VERSION" == *1.0.0* ]]
-          [[ "$VERSION" == *2d8a3250* ]]
+          # Report the public, path-free version to discriminate version vs CLI failures.
+          printf 'llama-server --version: %s\n' "$VERSION"
+          if [[ "$VERSION" != *1.0.0* ]]; then
+            echo "::error::Selected binary did not advertise version 1.0.0."
+            exit 1
+          fi
+          if [[ "$VERSION" != *2d8a3250* ]]; then
+            echo "::error::Selected binary did not advertise the pinned release commit."
+            exit 1
+          fi
           for flag in --parallel --cont-batching --kv-unified --gpu-layers \
             --load-mode --fit --cache-type-k --cache-type-v --cache-ram \
             --moe-cache-mib --moe-cache-cpu-share; do
-            [[ "$HELP" == *"$flag"* ]]
+            if [[ "$HELP" != *"$flag"* ]]; then
+              printf '::error::Selected binary is missing CLI flag %s\n' "$flag"
+              exit 1
+            fi
           done
-          [[ "$HELP" == *f8_e4m3* ]]
+          if [[ "$HELP" != *f8_e4m3* ]]; then
+            echo "::error::Selected binary does not advertise f8_e4m3 in KV-cache types."
+            exit 1
+          fi
           echo "Exact-tag llama-server CLI capability probe: PASS (no GGUF model executed)."
