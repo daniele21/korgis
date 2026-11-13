@@ -173,7 +173,9 @@ it is not an endorsed stable backend contract.
 ## Stable llama.cpp v1.0.0 opt-in runtime features
 
 Korgis accepts an **externally installed** `llama-server` attributable to the
-upstream `v1.0.0` tag (build `12360`, commit `2d8a32502909...`). Choose it with
+upstream `v1.0.0` tag (commit `2d8a32502909...`). Build numbers may differ in
+shallow-history rebuilds; the attributed commit and CLI options are authoritative.
+Choose it with
 `LOCAL_LLM_SERVER_BIN`; Korgis does not silently replace the installed binary.
 A larger build number alone is not evidence of the v1 tag, and the legacy
 v0.3-compatible runtime remains supported.

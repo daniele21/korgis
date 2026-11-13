@@ -52,8 +52,8 @@ jobs:
           test -x "$BINARY"
           VERSION="$("$BINARY" --version 2>&1)"
           HELP="$("$BINARY" --help 2>&1)"
-          # Both build number and exact commit prefix must match the tag.
-          [[ "$VERSION" == *12360* ]]
+          # A shallow source checkout may report build 1, but must retain exact tag semver and commit.
+          [[ "$VERSION" == *1.0.0* ]]
           [[ "$VERSION" == *2d8a3250* ]]
           for flag in --parallel --cont-batching --kv-unified --gpu-layers \
             --load-mode --fit --cache-type-k --cache-type-v --cache-ram \

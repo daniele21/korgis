@@ -19,7 +19,6 @@ from typing import Any, Callable, Mapping
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
 LLAMA_CPP_VALIDATED_RELEASE_COMMIT = "c1d0e7a004015f23bc0233470b747b596f29b264"
-LLAMA_CPP_V1_RELEASE_BUILD = 12360
 LLAMA_CPP_V1_RELEASE_COMMIT = "2d8a32502909ca065c41c4cf5f2fb1c427c047fc"
 
 _VERSION_PATTERNS = (
@@ -68,11 +67,8 @@ class LlamaServerBuildIdentity:
 
     @property
     def matches_v1_release(self) -> bool:
-        """Identify the exact v1.0.0 tag rather than any later build."""
-        return bool(
-            self.build == LLAMA_CPP_V1_RELEASE_BUILD
-            and LLAMA_CPP_V1_RELEASE_COMMIT.startswith(self.commit)
-        )
+        """Identify exact upstream source even in shallow-history builds."""
+        return LLAMA_CPP_V1_RELEASE_COMMIT.startswith(self.commit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +89,10 @@ class LlamaServerCompatibility:
         return bool(
             self.supported
             and self.identity is not None
-            and self.identity.build >= self.minimum_build
+            and (
+                self.identity.build >= self.minimum_build
+                or self.identity.matches_v1_release
+            )
         )
 
     @property
@@ -183,7 +182,7 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD:
+    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD and not identity.matches_v1_release:
         if allow_unvalidated:
             return LlamaServerCompatibility(identity=identity, supported=False)
         raise RuntimeError(

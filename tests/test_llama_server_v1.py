@@ -51,8 +51,14 @@ def test_v1_tag_attribution_is_not_a_build_number_guess():
         run_command=lambda _: "version: 12360 (2d8a32502909)\n",
     )
     assert info.profile == "attributed-v1.0.0"
+    shallow = validate_llama_server_binary(
+        "/tmp/llama-server",
+        run_command=lambda _: "version: 1.0.0 (build 1, commit `2d8a32502909`)\n",
+    )
+    assert shallow.profile == "attributed-v1.0.0"
+    assert shallow.modern_runtime_options
     assert _compatible(commit="deadbee").profile == "forward-compatible-v0.3"
-    assert _compatible(build=12368).profile == "forward-compatible-v0.3"
+    assert _compatible(commit="9daa0aa", build=12368).profile == "forward-compatible-v0.3"
 
 
 def test_v1_default_keeps_v03_compatible_command_contract():
@@ -96,9 +102,9 @@ def test_v1_options_require_advertised_flags_and_fp8_type():
 
 def test_future_build_and_unproven_fork_cannot_enable_v1_features():
     with pytest.raises(ValueError, match="attributable v1.0.0"):
-        _cmd({"llama_server_moe_cache_mib": 128}, compat=_compatible(build=12368))
+        _cmd({"llama_server_moe_cache_mib": 128}, compat=_compatible(commit="9daa0aa", build=12368))
     with pytest.raises(ValueError, match="must be one of"):
-        _cmd({"llama_server_cache_type_k": "f8_e4m3"}, compat=_compatible(build=12368))
+        _cmd({"llama_server_cache_type_k": "f8_e4m3"}, compat=_compatible(commit="9daa0aa", build=12368))
 
 
 @pytest.mark.parametrize("value", [0, -1, True, 0.5, "12"])
