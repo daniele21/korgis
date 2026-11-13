@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: korgis-llama-v1-cli-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pinned-upstream-cli:
     name: Compile and verify exact v1 upstream CLI
@@ -49,12 +53,12 @@ jobs:
           VERSION="$("$BINARY" --version 2>&1)"
           HELP="$("$BINARY" --help 2>&1)"
           # Both build number and exact commit prefix must match the tag.
-          printf '%s\n' "$VERSION" | grep -q '12360'
-          printf '%s\n' "$VERSION" | grep -q '2d8a3250'
+          [[ "$VERSION" == *12360* ]]
+          [[ "$VERSION" == *2d8a3250* ]]
           for flag in --parallel --cont-batching --kv-unified --gpu-layers \
             --load-mode --fit --cache-type-k --cache-type-v --cache-ram \
             --moe-cache-mib --moe-cache-cpu-share; do
-            printf '%s\n' "$HELP" | grep -Fq -- "$flag"
+            [[ "$HELP" == *"$flag"* ]]
           done
-          printf '%s\n' "$HELP" | grep -Fq -- 'f8_e4m3'
+          [[ "$HELP" == *f8_e4m3* ]]
           echo "Exact-tag llama-server CLI capability probe: PASS (no GGUF model executed)."
