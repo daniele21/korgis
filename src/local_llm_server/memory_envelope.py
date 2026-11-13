@@ -87,6 +87,7 @@ def resident_memory_envelope(config: Mapping[str, Any]) -> MemoryEnvelope:
     override = _non_negative_int(config.get("resource_estimate_bytes"))
     weights = _model_weights_component(config)
     moe_stream_cache = _moe_stream_cache_component(config)
+    moe_host_cache = _moe_host_cache_component(config)
     backend_overhead = _configured_component(
         "backend_overhead",
         config.get("resource_backend_overhead_bytes"),
@@ -106,6 +107,7 @@ def resident_memory_envelope(config: Mapping[str, Any]) -> MemoryEnvelope:
         components=(
             weights,
             *((moe_stream_cache,) if moe_stream_cache is not None else ()),
+            *((moe_host_cache,) if moe_host_cache is not None else ()),
             backend_overhead,
             context_cache,
             prompt_cache,
@@ -177,6 +179,21 @@ def transcription_memory_envelope(
         override_total_bytes=_non_negative_int(
             runtime_config.get("resource_request_estimate_bytes")
         ),
+    )
+
+
+def _moe_host_cache_component(config: Mapping[str, Any]) -> MemoryComponent | None:
+    """Add v1 MoE cache capacity without discounting model weights."""
+    budget = config.get("llama_server_moe_cache_mib")
+    if budget is None:
+        return None
+    if isinstance(budget, bool) or not isinstance(budget, int) or budget <= 0:
+        raise ValueError("llama_server_moe_cache_mib must be a positive integer")
+    # CPU and GPU share physical memory on Apple Silicon: no free RAM credit.
+    return MemoryComponent(
+        "moe_host_cache",
+        budget * _MIB,
+        "configured_v1_moe_cache_upper_budget",
     )
 
 
