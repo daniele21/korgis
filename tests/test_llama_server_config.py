@@ -111,3 +111,24 @@ def test_llama_server_moe_io_threads_require_cache(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="require a cache budget"):
         build_config(model="demo")
+
+
+def test_llama_server_v1_moe_cache_environment_is_typed(monkeypatch, tmp_path):
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_MIB", "512")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_CPU_SHARE", "0.25")
+
+    cfg = build_config(model="demo")
+    assert cfg["llama_server_moe_cache_mib"] == 512
+    assert cfg["llama_server_moe_cache_cpu_share"] == 0.25
+
+
+def test_llama_server_v1_moe_cache_rejects_wrong_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "mlx")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_MIB", "128")
+
+    with pytest.raises(ValueError, match="requires the llama_server backend"):
+        build_config(model="demo")
