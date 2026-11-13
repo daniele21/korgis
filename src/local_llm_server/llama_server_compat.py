@@ -302,9 +302,15 @@ def build_llama_server_command(
     if not compatibility.modern_runtime_options:
         if cfg.get("llama_server_moe_stream_cache_gib") is not None:
             raise ValueError("MoE expert streaming requires an attributable modern llama-server")
-        if any(cfg.get(key) is not None for key in (
-            "llama_server_moe_cache_mib", "llama_server_moe_cache_cpu_share",
-        )):
+        if (
+            any(cfg.get(key) is not None for key in (
+                "llama_server_moe_cache_mib", "llama_server_moe_cache_cpu_share",
+            ))
+            or any(
+                str(cfg.get(key) or "").strip().lower() == "f8_e4m3"
+                for key in ("llama_server_cache_type_k", "llama_server_cache_type_v")
+            )
+        ):
             raise ValueError("llama.cpp v1 features require an attributable v1.0.0 llama-server")
         return cmd
 
