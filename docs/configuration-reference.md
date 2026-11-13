@@ -170,6 +170,34 @@ evidence. The upstream experimental proposal is
 [llama.cpp PR #25294](https://github.com/ggml-org/llama.cpp/pull/25294);
 it is not an endorsed stable backend contract.
 
+## Stable llama.cpp v1.0.0 opt-in runtime features
+
+Korgis accepts an **externally installed** `llama-server` attributable to the
+upstream `v1.0.0` tag (build `12360`, commit `2d8a32502909...`). Choose it with
+`LOCAL_LLM_SERVER_BIN`; Korgis does not silently replace the installed binary.
+A larger build number alone is not evidence of the v1 tag, and the legacy
+v0.3-compatible runtime remains supported.
+
+The optional features below are **disabled by default**. They require an
+attributed v1.0.0 binary advertising the relevant CLI options, otherwise the
+configuration fails before process start.
+
+| Key | Environment | Default | Meaning |
+| --- | --- | --- | --- |
+| `llama_server_cache_type_k` / `llama_server_cache_type_v` = `f8_e4m3` | `LOCAL_LLM_SERVER_CACHE_TYPE_K` / `LOCAL_LLM_SERVER_CACHE_TYPE_V` | `null` | Opt-in FP8 KV cache; hardware/model correctness must be measured |
+| `llama_server_moe_cache_mib` | `LOCAL_LLM_SERVER_MOE_CACHE_MIB` | `null` | Positive integer MiB size of v1 MoE host-expert GPU cache |
+| `llama_server_moe_cache_cpu_share` | `LOCAL_LLM_SERVER_MOE_CACHE_CPU_SHARE` | `null` | Finite share 0–1 of cache misses computed on CPU; needs a cache budget |
+
+The v1 MoE cache is **not** experimental SSD expert streaming. The two
+caching modes are deliberately mutually exclusive here. The conservative
+resident-memory estimate adds this configured cache budget to the full model
+weights and other overhead; it does not assume free physical RAM from CPU
+residency on Apple Silicon. Neither better throughput nor safe macOS swap
+reclamation is claimed without representative evidence.
+
+`llama-cpp-python` is a separately packaged Python binding. Selecting the
+external v1 `llama-server` does not update that native dependency.
+
 ## Security-sensitive settings
 
 | Key | Environment | Fallback | Rule |
