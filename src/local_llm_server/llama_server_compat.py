@@ -347,6 +347,8 @@ def build_llama_server_command(
     stream_threads = cfg.get("llama_server_moe_stream_io_threads")
     if stream_cache is None and stream_threads is not None:
         raise ValueError("MoE streaming I/O threads require a cache budget")
+    if stream_cache is not None and cfg.get("llama_server_moe_cache_mib") is not None:
+        raise ValueError("v1 MoE host cache cannot be combined with experimental SSD streaming")
     if stream_cache is not None:
         if load_mode not in {"auto", "none"}:
             raise ValueError("MoE expert streaming cannot be combined with mmap/mlock/direct load mode")
