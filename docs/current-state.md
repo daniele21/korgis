@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-10-11
+Last reviewed: 2026-11-14
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -30,6 +30,16 @@ Automated E2E proves deterministic browser/API journeys and installed-wheel beha
 - M8.1-M8.2 (PR #230) add a **versioned experimental server-side ApplicationProfile parser and zero-resident capability validator**. They do not activate models, reserve memory, expose public profile endpoints, or implement resource fit planning.
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
+
+- llama.cpp v1.0.0 managed-server support (PR #262) adds an attributed
+  external-binary profile and opt-in FP8 KV / MoE host-cache settings while
+  retaining the v0.3-compatible path. Options fail closed when the selected
+  binary does not prove release identity or advertise required CLI flags;
+  the separate native `llama-cpp-python` binding is unchanged.
+  Deterministic CI confirms software contracts; the pinned-upstream CLI
+  build check is separate from actual GGUF inference. Mac peak memory,
+  performance, reclamation and production safety are not yet evidenced.
+  See `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
 
