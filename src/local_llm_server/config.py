@@ -265,6 +265,11 @@ def build_config(
     if (cfg["llama_server_moe_cache_mib"] is not None
             or cfg["llama_server_moe_cache_cpu_share"] is not None) and backend != "llama_server":
         raise ValueError("llama.cpp v1 MoE caching requires the llama_server backend")
+    if backend != "llama_server" and any(
+        str(cfg.get(key) or "").strip().lower() == "f8_e4m3"
+        for key in ("llama_server_cache_type_k", "llama_server_cache_type_v")
+    ):
+        raise ValueError("llama.cpp v1 FP8 KV cache requires the llama_server backend")
     cfg["quantization"] = explicit.get("quantization") or entry.get("quantization")
     cfg["mmproj_filename"] = entry.get("mmproj_filename")
     cfg["mmproj_url"] = entry.get("mmproj_url", "")
