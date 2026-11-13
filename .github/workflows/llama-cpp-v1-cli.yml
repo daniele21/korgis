@@ -41,6 +41,7 @@ jobs:
           cmake -S upstream -B "$RUNNER_TEMP/llama-v1-build" \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_IS_DEV=OFF \
             -DGGML_NATIVE=OFF
           cmake --build "$RUNNER_TEMP/llama-v1-build" \
             --config Release --target llama-server --parallel 2
@@ -58,8 +59,9 @@ jobs:
             echo "::error::Selected binary did not advertise version 1.0.0."
             exit 1
           fi
-          if [[ "$VERSION" != *2d8a3250* ]]; then
-            echo "::error::Selected binary did not advertise the pinned release commit."
+          UPSTREAM_SHORT="$(git -C upstream rev-parse --short HEAD)"
+          if [[ "$VERSION" != *"$UPSTREAM_SHORT"* ]]; then
+            echo "::error::Selected binary did not advertise the exact checked-out release commit."
             exit 1
           fi
           for flag in --parallel --cont-batching --kv-unified --gpu-layers \
