@@ -2,6 +2,7 @@
 
 Status: active
 Owner: Korgis managed llama-server/runtime, resource admission and runtime identity
+Last reviewed: 2026-11-13
 Read when: implementing or reviewing llama.cpp v1 upgrade or Apple Silicon proof
 
 ## Outcome
