@@ -75,6 +75,15 @@ def test_v1_fp8_and_moe_host_cache_are_opt_in():
     assert command[command.index("--moe-cache-cpu-share") + 1] == "0.25"
 
 
+def test_legacy_runtime_does_not_silently_ignore_v1_fp8():
+    legacy = LlamaServerCompatibility(
+        identity=LlamaServerBuildIdentity(build=9000, commit="deadbee"),
+        supported=False,
+    )
+    with pytest.raises(ValueError, match="attributable v1.0.0"):
+        _cmd({"llama_server_cache_type_k": "f8_e4m3"}, compat=legacy)
+
+
 def test_v1_options_require_advertised_flags_and_fp8_type():
     with pytest.raises(RuntimeError, match="does not advertise"):
         _cmd({"llama_server_moe_cache_mib": 1024}, help_text="--parallel")
