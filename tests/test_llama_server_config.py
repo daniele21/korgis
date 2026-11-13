@@ -132,3 +132,14 @@ def test_llama_server_v1_moe_cache_rejects_wrong_backend(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="requires the llama_server backend"):
         build_config(model="demo")
+
+
+def test_llama_server_v1_fp8_rejects_non_llama_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "mlx")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_CACHE_TYPE_K", "f8_e4m3")
+
+    with pytest.raises(ValueError, match="FP8 KV cache requires the llama_server backend"):
+        build_config(model="demo")
