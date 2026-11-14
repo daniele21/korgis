@@ -19,6 +19,7 @@ from typing import Any, Callable, Mapping
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
 LLAMA_CPP_VALIDATED_RELEASE_COMMIT = "c1d0e7a004015f23bc0233470b747b596f29b264"
+LLAMA_CPP_V1_RELEASE_COMMIT = "2d8a32502909ca065c41c4cf5f2fb1c427c047fc"
 
 _VERSION_PATTERNS = (
     re.compile(
@@ -64,6 +65,11 @@ class LlamaServerBuildIdentity:
             and LLAMA_CPP_VALIDATED_RELEASE_COMMIT.startswith(self.commit)
         )
 
+    @property
+    def matches_v1_release(self) -> bool:
+        """Identify exact upstream source even in shallow-history builds."""
+        return LLAMA_CPP_V1_RELEASE_COMMIT.startswith(self.commit)
+
 
 @dataclass(frozen=True, slots=True)
 class LlamaServerCompatibility:
@@ -83,7 +89,10 @@ class LlamaServerCompatibility:
         return bool(
             self.supported
             and self.identity is not None
-            and self.identity.build >= self.minimum_build
+            and (
+                self.identity.build >= self.minimum_build
+                or self.identity.matches_v1_release
+            )
         )
 
     @property
@@ -91,7 +100,13 @@ class LlamaServerCompatibility:
         return bool(self.identity and self.identity.matches_validated_release)
 
     @property
+    def exact_v1_release(self) -> bool:
+        return bool(self.supported and self.identity and self.identity.matches_v1_release)
+
+    @property
     def profile(self) -> str:
+        if self.exact_v1_release:
+            return "attributed-v1.0.0"
         if self.exact_validated_release:
             return "validated-v0.3.0"
         if self.modern_runtime_options:
@@ -167,7 +182,7 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD:
+    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD and not identity.matches_v1_release:
         if allow_unvalidated:
             return LlamaServerCompatibility(identity=identity, supported=False)
         raise RuntimeError(
@@ -266,6 +281,7 @@ def build_llama_server_command(
     cfg: Mapping[str, Any],
     compatibility: LlamaServerCompatibility,
     moe_stream_help_runner: Callable[[str], str] | None = None,
+    v1_help_runner: Callable[[str], str] | None = None,
 ) -> list[str]:
     """Build the owned subprocess command from one compatibility decision."""
     cmd = [
@@ -285,6 +301,16 @@ def build_llama_server_command(
     if not compatibility.modern_runtime_options:
         if cfg.get("llama_server_moe_stream_cache_gib") is not None:
             raise ValueError("MoE expert streaming requires an attributable modern llama-server")
+        if (
+            any(cfg.get(key) is not None for key in (
+                "llama_server_moe_cache_mib", "llama_server_moe_cache_cpu_share",
+            ))
+            or any(
+                str(cfg.get(key) or "").strip().lower() == "f8_e4m3"
+                for key in ("llama_server_cache_type_k", "llama_server_cache_type_v")
+            )
+        ):
+            raise ValueError("llama.cpp v1 features require an attributable v1.0.0 llama-server")
         return cmd
 
     parallel = _positive_int(
@@ -326,6 +352,8 @@ def build_llama_server_command(
     stream_threads = cfg.get("llama_server_moe_stream_io_threads")
     if stream_cache is None and stream_threads is not None:
         raise ValueError("MoE streaming I/O threads require a cache budget")
+    if stream_cache is not None and cfg.get("llama_server_moe_cache_mib") is not None:
+        raise ValueError("v1 MoE host cache cannot be combined with experimental SSD streaming")
     if stream_cache is not None:
         if load_mode not in {"auto", "none"}:
             raise ValueError("MoE expert streaming cannot be combined with mmap/mlock/direct load mode")
@@ -374,10 +402,13 @@ def build_llama_server_command(
         if value is None:
             continue
         cache_type = str(value).strip().lower()
-        if cache_type not in _ALLOWED_CACHE_TYPES:
+        if cache_type not in _ALLOWED_CACHE_TYPES and not (
+            cache_type == "f8_e4m3" and compatibility.exact_v1_release
+        ):
             raise ValueError(
                 f"{cfg_key} must be one of: "
                 + ", ".join(sorted(_ALLOWED_CACHE_TYPES))
+                + (" or f8_e4m3 for v1.0.0" if compatibility.exact_v1_release else "")
             )
         cmd.extend([flag, cache_type])
 
@@ -388,6 +419,15 @@ def build_llama_server_command(
         )
         cmd.extend(["--cache-ram", str(cache_ram)])
 
+    # Keep v1-only options out of the shared v0.3-compatible CLI owner.
+    from .llama_server_v1_options import build_v1_option_args
+
+    cmd.extend(build_v1_option_args(
+        cfg,
+        exact_v1_release=compatibility.exact_v1_release,
+        binary=binary,
+        help_runner=v1_help_runner,
+    ))
     return cmd
 
 

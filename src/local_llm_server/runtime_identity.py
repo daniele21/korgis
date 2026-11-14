@@ -39,6 +39,8 @@ _ALLOWED_CONFIG_KEYS = frozenset({
     "llama_server_cache_ram_mib",
     "llama_server_moe_stream_cache_gib",
     "llama_server_moe_stream_io_threads",
+    "llama_server_moe_cache_mib",
+    "llama_server_moe_cache_cpu_share",
     "thinking_mode",
     "enable_thinking",
     "default_temperature",

@@ -1,0 +1,79 @@
+name: llama.cpp v1.0.0 CLI compatibility
+
+on:
+  pull_request:
+    paths:
+      - "src/local_llm_server/llama_server_compat.py"
+      - "src/local_llm_server/llama_server_v1_options.py"
+      - ".github/workflows/llama-cpp-v1-cli.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: korgis-llama-v1-cli-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pinned-upstream-cli:
+    name: Compile and verify exact v1 upstream CLI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Korgis
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout pinned upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: 2d8a32502909ca065c41c4cf5f2fb1c427c047fc
+          path: upstream
+          persist-credentials: false
+          submodules: recursive
+      - name: Compile pinned llama-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C upstream rev-parse HEAD)" = "2d8a32502909ca065c41c4cf5f2fb1c427c047fc"
+          cmake -S upstream -B "$RUNNER_TEMP/llama-v1-build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_IS_DEV=OFF \
+            -DGGML_NATIVE=OFF
+          cmake --build "$RUNNER_TEMP/llama-v1-build" \
+            --config Release --target llama-server --parallel 2
+      - name: Verify attributable version and v1 options
+        shell: bash
+        run: |
+          set -euo pipefail
+          BINARY="$RUNNER_TEMP/llama-v1-build/bin/llama-server"
+          test -x "$BINARY"
+          VERSION="$("$BINARY" --version 2>&1)"
+          HELP="$("$BINARY" --help 2>&1)"
+          # Report the public, path-free version to discriminate version vs CLI failures.
+          printf 'llama-server --version: %s\n' "$VERSION"
+          if [[ "$VERSION" != *1.0.0* ]]; then
+            echo "::error::Selected binary did not advertise version 1.0.0."
+            exit 1
+          fi
+          UPSTREAM_SHORT="$(git -C upstream rev-parse --short HEAD)"
+          if [[ "$VERSION" != *"$UPSTREAM_SHORT"* ]]; then
+            echo "::error::Selected binary did not advertise the exact checked-out release commit."
+            exit 1
+          fi
+          for flag in --parallel --cont-batching --kv-unified --gpu-layers \
+            --load-mode --fit --cache-type-k --cache-type-v --cache-ram \
+            --moe-cache-mib --moe-cache-cpu-share; do
+            if [[ "$HELP" != *"$flag"* ]]; then
+              printf '::error::Selected binary is missing CLI flag %s\n' "$flag"
+              exit 1
+            fi
+          done
+          if [[ "$HELP" != *f8_e4m3* ]]; then
+            echo "::error::Selected binary does not advertise f8_e4m3 in KV-cache types."
+            exit 1
+          fi
+          echo "Exact-tag llama-server CLI capability probe: PASS (no GGUF model executed)."
