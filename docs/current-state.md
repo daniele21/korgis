@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-13
+Last reviewed: 2026-11-14
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -36,9 +36,15 @@ Automated E2E covers browser/API and installed-wheel behavior, not representativ
   canaries through managed Korgis HTTP and native Python 0.3.36 PASS
   (central runs #43629147770 and #43629484166): chat, streaming,
   host admission, resource accounting to zero after unload, cold health
-  and zero surviving backend processes. This does not establish
-  repeated memory reclamation or old-v1 performance equivalence;
-  old binary inventory found only the current v1. LC7 remains BLOCKED.
+  and zero surviving backend processes. A *new historical reference*,
+  source-verified v0.3.0, now completes three additional Korgis-managed
+  real-GGUF lifecycle cycles alongside three on v1.0.0 (6/6 PASS
+  in execution receipt #43633363555, whose workflow verdict failed
+  only on the final report-summary command). Exact source-tag build
+  attribution for shallow v0.3.0 was fixed in PR #271, merged to dev.
+  The small-model medians are descriptive, not throughput/quality or
+  peak-RSS comparisons. No repeated pressure-safe reclamation or
+  Performance Lab endpoint regression is established; LC7 remains BLOCKED.
   See `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
