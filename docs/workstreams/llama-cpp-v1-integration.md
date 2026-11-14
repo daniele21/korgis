@@ -137,6 +137,20 @@ Only the independent in-process Python backend receives this binding
 update. Check `uv lock --check`, Python 3.10–3.12, package smoke and
 backend lifecycle compatibility before acceptance; no C ABI mixing.
 
+## Self-hosted Mac native qualification
+
+The source-owned `.github/ci/local-test.sh` is executed through the existing
+private `daniele21/local-runner-infra` runner fleet, on a reviewed exact
+Korgis dev SHA, with the central `local-ci/mac` commit-status contract.
+It repeats bounded source guards, compiles the exact upstream v1.0.0 Metal
+binary and force-builds the independent pinned `llama-cpp-python 0.3.36`
+Metal binding inside runner-owned temporary storage, executes native-owner
+tests and verifies path-free version/hash evidence. No model weights are
+downloaded, no system install or active service is changed, and no benchmark
+or hardware memory safety is implied. The native runner lane complements
+rather than replaces FULL PR CI. GGUF inference and Mac memory/swap
+measurements remain explicit subsequent REAL_ENVIRONMENT evidence.
+
 ## Attributed automated evidence
 
 PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against
