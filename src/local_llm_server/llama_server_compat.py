@@ -60,8 +60,9 @@ class LlamaServerBuildIdentity:
 
     @property
     def matches_validated_release(self) -> bool:
+        """Exact v0.3 source also works when shallow checkout reports build 1."""
         return bool(
-            self.build == LLAMA_CPP_VALIDATED_MIN_BUILD
+            self.build in (1, LLAMA_CPP_VALIDATED_MIN_BUILD)
             and LLAMA_CPP_VALIDATED_RELEASE_COMMIT.startswith(self.commit)
         )
 
@@ -91,6 +92,7 @@ class LlamaServerCompatibility:
             and self.identity is not None
             and (
                 self.identity.build >= self.minimum_build
+                or self.identity.matches_validated_release
                 or self.identity.matches_v1_release
             )
         )
@@ -182,7 +184,9 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD and not identity.matches_v1_release:
+    if (identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD
+            and not identity.matches_validated_release
+            and not identity.matches_v1_release):
         if allow_unvalidated:
             return LlamaServerCompatibility(identity=identity, supported=False)
         raise RuntimeError(
