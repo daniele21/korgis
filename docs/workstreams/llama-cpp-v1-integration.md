@@ -155,31 +155,19 @@ cancellation, unload-under-lease or process-level fault was
 observed in these attempts. Do not classify the blocked procedure
 as lifecycle failure or bypass host admission to obtain a PASS.
 
-## Reconciled-dev release and read-only Mac preflight (2026-11-14)
+## Current dev Mac preflight (2026-11-14)
 
-After PR #274, Korgis `a002a182e955c3b9b1526b161904719c7bac14bf`
-passed [release FULL CI #43647301180](https://github.com/daniele21/korgis/actions/runs/43647301180),
-[native CLI/Metal #43647301201](https://github.com/daniele21/korgis/actions/runs/43647301201),
-and [host pressure smoke #43647301174](https://github.com/daniele21/korgis/actions/runs/43647301174).
-These are not LC7 hardware acceptance.
-[Read-only Mac preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434)
-verified v1 binary SHA256
-`edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
-0.8B canonical ResourceManager admission **refused**: 8,184,758,272
-observed available bytes vs 8,455,716,864 required by the existing
-6 GiB OS reserve + 1.5 × 1.25 GiB model estimate; the pinned 0.8B
-GGUF was not found in the verified local cache.
-4B inventory also refused: 8,200,257,536 observed available bytes vs
-9,776,843,072 required; the cached SHA256
-`00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
-**does not match** the Korgis registry's expected
-`25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
-The read-only workflow PASS proves diagnostic execution, not model fit.
-No model launch/download, eviction or global setting change occurred.
-Do not waive digest checks or memory safety thresholds to force PASS.
-HE-2/RES-2/RRG-5 and streaming-disconnect remain **not exercised**
-on this candidate; external regression ownership remains Performance Lab,
-which was not run in this Korgis-only slice.
+`dev@a002a182`: [release FULL CI](https://github.com/daniele21/korgis/actions/runs/43647301180)
+and [native CLI/Metal](https://github.com/daniele21/korgis/actions/runs/43647301201)
+PASS, not LC7 acceptance.
+[Read-only Mac #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434):
+v1 binary verified; no inference/download/settings change.
+0.8B canonical admission **refused**: 8,184,758,272 available vs
+8,455,716,864 required; pinned model not in verified cache.
+4B **refused**: 8,200,257,536 available vs 9,776,843,072 required;
+cached SHA `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
+differs from registry `25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
+No guards waived; LC7 and external regression remain **pending**.
 
 ## Outstanding LC7 / release contract
 
