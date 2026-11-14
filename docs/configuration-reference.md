@@ -200,6 +200,44 @@ reclamation is claimed without representative evidence.
 `llama-cpp-python` is a separately packaged Python binding. Selecting the
 external v1 `llama-server` does not update that native dependency.
 
+### Optional exact-tag Apple Silicon Metal installation
+
+From a Mac with Apple Silicon, Xcode Command Line Tools, git and CMake installed:
+
+```bash
+bash scripts/install_llama_cpp_v1_macos.sh
+```
+
+The script builds **exact** upstream v1.0.0 source commit
+`2d8a32502909ca065c41c4cf5f2fb1c427c047fc` with Metal, checks the
+resulting server version/commit, FP8 and MoE CLI support, and stages the
+runtime binary/resources in a versioned
+directory below `~/.local-llm/engines/llama-cpp/`. Internal libraries are
+linked statically; the installer checks the **relocated** executable with
+the original build/bin directory absent, so no temporary macOS `@rpath`
+remains a hidden dependency. Its build explicitly
+skips upstream Web UI asset downloads, since Korgis serves its own UI. A path-free
+`build-identity.json` records the source revision and binary SHA-256.
+It never overwrites an existing directory, changes PATH or active runtime,
+downloads GGUF files or automatically enables v1 options.
+
+To activate it, copy the script's printed `export LOCAL_LLM_SERVER_BIN=...`
+command to the **same shell/environment running Korgis**, and select
+`LOCAL_LLM_BACKEND=llama_server`. For rollback, stop/unload the v1 model,
+disable v1-only FP8/MoE flags and restore the previous verified binary path
+(or unset the variable if it was originally discovered). Do not delete
+the earlier binary until tests with a real GGUF pass.
+
+The separately packaged **in-process** `llama-cpp-python` binding is
+locked to `0.3.36` (bounded to the 0.3.x line), versus the previous
+`0.3.28`. Its vendored llama.cpp source is commit `0c1e57098` from
+2026-10-01; it is **not llama.cpp v1.0.0**. Do not link its native
+libraries to the external v1 server. To produce a Metal-enabled
+Python binding on macOS, an explicit native rebuild may be required,
+for example with `CMAKE_ARGS='-DGGML_METAL=on'` when installing the
+locked environment. The dependency bump alone does not prove any Metal
+offloading, real-model inference, speedup or safe reclamation.
+
 ## Security-sensitive settings
 
 | Key | Environment | Fallback | Rule |
