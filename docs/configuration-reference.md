@@ -212,7 +212,8 @@ The script builds **exact** upstream v1.0.0 source commit
 `2d8a32502909ca065c41c4cf5f2fb1c427c047fc` with Metal, checks the
 resulting server version/commit, FP8 and MoE CLI support, and stages the
 binary together with its dynamic libraries/resources in a versioned
-directory below `~/.local-llm/engines/llama-cpp/`. A path-free
+directory below `~/.local-llm/engines/llama-cpp/`. Its build explicitly
+skips upstream Web UI asset downloads, since Korgis serves its own UI. A path-free
 `build-identity.json` records the source revision and binary SHA-256.
 It never overwrites an existing directory, changes PATH or active runtime,
 downloads GGUF files or automatically enables v1 options.

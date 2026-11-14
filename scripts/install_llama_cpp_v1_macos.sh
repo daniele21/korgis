@@ -80,6 +80,8 @@ cmake -S "$SOURCE" -B "$BUILD" \
   -DLLAMA_BUILD_TESTS=OFF \
   -DLLAMA_BUILD_SERVER=ON \
   -DLLAMA_BUILD_IS_DEV=OFF \
+  -DLLAMA_BUILD_UI=OFF \
+  -DLLAMA_USE_PREBUILT_UI=OFF \
   -DGGML_METAL=ON \
   -DGGML_METAL_EMBED_LIBRARY=ON
 cmake --build "$BUILD" --config Release --target llama-server --parallel 3

@@ -119,6 +119,9 @@ with source and resulting merge trees verified identical.
 Next slice installs exact-tag Metal builds only as an **explicit operator
 action**: stage a versioned binary with native libraries, reject
 overwrites, verify commit/CLI/sha256, preserve previous selection.
+The pinned source build explicitly disables upstream Web UI downloads
+(`LLAMA_BUILD_UI=OFF`, `LLAMA_USE_PREBUILT_UI=OFF`): the exact-tag build
+otherwise falls back to moving `latest` assets, breaking reproducibility.
 Hosted macOS arm64 deterministic build is required; it does not satisfy
 the representative real-GGUF/pressure/reclamation gate LC7.
 

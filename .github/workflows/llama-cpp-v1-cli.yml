@@ -46,6 +46,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=ON \
             -DLLAMA_BUILD_IS_DEV=OFF \
+            -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF \
             -DGGML_NATIVE=OFF
           cmake --build "$RUNNER_TEMP/llama-v1-build" \
             --config Release --target llama-server --parallel 2
