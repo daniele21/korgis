@@ -164,67 +164,39 @@ verification, not with a weakened acceptance check.
 multi-runtime pressure, model quality and matched old-v1 performance.
 No default runtime switch or automatic eviction is authorized.
 
-## Attributed automated and real-device preflight evidence
+## Earlier preflight and deterministic evidence
 
-PR #262's FULL CI, Repository Health and pinned upstream CLI smoke PASS
-(see runs 43527753569, 43527753797, 43527753754). Its shallow
-source build reports `version: 1.0.0 (build 1, commit 2d8a325)`:
-source commit, not numeric build alone, identifies the v1 release.
-
-The *read-only* self-hosted Mac preflights
+PR #262 FULL CI, Repository Health and pinned upstream CLI smoke PASS
+(runs 43527753569, 43527753797, 43527753754).
+The read-only Mac probes
 [#43603426986](https://github.com/daniele21/local-runner-infra/actions/runs/43603426986)
 and [#43603651690](https://github.com/daniele21/local-runner-infra/actions/runs/43603651690)
-PASS as **observational checks only**, at source
-`52dafb5b5ca523a0bdca4aae3ab95ca3e7f72c00`.
-Physical Mac: 32 GiB RAM, last estimated available/reclaimable
-8,288,796,672 bytes and swap used 3,190,816,768 bytes;
-zero existing `llama-server` processes. Pinned v1 binary digest
+found the 4.23 GB Nemotron GGUF unsafe to load with the 6 GiB host
+reserve. It was correctly refused, with no inference or swap credit.
+Full path-free details remain in the central runner evidence.
+
+## LC7 first real GGUF canary — exploratory PASS, 2026-11-14
+
+[Self-hosted run #43610869367](https://github.com/daniele21/local-runner-infra/actions/runs/43610869367)
+passed on Apple Silicon: Korgis source
+`ac7e3486c1fa36a3bbb415fbb98a758fce9ff987`, llama.cpp v1
+`2d8a32502909ca065c41c4cf5f2fb1c427c047fc`, binary SHA-256
 `edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
-The sole small text candidate found was **not registered** in the selected
-Korgis model allowlist: filename class Nemotron, GGUF magic valid, file
-4,233,677,952 bytes, SHA-256
-`f872b1bec0aed30659d0b4c7ba312905a3f23f3cd9ca22696185dcf5db8000e1`.
-Private model path and content were not captured.
+Verified Qwen3.5-0.8B Q4_K_M GGUF, 527,502,816 bytes, SHA-256
+`f5b14da98939b60bbe1019a964eba656407e1e0b64f1fe3003ff6d650e93bfec`,
+downloaded only into disposable scratch. Korgis `ResourceManager`
+admitted a 946,933,216-byte estimate without crossing the OS reserve.
 
-Korgis `ResourceManager` host reserve at 32 GiB is 6 GiB,
-leaving only 1,846,345,728 bytes of measured growth headroom on this
-snapshot, below the GGUF file size **before** KV/context/overhead.
-**No inference was launched or benchmark run.** This is a safe blocked
-admission, not evidence of a v1 regression. Do not lower reserve or
-credit preexisting swap to force the model. LC7 remains BLOCKED; the
-next useful real canary needs a verified smaller, supported local GGUF
-with safe admission, followed by old-v1 matched inference and unload
-evidence. No promotion to main or automatic eviction.
+Real native `llama-server`: cold load 5.685 s, HTTP 200 completion
+(24 tokens, 0.353 s), 25 streaming events, 1,008,205,824-byte peak
+process RSS, swap unchanged at 3,150,446,592 bytes. The owned
+process exited gracefully and its listener closed. Detailed host
+memory before/during/after remains in the central runner report.
 
-## LC7 first real GGUF canary — exploratory success, 2026-11-14
-
-The central self-hosted Apple Silicon [run #43610869367](https://github.com/daniele21/local-runner-infra/actions/runs/43610869367)
-completed **PASS**. Korgis source `ac7e3486c1fa36a3bbb415fbb98a758fce9ff987`,
-pinned llama.cpp v1 source `2d8a32502909ca065c41c4cf5f2fb1c427c047fc`,
-installed binary SHA-256 `edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
-Single Qwen3.5-0.8B Q4_K_M GGUF (527,502,816 bytes, pinned immutable
-revision `7925ccdc665d4efdb1034791e6b553e11128e6f8`, SHA-256
-`f5b14da98939b60bbe1019a964eba656407e1e0b64f1fe3003ff6d650e93bfec`)
-was downloaded **only to disposable runner scratch** after checksum/size
-validation. Korgis `ResourceManager` host admission returned `admit`
-with a 946,933,216-byte estimate and OS reserve intact.
-
-Actual upstream `llama-server` on 127.0.0.1: cold load 5.685 s, HTTP
-chat completion 200 (24 tokens, 0.353 s), SSE streaming 25 events and
-first event 0.019 s. Peak observed single-process RSS 1,008,205,824
-bytes; reclaimable host memory before/minimum/after
-9,274,523,648 / 8,429,289,472 / 9,183,412,224 bytes.
-Swap used before/after 3,150,446,592 bytes, reserve never crossed;
-owned process exited without forced kill and listener closed.
-
-**Scope:** native specialist real inference with Korgis-owned host
-admission; `korgis_managed_http_tested=false` and
-`python_binding_inference_tested=false`. One canary is not matched
-old-v1 performance comparison, memory-reclamation or pressure safety
-proof, GGUF quality acceptance or a Performance Lab regression.
-LC7 remains BLOCKED; next owner-local proof is full managed Korgis HTTP
-lifecycle with existing model, then repeated matched old/v1 samples
-and Performance Lab external endpoint evaluation. No main promotion.
+**Not tested:** Korgis full managed HTTP lifecycle, in-process Python
+binding inference, matched old/v1 regression, repeated memory
+reclamation and Performance Lab endpoint comparison. LC7 remains
+BLOCKED; no `main` promotion or auto-eviction.
 
 ## Resume checkpoint
 
