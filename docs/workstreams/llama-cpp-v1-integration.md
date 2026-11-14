@@ -58,7 +58,7 @@ Preserve PrismML's model-specific executable selection.
 | LC3 | Existing lifecycle owner preserved; fake-process startup/unload/error, streaming/API E2E PASS | LC2 | DONE |
 | LC4 | Typed FP8/MoE opt-ins, conservative envelope/identity and invalid-mode tests PASS | LC2 | DONE |
 | LC5 | Existing HTTP/security defaults preserved; FULL CI and API/Studio E2E PASS | LC2 | DONE |
-| LC6 | Independently refresh native Python binding from 0.3.28 to 0.3.36; validate lock, lifecycle and package | LC1 | ACTIVE |
+| LC6 | Python binding 0.3.36 independently locked and Mac-native source built; lifecycle/CI PASS | LC1 | DONE |
 | LC7 | Representative Apple Silicon GGUF/runtime/pressure + Performance Lab endpoint evidence | LC3–LC6 | BLOCKED |
 | LC8 | Exact-head FULL preflight merged PR #262 to dev; release blocked by LC7 | LC1–LC5 | DONE |
 
@@ -139,25 +139,30 @@ backend lifecycle compatibility before acceptance; no C ABI mixing.
 
 ## Self-hosted Mac native qualification
 
-The source-owned `.github/ci/local-test.sh` is executed through the existing
-private `daniele21/local-runner-infra` runner fleet, on a reviewed exact
-Korgis dev SHA, with the central `local-ci/mac` commit-status contract.
-It repeats bounded source guards, compiles the exact upstream v1.0.0 Metal
-binary and force-builds the independent pinned `llama-cpp-python 0.3.36`
-Metal binding inside runner-owned temporary storage, executes native-owner
-tests and verifies path-free version/hash evidence. No model weights are
-downloaded, no system install or active service is changed, and no benchmark
-or hardware memory safety is implied. The native runner lane complements
-rather than replaces FULL PR CI. GGUF inference and Mac memory/swap
-measurements remain explicit subsequent REAL_ENVIRONMENT evidence.
+The source-owned `.github/ci/local-test.sh` ran on the existing trusted
+`daniele21/local-runner-infra` Apple Silicon fleet at Korgis dev commit
+`5e92604c5ca955afacc2c16c64e4ff6e00d489f7`:
+[central run #43599039636](https://github.com/daniele21/local-runner-infra/actions/runs/43599039636),
+`local-ci/mac=success`, **45 owner tests PASS**, exact upstream v1 Metal
+binary and source-built Python 0.3.36, binary SHA-256 attributable. An earlier
+Mac run failed before compilation because CMake was absent; verified portable
+CMake bootstrap fixed this environment/toolchain failure.
 
-The first central Mac run (https://github.com/daniele21/local-runner-infra/actions/runs/43598680920)
-verified the trusted Korgis SHA but stopped before native compilation because
-CMake was not in the selected runner's PATH (environment/toolchain failure).
-The source-owned lane now follows the existing central native-build contract:
-bootstrap official CMake 3.31.6 only in scratch and compare against its
-published SHA-256. No Homebrew/sudo/system install is permitted. Re-run at
-the new reviewed exact SHA; earlier failure must not count as success.
+The approved one-shot, nonactivating side-by-side installation on the Mac was
+verified in [central run #43600645829](https://github.com/daniele21/local-runner-infra/actions/runs/43600645829),
+**PASS**. The versioned binary's digest was
+`edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`;
+Python 0.3.36 was installed in a separate noneditable environment.
+The private runner retains `verification.json`; the path-free GitHub job
+summary verifies source/binary identity, nonactivation and explicit unmeasured
+claims. Earlier [stage run #43600231046](https://github.com/daniele21/local-runner-infra/actions/runs/43600231046)
+finished native installation but failed only at an artifact upload because
+GitHub Actions storage quota was exhausted; replaced with fail-closed receipt
+verification, not with a weakened acceptance check.
+
+**Unproven:** representative GGUF inference, Mac memory/swap/reclamation,
+multi-runtime pressure, model quality and matched old-v1 performance.
+No default runtime switch or automatic eviction is authorized.
 
 ## Attributed automated evidence
 
@@ -178,12 +183,14 @@ PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against
 
 ## Resume checkpoint
 
-PR #262 merged to dev; follow-up PR #263 owns explicit v1 Metal source
-installation and the independent Python 0.3.36 refresh. The updated lock,
-FULL software gates, and release CLI tests must be reverified at the final
-candidate SHA. **No actual v1 GGUF inference, Mac benchmark or safe
-reclamation has been proven.** Next action: exact-head integration preflight,
-then LC7 representative Apple Silicon proof before promotion to main.
+PR #262 (v1 compatibility), #263 (pinned installer/Python 0.3.36),
+#264 (self-hosted Mac lane) and #265 (portable CMake fallback) are merged
+to dev. CI and native Mac validation/side-by-side installation PASS, linked
+above. LC7 remains blocked: run bounded attributable GGUF model evidence on
+representative Apple Silicon, compare previous/v1 runtimes under matching
+workloads, verify memory/pressure/unload and use Performance Lab for
+external endpoint comparison. Do not promote to main or enable eviction on
+binary-build-only proof.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
