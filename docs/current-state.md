@@ -89,23 +89,23 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Performance Lab comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Reconciled branches and blocked release (2026-11-14)
+## Reconciled branches and release status (2026-11-15)
 
-PR #274 merged `main` history and `dev` behavior without dropping
-either branch; `dev` at `a002a182e955` preserves host-memory
-admission, v1 attribution/opt-ins, specialist per-model binary floors,
-Qwen Image memory controls, RSS/CPU observation and embedded sessions.
-The Mac runner retains separate lightweight and pinned native lanes.
-FULL release CI [#43647301180](https://github.com/daniele21/korgis/actions/runs/43647301180)
-and native CLI/Metal [#43647301201](https://github.com/daniele21/korgis/actions/runs/43647301201)
-PASS. A current source-pinned
-[read-only Mac preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434)
-refused actual 0.8B Korgis admission and 4B inventory headroom;
-the cached 4B digest also differs from the registered artifact.
-No v1 release reclamation, multi-resident shutdown or SSE-cancel
-proof was obtained. LC7 remains **blocking**, as does external
-endpoint regression under its separate owner; `main` is unchanged.
-
+PR #274 reconciled `main` into `dev`. Release candidate
+`dev@61bea2dc` passed exact [RELEASE/FULL #43649459257](https://github.com/daniele21/korgis/actions/runs/43649459257)
+and [native CLI/Metal #43649459270](https://github.com/daniele21/korgis/actions/runs/43649459270).
+[Mac memory diagnostic #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051)
+observed NORMAL derived pressure but ~130–171 MB short of
+canonical 0.8B admission, browser group ~7.1–7.2 GB non-additive
+RSS, and no pinned 0.8B GGUF in inspected cache roots.
+4B inventory was headroom-blocked; cached GGUF matches Unsloth
+quantization, not the registry's LM Studio asset identity.
+[SSE start #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308)
+passed initial admission but server rejected at startup; cleanup
+was clean. [Safer retry #43652047011](https://github.com/daniele21/local-runner-infra/actions/runs/43652047011)
+blocked by stricter test-only headroom before process/download.
+Neither is SSE evidence. Korgis policy unchanged; hardware LC7
+and external evaluation remain release-blocking. `main` unchanged.
 ## Durable references
 
 `docs/architecture.md`, `.engineering/e2e.json`,
