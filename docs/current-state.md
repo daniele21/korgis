@@ -89,22 +89,20 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Performance Lab comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Reconciled branches and blocked release (2026-11-14)
+## Reconciled branches and release status (2026-11-15)
 
-PR #274 merged `main` history and `dev` behavior without dropping
-either branch; `dev` at `a002a182e955` preserves host-memory
-admission, v1 attribution/opt-ins, specialist per-model binary floors,
-Qwen Image memory controls, RSS/CPU observation and embedded sessions.
-The Mac runner retains separate lightweight and pinned native lanes.
-FULL release CI [#43647301180](https://github.com/daniele21/korgis/actions/runs/43647301180)
-and native CLI/Metal [#43647301201](https://github.com/daniele21/korgis/actions/runs/43647301201)
-PASS. A current source-pinned
-[read-only Mac preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434)
-refused actual 0.8B Korgis admission and 4B inventory headroom;
-the cached 4B digest also differs from the registered artifact.
-No v1 release reclamation, multi-resident shutdown or SSE-cancel
-proof was obtained. LC7 remains **blocking**, as does external
-endpoint regression under its separate owner; `main` is unchanged.
+PR #274 reconciled `main` into `dev`; `dev@61bea2dc` passed
+RELEASE/FULL and native CLI/Metal, not LC7 acceptance.
+[Mac #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051):
+NORMAL pressure but 130–171 MB short of 0.8B canonical admission;
+46 browser processes ~7.1–7.2 GB non-additive RSS; pinned GGUF
+not found in inspected caches. 4B headroom refused, with cached
+Unsloth quantization different from registered LM Studio asset.
+[SSE #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308):
+initial admission accepted but server refused at startup; cleanup
+clean. Safer test-only retry #43652047011 blocked before download.
+SSE and LC7 remain unproven; external evaluation still pending.
+Korgis policy and `main` unchanged. Details in llama.cpp workstream.
 
 ## Durable references
 
