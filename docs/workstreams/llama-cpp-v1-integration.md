@@ -143,6 +143,18 @@ This is the inventory script's safety heuristic, not evidence of
 canonical Korgis model admission, fit or performance.
 Do not lower the headroom threshold to force a larger-model run.
 
+**Real v1 client-disconnect/lease-cleanup gate not exercised:**
+[initial run #43636399217](https://github.com/daniele21/local-runner-infra/actions/runs/43636399217)
+and [diagnostic rerun #43636531152](https://github.com/daniele21/local-runner-infra/actions/runs/43636531152)
+both refused before model load by canonical host admission.
+The second receipt separated a normal coarse pressure observation
+from a ResourceManager rejection: 8,043,675,648 measured reclaimable
+bytes versus a 6 GiB OS reserve plus 1.5 × 1.25 GiB admitted
+estimate (8,455,716,864 bytes required). No streaming,
+cancellation, unload-under-lease or process-level fault was
+observed in these attempts. Do not classify the blocked procedure
+as lifecycle failure or bypass host admission to obtain a PASS.
+
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
