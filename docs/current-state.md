@@ -39,8 +39,9 @@ Automated E2E covers browser/API and installed-wheel behavior, not representativ
   and zero surviving backend processes. A *new historical reference*,
   source-verified v0.3.0, now completes three additional Korgis-managed
   real-GGUF lifecycle cycles alongside three on v1.0.0 (6/6 PASS
-  in execution receipt #43633363555, whose workflow verdict failed
-  only on the final report-summary command). Exact source-tag build
+  in [fully passing Mac workflow #43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)).
+  The previous six-cycle execution #43633363555 passed runtime checks
+  but its overall workflow failed in the summary script. Exact source-tag build
   attribution for shallow v0.3.0 was fixed in PR #271, merged to dev.
   The small-model medians are descriptive, not throughput/quality or
   peak-RSS comparisons. No repeated pressure-safe reclamation or
