@@ -61,6 +61,46 @@ Korgis `main` ancestry and a source manifest; the preview is in `dev`.
 requirements simply to collect evidence. See issue #255 for the bounded
 evidence campaign and the required integration path.
 
+## llama.cpp v1.0.0 — release-only representative Mac evidence
+
+This campaign is distinct from the deterministic Linux pinned-tag CLI smoke
+(`docs/workstreams/llama-cpp-v1-integration.md`). It is a **release gate**
+for v1 runtime/memory/safety claims, not a prerequisite for PR → `dev`.
+
+On the representative Apple Silicon Mac, **do not** overwrite installed
+`llama-server` or use model-download fallbacks. Select the binary explicitly
+through `LOCAL_LLM_SERVER_BIN`, record its output from `--version` and
+`--help`, hash the executable locally and verify source attribution to
+the upstream `v1.0.0` tag `2d8a32502909ca065c41c4cf5f2fb1c427c047fc`.
+Record source/binary/model digests in a path-free local evidence receipt,
+along with quantization, context length, environment and host identity.
+A shallow-source binary can report build `1`; commit, not a hardcoded
+build count, is the release identity. The official tag alone does **not**
+prove which binary was installed.
+
+Compare the existing validated runtime to v1 using the **same** GGUF and
+protocol workload: cold startup/load, text generation, streaming,
+tool/JSON requests (where the model supports them), disconnect/cancellation,
+in-flight shutdown, multi-resident admission, time-to-first-token,
+prefill/decode throughput, measured peak/resident memory, macOS swap
+in/out and pressure, post-unload memory observations, remaining listeners
+and process-tree cleanup. Use the existing HE-2, RES-2 and RRG-5
+runtime-owner evidence procedures above rather than inventing a parallel
+governor or second evidence format.
+
+When the binary and model advertise support, compare default KV against
+opt-in `f8_e4m3`; run MoE host cache `--moe-cache-mib` and
+`--moe-cache-cpu-share` separately from experimental SSD expert streaming.
+Do **not** lower configured memory headroom to force a model to start.
+A fail-closed refusal, performance regression or incomplete observation
+remains a valid result; it does not justify declaring reclamation safe.
+
+Korgis owns runtime lifecycle/admission/memory proof and a bounded,
+privacy-safe receipt. Performance Lab
+(`daniele21/performance-lab`) owns external endpoint equivalence,
+comparisons and performance regression evidence. Keep recorded identities
+compatible without moving benchmarks into Korgis.
+
 ## 0. Verify the exact artifact
 
 Before HE-2 and preferably before all comparable runs:

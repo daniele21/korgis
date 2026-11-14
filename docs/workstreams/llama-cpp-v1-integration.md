@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Korgis managed llama-server/runtime, resource admission and runtime identity
-Last reviewed: 2026-11-13
+Last reviewed: 2026-11-14
 Read when: implementing or reviewing llama.cpp v1 upgrade or Apple Silicon proof
 
 ## Outcome
@@ -53,14 +53,14 @@ Preserve PrismML's model-specific executable selection.
 
 | ID | Outcome and owner | Depends on | Status |
 | --- | --- | --- | --- |
-| LC1 | Exact upstream binary/help/version/flag matrix (evidence, no runtime writes) | — | ACTIVE |
-| LC2 | Attributable v1 profile, fail-closed CLI and option helper: `llama_server_compat.py`, `llama_server_v1_options.py`, adapter tests | LC1 source review | ACTIVE |
-| LC3 | Engine, process lifecycle, streaming/cancellation and cleanup tests: `engine.py`, `process.py` if justified | LC2 | BLOCKED |
-| LC4 | FP8/MoE host cache options, conservative envelope and identity: `config.py`, `memory_envelope.py`, `runtime_identity.py`, tests | LC2 interface | ACTIVE |
-| LC5 | API and security regressions: HTTP/product policy and direct tests only | LC2 | BLOCKED |
-| LC6 | Separate Python-binding ABI/package compatibility decision; no speculative dependency bump | LC1 | READY |
-| LC7 | Matched Apple Silicon execution + Performance Lab endpoint regression evidence | LC3–LC6 | BLOCKED |
-| LC8 | Exact-head preflight, docs, rollback and dev/main promotion gates | LC3–LC7 | BLOCKED |
+| LC1 | Exact-tag binary compiled; version/CLI smoke PASS (no GGUF) | — | DONE |
+| LC2 | Attributed profile, fail-closed CLI and separate v1 options module; deterministic tests PASS | LC1 | DONE |
+| LC3 | Existing lifecycle owner preserved; fake-process startup/unload/error, streaming/API E2E PASS | LC2 | DONE |
+| LC4 | Typed FP8/MoE opt-ins, conservative envelope/identity and invalid-mode tests PASS | LC2 | DONE |
+| LC5 | Existing HTTP/security defaults preserved; FULL CI and API/Studio E2E PASS | LC2 | DONE |
+| LC6 | Native `llama-cpp-python` remains independent; no ABI/package change justified | LC1 | DONE |
+| LC7 | Representative Apple Silicon GGUF/runtime/pressure + Performance Lab endpoint evidence | LC3–LC6 | BLOCKED |
+| LC8 | Exact-head FULL preflight, merge to dev; release to main blocked by LC7 | LC1–LC6 | ACTIVE |
 
 Parallel LC3 (lifecycle), LC4 (memory/identity), LC5 (API/security) and LC6
 (Python dependency audit) have separate write ownership after LC2 interface
@@ -112,15 +112,32 @@ Never silently replace the user's chosen executable. Docs:
 `docs/device-evidence-runbook.md` and `docs/current-state.md` only when
 their contract/state actually changes.
 
+## Attributed automated evidence
+
+PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against
+`dev` `ddca60d7e4abb02597d0923cd6d21ec729e3e0c7`:
+- GitHub `CI` **FULL / integration PASS**, Python 3.10–3.12, security,
+  package smoke, L1/L2, Playwright E2E and lint:
+  https://github.com/daniele21/korgis/actions/runs/43527753569
+- `Repository Health` **PASS**:
+  https://github.com/daniele21/korgis/actions/runs/43527753797
+- Real upstream `llama-server` **compiled from the pinned v1.0.0 tag**;
+  source-commit and CLI-capability smoke **PASS**:
+  https://github.com/daniele21/korgis/actions/runs/43527753754
+  The shallow checkout prints `version: 1.0.0 (build 1, commit 2d8a325)`,
+  showing why numeric build alone is not authoritative.
+- These deterministic gates **do not** establish successful model inference,
+  Mac memory reclamation, safe swap behavior or performance. That remains LC7.
+
 ## Resume checkpoint
 
 At workstream creation, source inspection confirmed existing v0.3 floor,
 experimental SSD MoE flags, native Python backend split and conservative swap
-policy. A draft v1 adapter/options/envelope implementation is under active CI;
-**no actual v1 GGUF inference, Mac benchmark, successful v1 CLI dry-run or safe
-reclamation has yet been proven**. Refresh branch identity and inspect CI logs
-before advancing. Next discriminating action: exact-tag executable flag probe,
-then lifecycle tests on an actual v1 server.
+policy. A v1 adapter/options/envelope implementation passed exact-head CI FULL,
+Repository Health and the pinned upstream binary/CLI smoke. **No actual v1 GGUF
+inference, Mac benchmark or safe reclamation has been proven.** Refresh live
+branch identity before integration. Next action: complete dev merge preflight,
+then obtain LC7 Apple Silicon evidence for release.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
