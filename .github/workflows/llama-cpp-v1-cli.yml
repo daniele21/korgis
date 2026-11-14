@@ -106,7 +106,7 @@ jobs:
 
   hosted-macos-metal:
     name: Compile pinned v1 Metal runtime on hosted Apple Silicon
-    runs-on: macos-15-arm64
+    runs-on: macos-15
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4

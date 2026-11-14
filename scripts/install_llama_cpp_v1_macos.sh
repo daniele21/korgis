@@ -43,15 +43,28 @@ for tool in git cmake shasum; do
 done
 
 DESTINATION="$ROOT/$RELEASE-$SHORT_COMMIT"
+mkdir -p "$ROOT"
+LOCK="$ROOT/.llama-v1-install.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  echo "Error: another installation owns this destination root; refusing to proceed." >&2
+  exit 1
+fi
+SCRATCH=""
+STAGE=""
+cleanup() {
+  if [[ -n "$SCRATCH" ]]; then rm -rf "$SCRATCH"; fi
+  if [[ -n "$STAGE" ]]; then rm -rf "$STAGE"; fi
+  rmdir "$LOCK" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 if [[ -e "$DESTINATION" || -L "$DESTINATION" ]]; then
   echo "Error: destination already exists; refusing to overwrite: $DESTINATION" >&2
   exit 1
 fi
-mkdir -p "$ROOT"
 SCRATCH="$(mktemp -d)"
 STAGE="$(mktemp -d "$ROOT/.llama-v1-staging.XXXXXXXX")"
-cleanup() { rm -rf "$SCRATCH" "$STAGE"; }
-trap cleanup EXIT
 
 SOURCE="$SCRATCH/upstream"
 BUILD="$SCRATCH/build"

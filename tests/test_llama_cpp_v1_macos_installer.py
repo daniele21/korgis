@@ -47,3 +47,26 @@ def test_installer_preserves_existing_destination_before_network(tmp_path):
     assert proc.returncode == 1
     assert "refusing to overwrite" in proc.stderr
     assert marker.read_text(encoding="utf-8") == "retain"
+
+
+def test_installer_refuses_concurrent_install_before_network(tmp_path):
+    fake_bin = tmp_path / "fake-tools"
+    fake_bin.mkdir()
+    fake_uname = fake_bin / "uname"
+    fake_uname.write_text(
+        '#!/bin/sh\ncase "$1" in -s) echo Darwin ;; -m) echo arm64 ;; esac\n',
+        encoding="utf-8",
+    )
+    fake_uname.chmod(0o755)
+    root = tmp_path / "engines"
+    lock = root / ".llama-v1-install.lock"
+    lock.mkdir(parents=True)
+    env = dict(os.environ, PATH=str(fake_bin) + os.pathsep + os.environ["PATH"])
+    proc = subprocess.run(
+        ["bash", str(INSTALLER), "--root", str(root)],
+        env=env, capture_output=True, text=True,
+    )
+    assert proc.returncode == 1
+    assert "another installation" in proc.stderr
+    assert lock.is_dir()
+    assert not (root / "v1.0.0-2d8a325").exists()

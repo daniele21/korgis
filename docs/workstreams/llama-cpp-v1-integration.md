@@ -122,6 +122,10 @@ overwrites, verify commit/CLI/sha256, preserve previous selection.
 Hosted macOS arm64 deterministic build is required; it does not satisfy
 the representative real-GGUF/pressure/reclamation gate LC7.
 
+GitHub-hosted macOS arm64 uses workflow label `macos-15` (not the image name
+`macos-15-arm64`). Installation takes an atomic root lock and refuses
+concurrent operations; an unclean interruption leaves a fail-closed lock.
+
 Latest PyPI `llama-cpp-python` on 2026-11-14 is 0.3.36; its bundled
 llama.cpp revision `0c1e57098` predates upstream v1.0.0.
 Only the independent in-process Python backend receives this binding
@@ -147,13 +151,12 @@ PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against
 
 ## Resume checkpoint
 
-At workstream creation, source inspection confirmed existing v0.3 floor,
-experimental SSD MoE flags, native Python backend split and conservative swap
-policy. A v1 adapter/options/envelope implementation passed exact-head CI FULL,
-Repository Health and the pinned upstream binary/CLI smoke. **No actual v1 GGUF
-inference, Mac benchmark or safe reclamation has been proven.** Refresh live
-branch identity before integration. Next action: complete dev merge preflight,
-then obtain LC7 Apple Silicon evidence for release.
+PR #262 merged to dev; follow-up PR #263 owns explicit v1 Metal source
+installation and the independent Python 0.3.36 refresh. The updated lock,
+FULL software gates, and release CLI tests must be reverified at the final
+candidate SHA. **No actual v1 GGUF inference, Mac benchmark or safe
+reclamation has been proven.** Next action: exact-head integration preflight,
+then LC7 representative Apple Silicon proof before promotion to main.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
