@@ -99,7 +99,7 @@ def test_shallow_history_exact_v030_build_is_attributed_without_fabricated_build
     compatibility = validate_llama_server_binary(
         "/tmp/llama-server",
         run_command=lambda _path: (
-            "version: 0.3.0 (build 1, commit c1d0e7a)\\n"
+            "version: 0.3.0 (build 1, commit c1d0e7a)\n"
         ),
     )
     assert compatibility.supported is True
@@ -113,7 +113,7 @@ def test_shallow_history_unrecognized_source_fails_closed():
     with pytest.raises(RuntimeError, match="older than the validated runtime floor"):
         validate_llama_server_binary(
             "/tmp/llama-server",
-            run_command=lambda _path: "version: 0.3.0 (build 1, commit 1234567)\\n",
+            run_command=lambda _path: "version: 0.3.0 (build 1, commit 1234567)\n",
         )
 
 
@@ -121,7 +121,7 @@ def test_shallow_history_semver_without_commit_is_still_unattributable():
     with pytest.raises(RuntimeError, match="Cannot verify llama-server version"):
         validate_llama_server_binary(
             "/tmp/llama-server",
-            run_command=lambda _path: "version: 0.3.0 (build 1)\\n",
+            run_command=lambda _path: "version: 0.3.0 (build 1)\n",
         )
 
 
