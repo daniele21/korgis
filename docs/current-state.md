@@ -55,8 +55,15 @@ model eviction; post-stop memory deltas remain observational.
   **6/6 physical-Mac cycles**
   ([#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676))
   after shallow-build version attribution fix (#271, merged to dev).
-  These 0.8B results do not prove larger-model pressure/reclamation
-  or external throughput/regression; LC7 **release-blocked**.
+  Subsequent Korgis-only resource telemetry
+  [#43635780313](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313)
+  passes 8/8 managed 0.8B cycles with observed native RSS,
+  96-token HTTP timings and zero sampled swap in/out.
+  The 4B read-only safety preflight [#43636178878](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878)
+  refuses launch; v1 streaming-disconnect follow-ups also stopped
+  before model startup on canonical host admission (#43636531152).
+  None establishes pressure-safe production reclamation;
+  LC7 **release-blocked**.
   See `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Evidence boundaries
