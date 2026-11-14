@@ -164,22 +164,37 @@ verification, not with a weakened acceptance check.
 multi-runtime pressure, model quality and matched old-v1 performance.
 No default runtime switch or automatic eviction is authorized.
 
-## Attributed automated evidence
+## Attributed automated and real-device preflight evidence
 
-PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against
-`dev` `ddca60d7e4abb02597d0923cd6d21ec729e3e0c7`:
-- GitHub `CI` **FULL / integration PASS**, Python 3.10–3.12, security,
-  package smoke, L1/L2, Playwright E2E and lint:
-  https://github.com/daniele21/korgis/actions/runs/43527753569
-- `Repository Health` **PASS**:
-  https://github.com/daniele21/korgis/actions/runs/43527753797
-- Real upstream `llama-server` **compiled from the pinned v1.0.0 tag**;
-  source-commit and CLI-capability smoke **PASS**:
-  https://github.com/daniele21/korgis/actions/runs/43527753754
-  The shallow checkout prints `version: 1.0.0 (build 1, commit 2d8a325)`,
-  showing why numeric build alone is not authoritative.
-- These deterministic gates **do not** establish successful model inference,
-  Mac memory reclamation, safe swap behavior or performance. That remains LC7.
+PR #262's FULL CI, Repository Health and pinned upstream CLI smoke PASS
+(see runs 43527753569, 43527753797, 43527753754). Its shallow
+source build reports `version: 1.0.0 (build 1, commit 2d8a325)`:
+source commit, not numeric build alone, identifies the v1 release.
+
+The *read-only* self-hosted Mac preflights
+[#43603426986](https://github.com/daniele21/local-runner-infra/actions/runs/43603426986)
+and [#43603651690](https://github.com/daniele21/local-runner-infra/actions/runs/43603651690)
+PASS as **observational checks only**, at source
+`52dafb5b5ca523a0bdca4aae3ab95ca3e7f72c00`.
+Physical Mac: 32 GiB RAM, last estimated available/reclaimable
+8,288,796,672 bytes and swap used 3,190,816,768 bytes;
+zero existing `llama-server` processes. Pinned v1 binary digest
+`edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
+The sole small text candidate found was **not registered** in the selected
+Korgis model allowlist: filename class Nemotron, GGUF magic valid, file
+4,233,677,952 bytes, SHA-256
+`f872b1bec0aed30659d0b4c7ba312905a3f23f3cd9ca22696185dcf5db8000e1`.
+Private model path and content were not captured.
+
+Korgis `ResourceManager` host reserve at 32 GiB is 6 GiB,
+leaving only 1,846,345,728 bytes of measured growth headroom on this
+snapshot, below the GGUF file size **before** KV/context/overhead.
+**No inference was launched or benchmark run.** This is a safe blocked
+admission, not evidence of a v1 regression. Do not lower reserve or
+credit preexisting swap to force the model. LC7 remains BLOCKED; the
+next useful real canary needs a verified smaller, supported local GGUF
+with safe admission, followed by old-v1 matched inference and unload
+evidence. No promotion to main or automatic eviction.
 
 ## Resume checkpoint
 
