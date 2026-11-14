@@ -133,42 +133,36 @@ each cycle; swap used was unchanged. These short-request numbers
 include HTTP/prefill and cannot be called native decode throughput,
 continuous peak memory or representative large-model behavior.
 
-[4B read-only preflight #43636178878](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878):
-a cached Qwen3.5-4B Q4_K_M was hash-identified
-(`00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`,
-2,740,937,888 bytes). Conservative preflight required
-9,776,843,072 bytes of host headroom versus 9,034,792,960
-bytes observed; **not ready**, model **not launched**.
-This is the inventory script's safety heuristic, not evidence of
-canonical Korgis model admission, fit or performance.
-Do not lower the headroom threshold to force a larger-model run.
+## Current dev Mac qualification (2026-11-15)
 
-**Real v1 client-disconnect/lease-cleanup gate not exercised:**
-[initial run #43636399217](https://github.com/daniele21/local-runner-infra/actions/runs/43636399217)
-and [diagnostic rerun #43636531152](https://github.com/daniele21/local-runner-infra/actions/runs/43636531152)
-both refused before model load by canonical host admission.
-The second receipt separated a normal coarse pressure observation
-from a ResourceManager rejection: 8,043,675,648 measured reclaimable
-bytes versus a 6 GiB OS reserve plus 1.5 × 1.25 GiB admitted
-estimate (8,455,716,864 bytes required). No streaming,
-cancellation, unload-under-lease or process-level fault was
-observed in these attempts. Do not classify the blocked procedure
-as lifecycle failure or bypass host admission to obtain a PASS.
+`dev@61bea2dc`: [RELEASE/FULL #43649459257](https://github.com/daniele21/korgis/actions/runs/43649459257)
+and [native CLI/Metal #43649459270](https://github.com/daniele21/korgis/actions/runs/43649459270)
+PASS; **not LC7 acceptance**.
+[Mac diagnostic #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051):
+8,326,021,120 / 8,302,034,944 / 8,285,126,656 available bytes
+versus 8,455,716,864 required for 0.8B (6 GiB OS reserve +
+1.5 × 1.25 GiB estimate). Pressure NORMAL; swap used 3,155,165,184
+bytes with zero observed swap-in/out counter deltas. Browser RSS
+~7.1–7.2 GB across 46 processes, **non-additive**; no process IDs,
+names or paths reported. Pinned 0.8B absent in inspected cache roots.
 
-## Current dev Mac preflight (2026-11-14)
+[4B preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434):
+8,200,257,536 available versus 9,776,843,072 required, **blocked**.
+Cached SHA `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
+matches [Unsloth Q4_K_M](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/blob/main/Qwen3.5-4B-Q4_K_M.gguf),
+not the LM Studio-quantized registry SHA
+`25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
+Never silently replace registered artifact identity.
 
-`dev@a002a182`: [release FULL CI](https://github.com/daniele21/korgis/actions/runs/43647301180)
-and [native CLI/Metal](https://github.com/daniele21/korgis/actions/runs/43647301201)
-PASS, not LC7 acceptance.
-[Read-only Mac #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434):
-v1 binary verified; no inference/download/settings change.
-0.8B canonical admission **refused**: 8,184,758,272 available vs
-8,455,716,864 required; pinned model not in verified cache.
-4B **refused**: 8,200,257,536 available vs 9,776,843,072 required;
-cached SHA `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
-differs from registry `25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
-No guards waived; LC7 and external regression remain **pending**.
-
+[SSE start #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308):
+canonical admission initially accepted at 8,590,655,488 bytes;
+actual server startup then refused host admission. No SSE;
+owned processes and ports clean, no forced kill.
+[Rerun #43652047011](https://github.com/daniele21/local-runner-infra/actions/runs/43652047011):
+admission accepted at 8,704,049,152; stricter **test-only**
+prestart guard (+256 MiB estimated load) blocked before download
+or launch. Production thresholds/eviction unchanged.
+HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
