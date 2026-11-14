@@ -113,6 +113,36 @@ passed execution but its final workflow summary attempted to execute
 the receipt path and failed; the final #43633636676 corrected that
 harness-only error. Preserve earlier FAIL classifications.
 
+## Korgis-only runtime qualification (no external evaluation)
+
+The user selected **Korgis-only** evidence for this slice. This does not
+change Performance Lab's ownership or waive a release-required external
+evaluation; no changes were made to Performance Lab.
+
+[Native observation #43635780313](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313):
+physical Mac, Korgis `df034929505dbcc10e6dc6d318c092dd496d0c5b`,
+same verified 0.8B GGUF, four interleaved cycles per engine,
+96 actual completion tokens/request, HTTP chat + SSE + unload.
+**8/8 PASS** with zero configured accounting, cold health and no
+owned listeners/processes left. Observed medians v0.3/v1:
+startup **1.300/1.302s**, HTTP completion **0.5795/0.533s**,
+effective end-to-end rate about **165.7/180.1 tokens/s**, and
+*sampled* native-server peak RSS **784,826,368/783,482,880 bytes**.
+Host-wide swapin/swapout page-counter deltas were **0/0** in
+each cycle; swap used was unchanged. These short-request numbers
+include HTTP/prefill and cannot be called native decode throughput,
+continuous peak memory or representative large-model behavior.
+
+[4B read-only preflight #43636178878](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878):
+a cached Qwen3.5-4B Q4_K_M was hash-identified
+(`00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`,
+2,740,937,888 bytes). Conservative preflight required
+9,776,843,072 bytes of host headroom versus 9,034,792,960
+bytes observed; **not ready**, model **not launched**.
+This is the inventory script's safety heuristic, not evidence of
+canonical Korgis model admission, fit or performance.
+Do not lower the headroom threshold to force a larger-model run.
+
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
