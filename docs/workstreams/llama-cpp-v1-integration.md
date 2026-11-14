@@ -58,9 +58,9 @@ Preserve PrismML's model-specific executable selection.
 | LC3 | Existing lifecycle owner preserved; fake-process startup/unload/error, streaming/API E2E PASS | LC2 | DONE |
 | LC4 | Typed FP8/MoE opt-ins, conservative envelope/identity and invalid-mode tests PASS | LC2 | DONE |
 | LC5 | Existing HTTP/security defaults preserved; FULL CI and API/Studio E2E PASS | LC2 | DONE |
-| LC6 | Native `llama-cpp-python` remains independent; no ABI/package change justified | LC1 | DONE |
+| LC6 | Independently refresh native Python binding from 0.3.28 to 0.3.36; validate lock, lifecycle and package | LC1 | ACTIVE |
 | LC7 | Representative Apple Silicon GGUF/runtime/pressure + Performance Lab endpoint evidence | LC3–LC6 | BLOCKED |
-| LC8 | Exact-head FULL preflight, merge to dev; release to main blocked by LC7 | LC1–LC6 | ACTIVE |
+| LC8 | Exact-head FULL preflight merged PR #262 to dev; release blocked by LC7 | LC1–LC5 | DONE |
 
 Parallel LC3 (lifecycle), LC4 (memory/identity), LC5 (API/security) and LC6
 (Python dependency audit) have separate write ownership after LC2 interface
@@ -111,6 +111,22 @@ Never silently replace the user's chosen executable. Docs:
 `docs/configuration-reference.md`, `docs/runtime-identity-api.md`,
 `docs/device-evidence-runbook.md` and `docs/current-state.md` only when
 their contract/state actually changes.
+
+## Follow-up: reproducible runtime installation and Python refresh
+
+PR #262 merged to dev at `f0bc76e44d4d7ac04cefc8e64a73756c2dc4b7ce`,
+with source and resulting merge trees verified identical.
+Next slice installs exact-tag Metal builds only as an **explicit operator
+action**: stage a versioned binary with native libraries, reject
+overwrites, verify commit/CLI/sha256, preserve previous selection.
+Hosted macOS arm64 deterministic build is required; it does not satisfy
+the representative real-GGUF/pressure/reclamation gate LC7.
+
+Latest PyPI `llama-cpp-python` on 2026-11-14 is 0.3.36; its bundled
+llama.cpp revision `0c1e57098` predates upstream v1.0.0.
+Only the independent in-process Python backend receives this binding
+update. Check `uv lock --check`, Python 3.10–3.12, package smoke and
+backend lifecycle compatibility before acceptance; no C ABI mixing.
 
 ## Attributed automated evidence
 

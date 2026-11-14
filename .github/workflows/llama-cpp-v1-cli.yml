@@ -6,6 +6,10 @@ on:
       - "src/local_llm_server/llama_server_compat.py"
       - "src/local_llm_server/llama_server_v1_options.py"
       - ".github/workflows/llama-cpp-v1-cli.yml"
+      - "scripts/install_llama_cpp_v1_macos.sh"
+      - "tests/test_llama_cpp_v1_macos_installer.py"
+      - "pyproject.toml"
+      - "uv.lock"
   workflow_dispatch:
 
 permissions:
@@ -77,3 +81,46 @@ jobs:
             exit 1
           fi
           echo "Exact-tag llama-server CLI capability probe: PASS (no GGUF model executed)."
+
+  pinned-python-lock:
+    name: Verify exact Python binding lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify uv dependency resolution
+        run: |
+          python3 -m pip install 'uv==0.8.13'
+          uv lock --check
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          project = tomllib.loads(Path('pyproject.toml').read_text())
+          lock = tomllib.loads(Path('uv.lock').read_text())
+          assert any(d.startswith('llama-cpp-python>=0.3.36,<0.4.0') for d in project['project']['dependencies'])
+          binding = next(p for p in lock['package'] if p['name'] == 'llama-cpp-python')
+          assert binding['version'] == '0.3.36'
+          PY
+
+  hosted-macos-metal:
+    name: Compile pinned v1 Metal runtime on hosted Apple Silicon
+    runs-on: macos-15-arm64
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compile and verify attributable llama-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          bash -n scripts/install_llama_cpp_v1_macos.sh
+          bash scripts/install_llama_cpp_v1_macos.sh --root "$RUNNER_TEMP/korgis-llama-v1"
+          BINARY="$RUNNER_TEMP/korgis-llama-v1/v1.0.0-2d8a325/bin/llama-server"
+          test -x "$BINARY"
+          "$BINARY" --version
+          test -s "$RUNNER_TEMP/korgis-llama-v1/v1.0.0-2d8a325/build-identity.json"
+          echo 'Hosted Metal compile and CLI smoke PASS; no GGUF model executed.'
