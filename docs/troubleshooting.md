@@ -175,6 +175,21 @@ pip install ".[audio]"
 
 For an externally managed `llama-server`, verify the configured binary and its version independently.
 
+
+### Pinned llama.cpp v0.3 release reports build 1
+
+An exact-source llama.cpp `v0.3.0` Metal binary built from a shallow Git
+checkout can print `version: 0.3.0 (build 1, commit c1d0e7a)` rather
+than the full-history build number `10621`. Korgis recognizes this
+**specific attributable release commit** as its validated v0.3 profile
+without rewriting the reported build identity. A random build 1, a
+missing commit or an unrecognized commit remains unsupported.
+
+Use an explicit `--llama-server-bin` selection, verify the installed
+binary's SHA-256 and upstream source provenance, and retain its actual
+`--version` output. Do not set the unvalidated-runtime override or
+relax host memory admission just to make a comparison run.
+
 ## First request is much slower than later requests
 
 Cold load, backend startup, cache initialization and prompt/prefill work are distinct from warm decode performance. Do not compare a cold first request to a warm baseline without recording the classification.

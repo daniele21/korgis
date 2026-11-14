@@ -93,6 +93,38 @@ def test_modern_v030_release_uses_validated_profile():
     assert compatibility.profile == "validated-v0.3.0"
 
 
+def test_shallow_history_exact_v030_build_is_attributed_without_fabricated_build_number():
+    # A source-pinned checkout can report build=1. The exact release commit
+    # must still be allowed, as for the already-validated v1 source tag.
+    compatibility = validate_llama_server_binary(
+        "/tmp/llama-server",
+        run_command=lambda _path: (
+            "version: 0.3.0 (build 1, commit c1d0e7a)\n"
+        ),
+    )
+    assert compatibility.supported is True
+    assert compatibility.exact_validated_release is True
+    assert compatibility.modern_runtime_options is True
+    assert compatibility.profile == "validated-v0.3.0"
+    assert compatibility.backend_version == "build-1@c1d0e7a"
+
+
+def test_shallow_history_unrecognized_source_fails_closed():
+    with pytest.raises(RuntimeError, match="older than the validated runtime floor"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            run_command=lambda _path: "version: 0.3.0 (build 1, commit 1234567)\n",
+        )
+
+
+def test_shallow_history_semver_without_commit_is_still_unattributable():
+    with pytest.raises(RuntimeError, match="Cannot verify llama-server version"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            run_command=lambda _path: "version: 0.3.0 (build 1)\n",
+        )
+
+
 def test_newer_attributable_build_keeps_exact_identity_and_feature_floor():
     compatibility = validate_llama_server_binary(
         "/tmp/llama-server",
