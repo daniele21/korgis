@@ -25,16 +25,14 @@ Automated E2E covers browser/API and installed-wheel behavior, not representativ
 
 ## Post-0.4 developer integration (in dev)
 
-- The Python consumer SDK (#227) is experimental; its managed session hardening (#233) proposes owned socket and per-session authentication. Packaged macOS evidence is pending; it is not a stable M8 profile or released M12 SDK.
+- The Python SDK (#227) and its managed auth (#233) are experimental; packaged macOS evidence is pending. Neither is stable M8/M12.
 - M8.1-M8.2 (PR #230) add a **versioned experimental server-side ApplicationProfile parser and zero-resident capability validator**. They do not activate models, reserve memory, expose public profile endpoints, or implement resource fit planning.
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
-- llama.cpp v1.0.0 (merged PR #262): attributed external binary, optional
-  FP8/MoE. Follow-up candidate provides an opt-in pinned macOS Metal installer
-  and a separate Python binding refresh 0.3.28 → 0.3.36 (not C API v1).
-  Neither changes the active binary automatically. Representative Mac GGUF,
-  performance and reclamation proof still pending. See
+- llama.cpp v1.0.0 (#262): opt-in external server with FP8/MoE.
+  Follow-up: pinned Metal installer and independent Python 0.3.36 (not v1
+  C API); neither auto-activates. Mac GGUF/memory proof pending. See
   `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
