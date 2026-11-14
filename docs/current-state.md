@@ -30,23 +30,16 @@ Automated E2E covers browser/API and installed-wheel behavior, not representativ
 - M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
 - No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
 
-- llama.cpp v1.0.0 (#262): opt-in external server with FP8/MoE.
-  Follow-up: pinned Metal installer and independent Python 0.3.36 (not v1
-  C API); neither auto-activates. Two physical Mac bounded real GGUF
-  canaries through managed Korgis HTTP and native Python 0.3.36 PASS
-  (central runs #43629147770 and #43629484166): chat, streaming,
-  host admission, resource accounting to zero after unload, cold health
-  and zero surviving backend processes. A *new historical reference*,
-  source-verified v0.3.0, now completes three additional Korgis-managed
-  real-GGUF lifecycle cycles alongside three on v1.0.0 (6/6 PASS
-  in [fully passing Mac workflow #43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)).
-  The previous six-cycle execution #43633363555 passed runtime checks
-  but its overall workflow failed in the summary script. Exact source-tag build
-  attribution for shallow v0.3.0 was fixed in PR #271, merged to dev.
-  The small-model medians are descriptive, not throughput/quality or
-  peak-RSS comparisons. No repeated pressure-safe reclamation or
-  Performance Lab endpoint regression is established; LC7 remains BLOCKED.
-  See `docs/workstreams/llama-cpp-v1-integration.md`.
+- llama.cpp v1.0.0 (#262) is an opt-in external binary (FP8/MoE
+  explicit), with independently pinned Python 0.3.36; neither auto-activates.
+  Managed HTTP/stream/unload and separate Python GGUF canaries PASS twice
+  (#43629147770, #43629484166). Tagged historical v0.3.0 and v1.0.0
+  also PASS six interleaved managed 0.8B lifecycle cycles on physical
+  Mac ([#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)),
+  after the shallow-build attribution fix (#271 on dev).
+  Larger-model pressure/reclamation and external Performance Lab regression
+  remain unproven: LC7 release-blocked. See
+  `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
 
