@@ -196,16 +196,45 @@ next useful real canary needs a verified smaller, supported local GGUF
 with safe admission, followed by old-v1 matched inference and unload
 evidence. No promotion to main or automatic eviction.
 
+## LC7 first real GGUF canary — exploratory success, 2026-11-14
+
+The central self-hosted Apple Silicon [run #43610869367](https://github.com/daniele21/local-runner-infra/actions/runs/43610869367)
+completed **PASS**. Korgis source `ac7e3486c1fa36a3bbb415fbb98a758fce9ff987`,
+pinned llama.cpp v1 source `2d8a32502909ca065c41c4cf5f2fb1c427c047fc`,
+installed binary SHA-256 `edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
+Single Qwen3.5-0.8B Q4_K_M GGUF (527,502,816 bytes, pinned immutable
+revision `7925ccdc665d4efdb1034791e6b553e11128e6f8`, SHA-256
+`f5b14da98939b60bbe1019a964eba656407e1e0b64f1fe3003ff6d650e93bfec`)
+was downloaded **only to disposable runner scratch** after checksum/size
+validation. Korgis `ResourceManager` host admission returned `admit`
+with a 946,933,216-byte estimate and OS reserve intact.
+
+Actual upstream `llama-server` on 127.0.0.1: cold load 5.685 s, HTTP
+chat completion 200 (24 tokens, 0.353 s), SSE streaming 25 events and
+first event 0.019 s. Peak observed single-process RSS 1,008,205,824
+bytes; reclaimable host memory before/minimum/after
+9,274,523,648 / 8,429,289,472 / 9,183,412,224 bytes.
+Swap used before/after 3,150,446,592 bytes, reserve never crossed;
+owned process exited without forced kill and listener closed.
+
+**Scope:** native specialist real inference with Korgis-owned host
+admission; `korgis_managed_http_tested=false` and
+`python_binding_inference_tested=false`. One canary is not matched
+old-v1 performance comparison, memory-reclamation or pressure safety
+proof, GGUF quality acceptance or a Performance Lab regression.
+LC7 remains BLOCKED; next owner-local proof is full managed Korgis HTTP
+lifecycle with existing model, then repeated matched old/v1 samples
+and Performance Lab external endpoint evaluation. No main promotion.
+
 ## Resume checkpoint
 
 PR #262 (v1 compatibility), #263 (pinned installer/Python 0.3.36),
 #264 (self-hosted Mac lane) and #265 (portable CMake fallback) are merged
 to dev. CI and native Mac validation/side-by-side installation PASS, linked
-above. LC7 remains blocked: run bounded attributable GGUF model evidence on
-representative Apple Silicon, compare previous/v1 runtimes under matching
-workloads, verify memory/pressure/unload and use Performance Lab for
-external endpoint comparison. Do not promote to main or enable eviction on
-binary-build-only proof.
+above. First direct native GGUF canary and Korgis admission PASS (run #43610869367),
+but the complete Korgis HTTP lifecycle, old/v1 matched workloads and
+Performance Lab regression remain LC7 release blockers. Do not promote to
+main or enable eviction on exploratory canary evidence.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
