@@ -20,7 +20,7 @@ python3 scripts/verify_e2e.py
 [[ -n "$RUNNER_TEMP" && "$RUNNER_TEMP" == /* ]] || {
   echo "::error::Runner-owned scratch required"; exit 2;
 }
-for tool in git cmake shasum xcrun; do
+for tool in git shasum xcrun curl tar; do
   command -v "$tool" >/dev/null || {
     echo "::error::Missing native tool: $tool"; exit 2;
   }
@@ -46,6 +46,35 @@ cleanup() { rm -rf "$work"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# Native installer requires CMake. Some shared Mac runner registrations omit
+# Homebrew from PATH. Bootstrap a versioned portable CMake in scratch, after
+# validating the upstream-published checksum; never use sudo/global installs.
+if ! command -v cmake >/dev/null 2>&1; then
+  cmake_version="3.31.6"
+  cmake_dist="cmake-$cmake_version-macos-universal.tar.gz"
+  cmake_url="https://github.com/Kitware/CMake/releases/download/v$cmake_version"
+  mkdir -p "$work/cmake"
+  if ! curl --fail --location --retry 2 --silent --show-error \
+      "$cmake_url/$cmake_dist" -o "$work/$cmake_dist" ||
+     ! curl --fail --location --retry 2 --silent --show-error \
+      "$cmake_url/cmake-$cmake_version-SHA-256.txt" -o "$work/cmake-sha256.txt"; then
+    echo "::error::Pinned portable CMake bootstrap unavailable"; exit 2
+  fi
+  expected="$(awk -v file="$cmake_dist" '$2 == file || $2 == "*" file {print $1}' "$work/cmake-sha256.txt")"
+  actual="$(shasum -a 256 "$work/$cmake_dist" | awk '{print $1}')"
+  [[ "$expected" =~ ^[0-9A-Fa-f]{64}$ && "$actual" == "$expected" ]] || {
+    echo "::error::Pinned portable CMake SHA-256 verification failed"; exit 2;
+  }
+  tar -xzf "$work/$cmake_dist" -C "$work/cmake" --strip-components=1
+  portable="$work/cmake/CMake.app/Contents/bin/cmake"
+  [[ -x "$portable" ]] || {
+    echo "::error::Portable CMake executable missing"; exit 2;
+  }
+  export PATH="$(dirname "$portable"):$PATH"
+fi
+cmake --version | head -1
+
 # The source installer pins upstream commit, uses static Metal linking and
 # validates the relocated CLI before promotion within this isolated root.
 if ! bash scripts/install_llama_cpp_v1_macos.sh \

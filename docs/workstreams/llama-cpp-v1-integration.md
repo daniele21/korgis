@@ -151,6 +151,14 @@ or hardware memory safety is implied. The native runner lane complements
 rather than replaces FULL PR CI. GGUF inference and Mac memory/swap
 measurements remain explicit subsequent REAL_ENVIRONMENT evidence.
 
+The first central Mac run (https://github.com/daniele21/local-runner-infra/actions/runs/43598680920)
+verified the trusted Korgis SHA but stopped before native compilation because
+CMake was not in the selected runner's PATH (environment/toolchain failure).
+The source-owned lane now follows the existing central native-build contract:
+bootstrap official CMake 3.31.6 only in scratch and compare against its
+published SHA-256. No Homebrew/sudo/system install is permitted. Re-run at
+the new reviewed exact SHA; earlier failure must not count as success.
+
 ## Attributed automated evidence
 
 PR #262 at head `d52323ea728414bb195f8b806f8bdea87118ea1c` against

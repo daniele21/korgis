@@ -20,5 +20,7 @@ def test_central_source_and_non_destructive_proof():
     assert '--no-binary-package llama-cpp-python' in body
     assert '"not_run"' in body
     assert 'rm -rf "$work"' in body
+    assert 'cmake-3.31.6-macos-universal.tar.gz' in body or 'cmake-$cmake_version-macos-universal.tar.gz' in body
+    assert 'shasum -a 256 "$work/$cmake_dist"' in body
     for forbidden in ("sudo ", "brew install", "huggingface-cli download"):
         assert forbidden not in body
