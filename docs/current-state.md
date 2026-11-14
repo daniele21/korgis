@@ -32,8 +32,14 @@ Automated E2E covers browser/API and installed-wheel behavior, not representativ
 
 - llama.cpp v1.0.0 (#262): opt-in external server with FP8/MoE.
   Follow-up: pinned Metal installer and independent Python 0.3.36 (not v1
-  C API); neither auto-activates. Mac GGUF/memory proof pending. See
-  `docs/workstreams/llama-cpp-v1-integration.md`.
+  C API); neither auto-activates. Two physical Mac bounded real GGUF
+  canaries through managed Korgis HTTP and native Python 0.3.36 PASS
+  (central runs #43629147770 and #43629484166): chat, streaming,
+  host admission, resource accounting to zero after unload, cold health
+  and zero surviving backend processes. This does not establish
+  repeated memory reclamation or old-v1 performance equivalence;
+  old binary inventory found only the current v1. LC7 remains BLOCKED.
+  See `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Runtime safety safeguards
 

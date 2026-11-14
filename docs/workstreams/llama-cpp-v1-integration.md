@@ -187,6 +187,36 @@ Process exited without force-kill, listener closed, host reserve not crossed.
 Model downloaded to verified temporary scratch, then deleted; default engine
 unchanged. No automatic eviction exercised.
 
+**Actual Korgis-managed HTTP and independent Python 0.3.36 GGUF PASS,
+repeated identically on physical Apple Silicon:**
+[central run #43629147770](https://github.com/daniele21/local-runner-infra/actions/runs/43629147770)
+and [#43629484166](https://github.com/daniele21/local-runner-infra/actions/runs/43629484166)
+at Korgis `4d5f90d3b66fa417ae7e026bb101fab80482c451`.
+Same SHA-256 verified Qwen3.5-0.8B model and pinned v1 Metal executable,
+32 GiB Mac, canonical Korgis ResourceManager host guard and configured
+1.25 GiB resident estimate, context 512, 16 completion tokens.
+
+Both runs: real Korgis OpenAI-compatible HTTP chat **200**, streaming
+17 SSE events plus completion, admin unload **200**, committed/reserved bytes
+and reservation count **zero** after unload, `/health` **cold**, native and
+application listeners closed, zero leftover llama-server, no forced kill
+or host reserve crossing; separate `llama-cpp-python 0.3.36`
+real GGUF inference PASS. Swap before/after exactly 3,142,057,984 bytes
+in both runs. Startup ~1.56–1.57s and 16-token completion ~0.128–0.130s
+are descriptive single-model observations, not old-v1 comparisons.
+
+Earlier [#43627846133](https://github.com/daniele21/local-runner-infra/actions/runs/43627846133)
+failed from test harness shadowing stdlib `http.client`; subsequent
+[#43628646262](https://github.com/daniele21/local-runner-infra/actions/runs/43628646262)
+recorded an early managed Korgis bootstrap exit. Retain negative
+observations: later PASS does not establish a flakiness root cause.
+
+**Old runtime inventory:**
+[#43629844010](https://github.com/daniele21/local-runner-infra/actions/runs/43629844010)
+read-only PASS found only attributed v1.0.0; no verifiable prior
+llama-server exists on the Mac. A newly built v0.3.0 is a reproducible
+*historical reference*, not the user's proven earlier installed binary.
+
 **LC7 release evidence is still incomplete:** one 0.8B specialist smoke
 does not prove managed Korgis HTTP, Python-binding GGUF inference,
 repeated memory reclamation, larger model fit or matched old-v1
@@ -195,10 +225,12 @@ See central `docs/korgis-llama-v1-real-gguf-canary.md` for run contract.
 
 ## Resume checkpoint
 
-PRs #262–#265 are merged to dev; v1 Metal small-GGUF
-specialist smoke is PASS. LC7 remains blocked for managed Korgis lifecycle,
-repeat load/unload/pressure proof and matched old-v1 Performance Lab evidence.
-Do not promote to main or enable automatic eviction.
+PRs #262–#265 are merged to dev; real managed Korgis HTTP,
+streaming and unload plus independent Python GGUF inference passed twice
+on Apple Silicon as linked above. LC7 remains BLOCKED: repeat resource
+pressure and reclamation evidence, matched historical reference versus v1
+endpoint evaluation owned by Performance Lab and exact-candidate release
+checks. Do not promote to main or enable automatic eviction.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
