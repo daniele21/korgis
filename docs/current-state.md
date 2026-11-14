@@ -91,21 +91,19 @@ remains `not_provided`, and both `reclamation_safety_claim` and
 
 ## Reconciled branches and release status (2026-11-15)
 
-PR #274 reconciled `main` into `dev`. Release candidate
-`dev@61bea2dc` passed exact [RELEASE/FULL #43649459257](https://github.com/daniele21/korgis/actions/runs/43649459257)
-and [native CLI/Metal #43649459270](https://github.com/daniele21/korgis/actions/runs/43649459270).
-[Mac memory diagnostic #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051)
-observed NORMAL derived pressure but ~130–171 MB short of
-canonical 0.8B admission, browser group ~7.1–7.2 GB non-additive
-RSS, and no pinned 0.8B GGUF in inspected cache roots.
-4B inventory was headroom-blocked; cached GGUF matches Unsloth
-quantization, not the registry's LM Studio asset identity.
-[SSE start #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308)
-passed initial admission but server rejected at startup; cleanup
-was clean. [Safer retry #43652047011](https://github.com/daniele21/local-runner-infra/actions/runs/43652047011)
-blocked by stricter test-only headroom before process/download.
-Neither is SSE evidence. Korgis policy unchanged; hardware LC7
-and external evaluation remain release-blocking. `main` unchanged.
+PR #274 reconciled `main` into `dev`; `dev@61bea2dc` passed
+RELEASE/FULL and native CLI/Metal, not LC7 acceptance.
+[Mac #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051):
+NORMAL pressure but 130–171 MB short of 0.8B canonical admission;
+46 browser processes ~7.1–7.2 GB non-additive RSS; pinned GGUF
+not found in inspected caches. 4B headroom refused, with cached
+Unsloth quantization different from registered LM Studio asset.
+[SSE #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308):
+initial admission accepted but server refused at startup; cleanup
+clean. Safer test-only retry #43652047011 blocked before download.
+SSE and LC7 remain unproven; external evaluation still pending.
+Korgis policy and `main` unchanged. Details in llama.cpp workstream.
+
 ## Durable references
 
 `docs/architecture.md`, `.engineering/e2e.json`,
