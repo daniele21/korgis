@@ -89,23 +89,22 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Performance Lab comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Cross-branch reconciliation candidate (2026-11-14)
+## Reconciled branches and blocked release (2026-11-14)
 
-The `main`-only additions being reconciled into `dev` include specialist
-model entries/validated per-model `llama-server` minimum builds, explicit
-specialist binary environment selection, Qwen Image GGUF low-memory flags,
-observational RSS/CPU reporting in `/api/v1/resources`, and the source-owned
-generic Mac CI dispatch. These combine with `dev`'s bounded host admission,
-v1 exact-source attribution, inherited-loopback embedded session and
-process/stream lifecycle. A model-specific build minimum cannot be waived
-by source attribution for build-1 v1. Unknown build-1 specialist binaries
-must never unlock modern stock-only CLI flags. The standard Mac runner
-entrypoint stays lightweight; the pinned v1 Metal smoke remains separately
-runnable in `.github/ci/llama-v1-native-smoke.sh`.
-
-**Release status: candidate only.** A two-parent reconciliation tree is
-subject to exact-head FULL deterministic testing and renewed representative
-hardware evidence. `main` promotion and production safety remain blocked.
+PR #274 merged `main` history and `dev` behavior without dropping
+either branch; `dev` at `a002a182e955` preserves host-memory
+admission, v1 attribution/opt-ins, specialist per-model binary floors,
+Qwen Image memory controls, RSS/CPU observation and embedded sessions.
+The Mac runner retains separate lightweight and pinned native lanes.
+FULL release CI [#43647301180](https://github.com/daniele21/korgis/actions/runs/43647301180)
+and native CLI/Metal [#43647301201](https://github.com/daniele21/korgis/actions/runs/43647301201)
+PASS. A current source-pinned
+[read-only Mac preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434)
+refused actual 0.8B Korgis admission and 4B inventory headroom;
+the cached 4B digest also differs from the registered artifact.
+No v1 release reclamation, multi-resident shutdown or SSE-cancel
+proof was obtained. LC7 remains **blocking**, as does external
+endpoint regression under its separate owner; `main` is unchanged.
 
 ## Durable references
 
