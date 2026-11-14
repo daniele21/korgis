@@ -115,7 +115,7 @@ harness-only error. Preserve earlier FAIL classifications.
 
 ## Korgis-only runtime qualification (no external evaluation)
 
-The user selected **Korgis-only** evidence for this slice. This does not
+This slice records **Korgis runtime-owner** evidence only. It does not
 change Performance Lab's ownership or waive a release-required external
 evaluation; no changes were made to Performance Lab.
 
