@@ -1,86 +1,90 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-13
+Last reviewed: 2026-11-14
 
-Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
+Korgis / Local LLM Server is a local-first multi-backend AI runtime
+control plane; Local LLM Studio provides browser control. Hosted tests
+prove deterministic contracts, never representative hardware claims.
 
 ## Engineering baseline
 
-- Standard: `daniele21/repo-template-sw` **0.10.0**, revision `f392e4ded5cd3ec5efbf806934789c6cb9f10ded`.
-- Target maturity: **L2** across Python, local-AI, TypeScript, macOS and `product-ui`.
-- Repository-side L2 acceptance: `d528b6c5b676e705e7ccf24800929da6d5534203`.
-- Representative Apple Silicon evidence is accepted for TH-E1, EV-3, HE-2, RES-2 and RRG-5.
-- Bounded manual accessibility and representative-user usability evidence is accepted for tested source `a29e77c1ce4e65294440cfe4fc47e33c92173096`.
+- Standard `daniele21/repo-template-sw` 0.10.0
+  (`f392e4ded5cd3ec5efbf806934789c6cb9f10ded`); L2 Python,
+  local-AI, TypeScript, macOS and product-UI.
+- Repository-side L2 accepted at `d528b6c5b676e705e7ccf24800929da6d5534203`.
+  Representative TH-E1, EV-3, HE-2, RES-2 and RRG-5 accepted
+  2026-08-31 for that tested source and scope.
+- Bounded manual accessibility/usability evidence accepted for
+  `a29e77c1ce4e65294440cfe4fc47e33c92173096`;
+  see `docs/evidence/product-ui-evidence-summary-2026-08-31.json`.
 
-## Accepted deterministic surface
+## Integrated runtime contracts
 
-Repository Health blocks on architecture, resource, lifecycle, security, repeatability, built-surface, product-experience, design-system, documentation and real-evidence-bridge fitness. Separate gates cover performance regression, artifact lifecycle, security, package smoke, Python 3.10/3.11/3.12, Ruff, Playwright and zero residue.
+Repository Health and CI cover architecture, resources, security,
+lifecycle/repeatability, build, package, documentation, Python 3.10–3.12,
+Ruff, Playwright and zero residue. Inference remains fail-conservative:
+runtime leases and route accounting survive failed teardown; streams
+retain ownership to the last byte. Resident/transient memory share
+one budget; queued work reserves none, and unknown host observations
+never become zero. Explicit `llama-server` binary selection wins;
+Korgis maps admitted concurrency to `--parallel` while llama.cpp owns
+native batching/KV. Automatic pressure eviction stays **disabled**.
 
-Runtime hardening remains fail-conservative: routing/accounting persists until teardown succeeds; failed teardown stays retryable; resident and transient work share one configured memory budget; queued work reserves no transient memory; optional global execution admission bounds cross-runtime compute while preserving runtime semaphores/backend batching. Streams retain ownership through the final byte. Missing memory evidence stays unavailable.
+macOS has parent-death supervision, bounded swap/derived-pressure
+observation, guarded admission and optional native Swift observer.
+Pressure may trim Korgis response cache, not authorize automatic
+model eviction; post-stop memory deltas remain observational.
 
-Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by default. Explicit executable selection is authoritative. Local LLM Server maps admitted concurrency to `--parallel`; llama.cpp owns runtime-local batching/KV. Automatic pressure eviction remains disabled.
+## Active developer integration (`dev`)
 
-Automated E2E covers browser/API and installed-wheel behavior, not representative hardware. New backend, performance, cancellation or cross-device claims require real evidence.
+- Experimental Python SDK (#227), auth (#233) and M8.1–M8.2
+  ApplicationProfile parser/validator (#230) do not establish a stable
+  application embedding API. M8.3 dry-run and optional validate/plan
+  endpoints (#231) do **not** prove actual memory admission.
+  M8.4 Studio, M9–M10 and M12 are incomplete; production embedding
+  requires loopback authorization and owned process/listener proof (#229).
+  ClosedRoom migration is consumer-owned.
+- llama.cpp v1.0.0 (#262) is an **opt-in external** runtime with explicit
+  FP8/MoE features. Independent Python 0.3.36 is **not** v1 C API and
+  does not auto-activate. Real Korgis-managed HTTP/stream/unload plus
+  separate Python GGUF canaries PASS twice
+  ([#43629147770](https://github.com/daniele21/local-runner-infra/actions/runs/43629147770),
+  [#43629484166](https://github.com/daniele21/local-runner-infra/actions/runs/43629484166)).
+  Exact-tag historical v0.3 vs v1 managed lifecycle also passes
+  **6/6 physical-Mac cycles**
+  ([#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676))
+  after shallow-build version attribution fix (#271, merged to dev).
+  These 0.8B results do not prove larger-model pressure/reclamation
+  or external throughput/regression; LC7 **release-blocked**.
+  See `docs/workstreams/llama-cpp-v1-integration.md`.
 
-## Post-0.4 developer integration (in dev)
+## Evidence boundaries
 
-- The Python SDK (#227) and its managed auth (#233) are experimental; packaged macOS evidence is pending. Neither is stable M8/M12.
-- M8.1-M8.2 (PR #230) add a **versioned experimental server-side ApplicationProfile parser and zero-resident capability validator**. They do not activate models, reserve memory, expose public profile endpoints, or implement resource fit planning.
-- M8.3 configured-residency resource dry-run and opt-in admin validate/plan endpoints are integrated through PR #231 (commit `4e4ab38`). They are **not** evidence of request peak/transient concurrency, successful admission or a physical-device memory fit. M8.4 Studio, M9 lifecycle/residency, M10 workload policy, and M12 stable application-facing integration remain incomplete. Production-safe managed embedding is explicitly gated by loopback authorization and verifiable process/listener ownership (issue #229).
-- No representative Apple Silicon packaging/process or production compatibility claims are implied by deterministic SDK/core tests. ClosedRoom migration is a separate consumer-owned integration (#110 in ClosedRoom).
-
-- llama.cpp v1.0.0 (#262): opt-in external server with FP8/MoE.
-  Follow-up: pinned Metal installer and independent Python 0.3.36 (not v1
-  C API); neither auto-activates. Mac GGUF/memory proof pending. See
-  `docs/workstreams/llama-cpp-v1-integration.md`.
-
-## Runtime safety safeguards
-
-macOS backends have parent-death supervision and guarded admission.
-Swap and bounded, lifecycle-owned derived-pressure samples feed read-only alerts;
-critical episodes can trim Korgis response cache; admission blocks pressure.
-Native Swift helper is opt-in and bundle-signable; manual unload reports
-unattributed host deltas. MLX close drops owned model references.
-Mac reclamation remains unproven; auto-eviction stays off (#239, #244).
-
-## Accepted real evidence
-
-The 2026-08-31 representative Mac campaign accepted:
-
-- TH-E1 thinking OFF and ON-hidden;
-- EV-3 two comparable attribution-safe 10-sample, seed-0 reasoning-OFF runs;
-- HE-2 two compatible verified 3-cycle reclamation reports;
-- RES-2 bounded admit/account/infer/unload/reject behavior;
-- RRG-5 two compatible reports covering two-model residency, transient overlap, clean accounting and shutdown-under-load.
-
-Post-stop memory deltas remain observational. `automatic_eviction_recommendation=not_provided`, `reclamation_safety_claim=false` and `production_safety_claim=false`.
-
-Product experience evidence is retained in:
-
-- `docs/evidence/manual-accessibility-2026-08-31.json`;
-- `docs/evidence/representative-usability-2026-08-31.json`;
-- `docs/evidence/product-ui-evidence-summary-2026-08-31.json`.
-
-All required checks/journeys are acceptance-ready with no blocking finding. No raw prompt/output/private machine content is retained.
+Earlier 2026-08-31 device procedures accepted TH-E1 thinking policy,
+EV-3 repeatable evaluations, HE-2 reclamation, RES-2 admit/unload/reject
+and RRG-5 concurrent residence and shutdown-under-load for their
+particular baseline. Their conclusions do **not** transfer to the new
+llama.cpp v1 hardware candidate. `automatic_eviction_recommendation`
+remains `not_provided`, and both `reclamation_safety_claim` and
+`production_safety_claim` remain `false`.
 
 ## Active workstreams
 
-- Qwen Image 2.1 local generation: BF16 Diffusers, MFlux Q8 and the shared
-  `/v1/images/generations` admission path are integrated. The active slice adds a distinct
-  stable-diffusion.cpp GGUF Q4_K_M runtime composed of denoiser, Qwen3-VL text encoder and
-  Qwen Image 2.1 VAE. Bundle download/checksum, subprocess lifecycle, native job polling and
-  resource artifact accounting passed deterministic integration validation. The remaining next
-  slice is benchmark consumption/representative-device evidence; real peak memory, latency,
-  thermal and reclamation remain unproven.
+- Qwen Image 2.1: BF16 Diffusers, MFlux Q8 and shared image API
+  integrated. Separate stable-diffusion.cpp Q4_K_M GGUF runtime,
+  text encoder and VAE, verified downloads and bounded subprocess
+  lifecycle pass deterministic validation. Native peak memory,
+  latency, thermal and reclamation remain unproven; next is
+  benchmark/representative device evidence.
   See `docs/workstreams/qwen-image-2-1.md`.
+- llama.cpp v1: release-critical LC7 memory/reclamation,
+  larger-model and Performance Lab comparison evidence outstanding.
+  No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
 ## Durable references
 
-- `docs/architecture.md`
-- `.engineering/e2e.json`
-- `docs/resource-regression-contract.md`
-- `docs/performance-regression.md`
-- `docs/repeatability-contract.md`
-- `docs/product-experience-validation.md`
-- `docs/device-evidence-runbook.md`
+`docs/architecture.md`, `.engineering/e2e.json`,
+`docs/device-evidence-runbook.md`, `docs/resource-regression-contract.md`,
+`docs/performance-regression.md`, `docs/repeatability-contract.md`,
+and `docs/product-experience-validation.md`.
