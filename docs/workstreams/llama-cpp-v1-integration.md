@@ -217,20 +217,52 @@ read-only PASS found only attributed v1.0.0; no verifiable prior
 llama-server exists on the Mac. A newly built v0.3.0 is a reproducible
 *historical reference*, not the user's proven earlier installed binary.
 
-**LC7 release evidence is still incomplete:** one 0.8B specialist smoke
-does not prove managed Korgis HTTP, Python-binding GGUF inference,
-repeated memory reclamation, larger model fit or matched old-v1
-performance. Performance Lab owns external endpoint comparisons.
-See central `docs/korgis-llama-v1-real-gguf-canary.md` for run contract.
+**Paired historical v0.3.0 versus v1.0.0 Korgis lifecycle,
+representative Mac:** [central #43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
+at candidate Korgis `7043a17ffd443f4b11e1f4534fda72fc59527def`.
+The first attempts [#43632142390](https://github.com/daniele21/local-runner-infra/actions/runs/43632142390)
+and [#43632364870](https://github.com/daniele21/local-runner-infra/actions/runs/43632364870)
+failed before inference because the exact v0.3.0 source commit
+`c1d0e7a` built from a shallow checkout advertised build `1` rather than
+full-history build `10621`. Korgis now accepts build 1 **only** with the
+pinned attributable release commit (PR #271, merged to `dev`);
+unattributed binaries remain rejected.
+
+The Mac campaign alternated three Korgis-managed load/infer/stream/unload
+cycles for each engine, using the exact verified Qwen3.5-0.8B Q4_K_M
+GGUF, context 512, 8 GPU layers, 4 threads, temperature 0 and
+16 output tokens. **All 6/6 execution cycles PASS**, HTTP completion
+and streaming, admin unload/resource accounting zero, cold health,
+closed listeners, no remaining native processes, no force-kill or
+observed host-reserve breach. Descriptive medians from 3 runs:
+v0.3 / v1 cold readiness **1.303 / 1.284 s**, completion
+**0.135 / 0.120 s**, first SSE event **29 / 27 ms**.
+Swap-used was unchanged across cycles at **3,142,057,984 bytes**;
+this is not swap in/out telemetry, a peak-RSS comparison or a
+large-model reclamation claim. The first 6/6 execution PASS was
+followed by a *report-summary shell error* (receipt mistakenly executed
+as a command), so the workflow verdict for #43633363555 is FAIL
+despite a validated path-free execution receipt; summary script fixed
+for a separate verification run. Do not promote this failure to a
+green workflow verdict.
+
+**LC7 release gate remains BLOCKED:** prior managed HTTP/Python proof
+and this six-cycle small-model lifecycle comparison are not sufficient
+for pressure-safe repeated HE-2/RES-2/RRG-5 evidence, larger model fit,
+real peak RSS/swap-in/out, throughput-quality equivalence, or the
+externally served comparison/regression owned by Performance Lab.
+See central `docs/korgis-llama-v1-real-gguf-canary.md` for the
+earlier runtime run contract.
 
 ## Resume checkpoint
 
-PRs #262–#265 are merged to dev; real managed Korgis HTTP,
-streaming and unload plus independent Python GGUF inference passed twice
-on Apple Silicon as linked above. LC7 remains BLOCKED: repeat resource
-pressure and reclamation evidence, matched historical reference versus v1
-endpoint evaluation owned by Performance Lab and exact-candidate release
-checks. Do not promote to main or enable automatic eviction.
+PRs #262–#265 and #271 are merged to dev; attributable shallow
+v0.3 and v1 binaries now both complete six Korgis-managed 0.8B lifecycle
+cycles, in addition to repeated independent v1 HTTP/Python canaries.
+LC7 remains BLOCKED: repeated pressure and reclamation evidence,
+representative larger-model resources, external Performance Lab
+endpoint evaluation/regression and exact-candidate release checks.
+Do not promote to main or enable automatic eviction.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
