@@ -155,6 +155,20 @@ cancellation, unload-under-lease or process-level fault was
 observed in these attempts. Do not classify the blocked procedure
 as lifecycle failure or bypass host admission to obtain a PASS.
 
+## Current dev Mac preflight (2026-11-14)
+
+`dev@a002a182`: [release FULL CI](https://github.com/daniele21/korgis/actions/runs/43647301180)
+and [native CLI/Metal](https://github.com/daniele21/korgis/actions/runs/43647301201)
+PASS, not LC7 acceptance.
+[Read-only Mac #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434):
+v1 binary verified; no inference/download/settings change.
+0.8B canonical admission **refused**: 8,184,758,272 available vs
+8,455,716,864 required; pinned model not in verified cache.
+4B **refused**: 8,200,257,536 available vs 9,776,843,072 required;
+cached SHA `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
+differs from registry `25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
+No guards waived; LC7 and external regression remain **pending**.
+
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
