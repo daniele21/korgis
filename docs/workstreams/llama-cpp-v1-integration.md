@@ -164,48 +164,41 @@ verification, not with a weakened acceptance check.
 multi-runtime pressure, model quality and matched old-v1 performance.
 No default runtime switch or automatic eviction is authorized.
 
-## Attributed automated and real-device preflight evidence
+## Attributed Mac hardware evidence
 
-PR #262's FULL CI, Repository Health and pinned upstream CLI smoke PASS
-(see runs 43527753569, 43527753797, 43527753754). Its shallow
-source build reports `version: 1.0.0 (build 1, commit 2d8a325)`:
-source commit, not numeric build alone, identifies the v1 release.
-
-The *read-only* self-hosted Mac preflights
-[#43603426986](https://github.com/daniele21/local-runner-infra/actions/runs/43603426986)
-and [#43603651690](https://github.com/daniele21/local-runner-infra/actions/runs/43603651690)
-PASS as **observational checks only**, at source
-`52dafb5b5ca523a0bdca4aae3ab95ca3e7f72c00`.
-Physical Mac: 32 GiB RAM, last estimated available/reclaimable
-8,288,796,672 bytes and swap used 3,190,816,768 bytes;
-zero existing `llama-server` processes. Pinned v1 binary digest
+Native pinned llama.cpp v1 Metal and independently built Python 0.3.36:
+[central #43599039636](https://github.com/daniele21/local-runner-infra/actions/runs/43599039636)
+(45 tests PASS) and [#43600645829](https://github.com/daniele21/local-runner-infra/actions/runs/43600645829)
+(side-by-side install PASS). Verified v1 binary SHA256:
 `edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
-The sole small text candidate found was **not registered** in the selected
-Korgis model allowlist: filename class Nemotron, GGUF magic valid, file
-4,233,677,952 bytes, SHA-256
-`f872b1bec0aed30659d0b4c7ba312905a3f23f3cd9ca22696185dcf5db8000e1`.
-Private model path and content were not captured.
+The earlier 4.23 GB unregistered Nemotron GGUF was **not launched**
+under unsafe host admission: preflight [#43603651690](https://github.com/daniele21/local-runner-infra/actions/runs/43603651690).
 
-Korgis `ResourceManager` host reserve at 32 GiB is 6 GiB,
-leaving only 1,846,345,728 bytes of measured growth headroom on this
-snapshot, below the GGUF file size **before** KV/context/overhead.
-**No inference was launched or benchmark run.** This is a safe blocked
-admission, not evidence of a v1 regression. Do not lower reserve or
-credit preexisting swap to force the model. LC7 remains BLOCKED; the
-next useful real canary needs a verified smaller, supported local GGUF
-with safe admission, followed by old-v1 matched inference and unload
-evidence. No promotion to main or automatic eviction.
+**Actual v1 GGUF inference PASS:** [Mac run #43610869367](https://github.com/daniele21/local-runner-infra/actions/runs/43610869367)
+on Korgis `ac7e3486c1fa36a3bbb415fbb98a758fce9ff987`.
+Pinned Qwen3.5-0.8B Q4_K_M: 527,502,816 bytes,
+SHA256 `f5b14da98939b60bbe1019a964eba656407e1e0b64f1fe3003ff6d650e93bfec`.
+Korgis' canonical host ResourceManager **ADMIT** for 946,933,216
+estimated bytes. v1 Metal loopback server: HTTP 200, 24 tokens,
+0.353 s sampled completion, 25 streaming events, 5.685 s cold startup.
+Peak server RSS 1,008,205,824 bytes; minimum reclaimable host memory
+8,429,289,472 bytes; swap before/after 3,150,446,592 bytes.
+Process exited without force-kill, listener closed, host reserve not crossed.
+Model downloaded to verified temporary scratch, then deleted; default engine
+unchanged. No automatic eviction exercised.
+
+**LC7 release evidence is still incomplete:** one 0.8B specialist smoke
+does not prove managed Korgis HTTP, Python-binding GGUF inference,
+repeated memory reclamation, larger model fit or matched old-v1
+performance. Performance Lab owns external endpoint comparisons.
+See central `docs/korgis-llama-v1-real-gguf-canary.md` for run contract.
 
 ## Resume checkpoint
 
-PR #262 (v1 compatibility), #263 (pinned installer/Python 0.3.36),
-#264 (self-hosted Mac lane) and #265 (portable CMake fallback) are merged
-to dev. CI and native Mac validation/side-by-side installation PASS, linked
-above. LC7 remains blocked: run bounded attributable GGUF model evidence on
-representative Apple Silicon, compare previous/v1 runtimes under matching
-workloads, verify memory/pressure/unload and use Performance Lab for
-external endpoint comparison. Do not promote to main or enable eviction on
-binary-build-only proof.
+PRs #262–#265 are merged to dev; v1 Metal small-GGUF
+specialist smoke is PASS. LC7 remains blocked for managed Korgis lifecycle,
+repeat load/unload/pressure proof and matched old-v1 Performance Lab evidence.
+Do not promote to main or enable automatic eviction.
 
 Complete only when code, contracts, consumers, docs, exact-head CI and required
 real-device evidence agree. Transfer durable truth and delete this workstream
