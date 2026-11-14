@@ -90,7 +90,7 @@ def test_product_resource_lifecycle_matches_api_and_returns_to_healthy_cold_stat
 
     client = _admin_app(tmp_path, manager, settings)
     committed = client.get("/api/v1/resources").json()
-    assert committed == {
+    expected_policy = {
         "enabled": True,
         "memory_limit_bytes": 1_000,
         "headroom_bytes": 100,
@@ -101,6 +101,8 @@ def test_product_resource_lifecycle_matches_api_and_returns_to_healthy_cold_stat
         "reservation_count": 1,
         "policy_state": "configured",
     }
+    assert {key: committed[key] for key in expected_policy} == expected_policy
+    assert committed["observation"]["schema_version"] == "1"
 
     response = client.post(
         "/v1/chat/completions",

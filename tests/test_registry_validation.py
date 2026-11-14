@@ -304,3 +304,73 @@ def test_builtin_registry_exposes_qwen_image_gguf_q4km_profile(
     assert entry["params"]["image_num_inference_steps"] == 20
     assert entry["params"]["image_guidance_scale"] == 6.0
     assert entry["params"]["image_sampling_method"] == "euler"
+
+
+def test_registry_validation_rejects_empty_model_specific_llama_server_env():
+    registry = _registry(
+        {
+            "one": {
+                "filename": "one.gguf",
+                "backend": "llama_server",
+                "params": {"llama_server_bin_env": ""},
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="llama_server_bin_env"):
+        validate_registry(registry)
+
+
+def test_builtin_registry_exposes_ternary_bonsai_ptq1_profile(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["ternary-bonsai2-27b-ptq1"]
+
+    assert entry["model_id"] == "prism-ml/Ternary-Bonsai-2-27B-gguf"
+    assert entry["backend"] == "llama_server"
+    assert entry["quantization"] == "PTQ1_0"
+    assert entry["size_gb"] == 5.95
+    assert entry["sha256"] == (
+        "53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3"
+    )
+    assert entry["params"]["ctx_size"] == 65536
+    assert entry["params"]["llama_server_bin_env"] == "PRISM_LLAMA_SERVER_BIN"
+
+
+def test_registry_validation_rejects_llama_server_min_build_on_other_backends():
+    registry = _registry(
+        {
+            "one": {
+                "filename": "one.gguf",
+                "backend": "llama_cpp",
+                "params": {"llama_server_min_build": 10828},
+            }
+        }
+    )
+
+    with pytest.raises(ValueError, match="llama_server_min_build"):
+        validate_registry(registry)
+
+
+def test_builtin_registry_exposes_spark_x25_q4km_profile(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    registry = load_registry()
+    entry = registry["models"]["spark-x2.5-4b-q4km"]
+
+    assert entry["model_id"] == "XHToken/Spark-X2.5-4B"
+    assert entry["backend"] == "llama_server"
+    assert entry["quantization"] == "Q4_K_M"
+    assert entry["size_gb"] == 2.60
+    assert entry["sha256"] == (
+        "adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428"
+    )
+    assert entry["thinking_mode"] == "switchable"
+    assert entry["params"]["ctx_size"] == 8192
+    assert entry["params"]["enable_thinking"] is False
+    assert entry["params"]["llama_server_min_build"] == 10828

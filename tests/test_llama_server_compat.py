@@ -263,3 +263,118 @@ def test_legacy_command_does_not_receive_modern_only_options():
     assert "--kv-unified" not in command
     assert "--load-mode" not in command
     assert "--fit" not in command
+
+
+def test_model_specific_minimum_build_rejects_globally_supported_older_binary(tmp_path):
+    binary = _make_executable(tmp_path / "llama-server")
+
+    with pytest.raises(RuntimeError, match="require build 10828"):
+        resolve_llama_server_binary(
+            {
+                "llama_server_bin": str(binary),
+                "llama_server_min_build": 10828,
+            },
+            run_command=lambda _path: "version: 10700 (abcdef1)\n",
+        )
+
+
+def test_model_specific_minimum_build_accepts_required_binary(tmp_path):
+    binary = _make_executable(tmp_path / "llama-server")
+
+    resolved, compatibility = resolve_llama_server_binary(
+        {
+            "llama_server_bin": str(binary),
+            "llama_server_min_build": 10828,
+        },
+        run_command=lambda _path: "version: 10828 (abcdef2)\n",
+    )
+
+    assert resolved == binary
+    assert compatibility.supported is True
+    assert compatibility.minimum_build == 10828
+    assert compatibility.backend_version == "build-10828@abcdef2"
+
+
+def test_auto_discovery_finds_standard_system_dir_candidate_when_which_is_empty(tmp_path):
+    system_dir = tmp_path / "opt" / "homebrew" / "bin"
+    supported = _make_executable(system_dir / "llama-server")
+    runner = _runner_for({str(supported): "version: 10621 (c1d0e7a)\n"})
+
+    binary, compatibility = resolve_llama_server_binary(
+        {},
+        home=tmp_path / "home",
+        which_resolver=lambda _name: None,
+        system_dirs=(system_dir,),
+        run_command=runner,
+    )
+
+    assert binary == supported
+    assert compatibility.exact_validated_release is True
+
+
+def test_auto_discovery_prefers_which_before_lmstudio(tmp_path):
+    lmstudio_dir = (
+        tmp_path
+        / ".lmstudio"
+        / "extensions"
+        / "backends"
+        / "llama.cpp-new"
+    )
+    lmstudio_binary = _make_executable(lmstudio_dir / "llama-server")
+    which_binary = _make_executable(tmp_path / "bin" / "llama-server")
+
+    probed_order: list[str] = []
+
+    def tracking_runner(path: Path) -> str:
+        probed_order.append(str(path))
+        if path == which_binary:
+            return "version: 10621 (c1d0e7a)\n"
+        return "version: 1 (legacy)\n"
+
+    binary, compatibility = resolve_llama_server_binary(
+        {},
+        home=tmp_path,
+        which_resolver=lambda _name: str(which_binary),
+        run_command=tracking_runner,
+    )
+
+    assert binary == which_binary
+    assert compatibility.exact_validated_release is True
+    # The PATH binary must be evaluated first, avoiding scanning lmstudio binaries
+    assert probed_order == [str(which_binary)]
+
+
+
+def test_shallow_v1_exact_source_respects_stricter_model_build_floor():
+    # Source-attributed build 1 is accepted for the default v1 runtime,
+    # but never substitutes for a model-specific fork/newer build floor.
+    from local_llm_server.llama_server_compat import LLAMA_CPP_V1_RELEASE_COMMIT
+
+    runner = lambda _path: (
+        f"version: 1 ({LLAMA_CPP_V1_RELEASE_COMMIT[:9]})\n"
+    )
+    compatibility = validate_llama_server_binary(
+        "/tmp/llama-server", run_command=runner,
+    )
+    assert compatibility.supported is True
+    assert compatibility.exact_v1_release is True
+    assert compatibility.modern_runtime_options is True
+
+    with pytest.raises(RuntimeError, match="require build 10828"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            minimum_build=10828,
+            run_command=runner,
+        )
+
+
+def test_specialist_build_floor_one_does_not_enable_unverified_modern_flags():
+    # Model-specific floor 1 may permit an attributable specialist binary,
+    # but it does not prove that the binary implements stock v0.3 CLI flags.
+    compatibility = validate_llama_server_binary(
+        "/tmp/specialist-llama-server",
+        minimum_build=1,
+        run_command=lambda _path: "version: 1 (1234567)\n",
+    )
+    assert compatibility.supported is True
+    assert compatibility.modern_runtime_options is False

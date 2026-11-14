@@ -7,6 +7,7 @@ repository's llama.cpp v0.3.0 / b10621 feature floor.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -15,6 +16,12 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
+
+logger = logging.getLogger("local-llm.llama_server_compat")
+
+DEFAULT_PROBE_TIMEOUT_SECONDS = float(
+    os.getenv("LOCAL_LLM_PROBE_TIMEOUT_SECONDS", "60.0")
+)
 
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
@@ -91,7 +98,7 @@ class LlamaServerCompatibility:
             self.supported
             and self.identity is not None
             and (
-                self.identity.build >= self.minimum_build
+                self.identity.build >= LLAMA_CPP_VALIDATED_MIN_BUILD
                 or self.identity.matches_validated_release
                 or self.identity.matches_v1_release
             )
@@ -164,6 +171,7 @@ def validate_llama_server_binary(
     binary: Path | str,
     *,
     allow_unvalidated: bool = False,
+    minimum_build: int = LLAMA_CPP_VALIDATED_MIN_BUILD,
     run_command: CommandRunner | None = None,
 ) -> LlamaServerCompatibility:
     """Validate an external server against the repository's v0.3 feature floor.
@@ -173,10 +181,17 @@ def validate_llama_server_binary(
     ``allow_unvalidated`` is a deliberate compatibility escape hatch for older
     or unparseable runtimes. Those runtimes never receive v0.3-only options.
     """
+    if isinstance(minimum_build, bool) or minimum_build <= 0:
+        raise ValueError("minimum_build must be a positive integer")
+
     identity = probe_llama_server_version(binary, run_command=run_command)
     if identity is None:
         if allow_unvalidated:
-            return LlamaServerCompatibility(identity=None, supported=False)
+            return LlamaServerCompatibility(
+                identity=None,
+                supported=False,
+                minimum_build=minimum_build,
+            )
         raise RuntimeError(
             "Cannot verify llama-server version. Local LLM Server requires an "
             f"attributable llama.cpp {LLAMA_CPP_VALIDATED_RELEASE}+ executable "
@@ -184,19 +199,28 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if (identity.build < LLAMA_CPP_VALIDATED_MIN_BUILD
-            and not identity.matches_validated_release
-            and not identity.matches_v1_release):
+    if (identity.build < minimum_build and not (
+        minimum_build == LLAMA_CPP_VALIDATED_MIN_BUILD
+        and (identity.matches_validated_release or identity.matches_v1_release)
+    )):
         if allow_unvalidated:
-            return LlamaServerCompatibility(identity=identity, supported=False)
+            return LlamaServerCompatibility(
+                identity=identity,
+                supported=False,
+                minimum_build=minimum_build,
+            )
         raise RuntimeError(
             "llama-server is older than the validated runtime floor: "
             f"found build {identity.build}, require build "
-            f"{LLAMA_CPP_VALIDATED_MIN_BUILD}+ "
+            f"{minimum_build}+ "
             f"({LLAMA_CPP_VALIDATED_RELEASE} or newer)."
         )
 
-    return LlamaServerCompatibility(identity=identity, supported=True)
+    return LlamaServerCompatibility(
+        identity=identity,
+        supported=True,
+        minimum_build=minimum_build,
+    )
 
 
 def resolve_llama_server_binary(
@@ -205,16 +229,26 @@ def resolve_llama_server_binary(
     run_command: CommandRunner | None = None,
     which_resolver: WhichResolver | None = None,
     home: Path | None = None,
+    system_dirs: tuple[Path, ...] | None = None,
 ) -> tuple[Path, LlamaServerCompatibility]:
     """Resolve one executable and its compatibility without hidden fallback.
 
     An explicit config/environment path is authoritative and is never silently
-    replaced. Automatic discovery prefers the first attributable v0.3-capable
-    candidate. A legacy candidate is considered only when the caller explicitly
-    enables ``llama_server_allow_unvalidated``.
+    replaced. Automatic discovery prefers PATH and standard installation
+    locations, followed by specialist runtime directories. A legacy candidate is
+    considered only when the caller explicitly enables
+    ``llama_server_allow_unvalidated``.
     """
     explicit = cfg.get("llama_server_bin") or os.getenv("LOCAL_LLM_SERVER_BIN")
     allow_unvalidated = bool(cfg.get("llama_server_allow_unvalidated", False))
+    configured_minimum_build = cfg.get("llama_server_min_build")
+    minimum_build = (
+        LLAMA_CPP_VALIDATED_MIN_BUILD
+        if configured_minimum_build is None
+        else int(configured_minimum_build)
+    )
+    if minimum_build <= 0:
+        raise ValueError("llama_server_min_build must be a positive integer")
 
     if explicit:
         path = Path(str(explicit)).expanduser()
@@ -222,12 +256,30 @@ def resolve_llama_server_binary(
         compatibility = validate_llama_server_binary(
             path,
             allow_unvalidated=allow_unvalidated,
+            minimum_build=minimum_build,
             run_command=run_command,
         )
         return path, compatibility
 
     root = home or Path.home()
     candidates: list[Path] = []
+    resolver = which_resolver or shutil.which
+    discovered = resolver("llama-server")
+    if discovered:
+        candidates.append(Path(discovered))
+
+    dirs_to_check = (
+        system_dirs
+        if system_dirs is not None
+        else (
+            (Path("/opt/homebrew/bin"), Path("/usr/local/bin"), root / ".local" / "bin")
+            if home is None
+            else (root / ".local" / "bin",)
+        )
+    )
+    for standard_dir in dirs_to_check:
+        candidates.append(standard_dir / "llama-server")
+
     lmstudio_backends = root / ".lmstudio" / "extensions" / "backends"
     candidates.extend(
         sorted(
@@ -236,10 +288,6 @@ def resolve_llama_server_binary(
             reverse=True,
         )
     )
-    resolver = which_resolver or shutil.which
-    discovered = resolver("llama-server")
-    if discovered:
-        candidates.append(Path(discovered))
 
     first_legacy: tuple[Path, LlamaServerCompatibility] | None = None
     executable_candidates: list[Path] = []
@@ -250,6 +298,7 @@ def resolve_llama_server_binary(
         compatibility = validate_llama_server_binary(
             candidate,
             allow_unvalidated=True,
+            minimum_build=minimum_build,
             run_command=run_command,
         )
         if compatibility.modern_runtime_options:
@@ -264,7 +313,7 @@ def resolve_llama_server_binary(
         raise RuntimeError(
             "No discovered llama-server satisfies the llama.cpp "
             f"{LLAMA_CPP_VALIDATED_RELEASE} / build "
-            f"{LLAMA_CPP_VALIDATED_MIN_BUILD}+ runtime floor. Set "
+            f"{minimum_build}+ runtime floor. Set "
             "LOCAL_LLM_SERVER_BIN to a supported executable, or explicitly "
             "allow an unvalidated legacy runtime."
         )
@@ -485,10 +534,16 @@ def _probe_default_runner_cached(path: Path) -> LlamaServerBuildIdentity | None:
             return cached
         try:
             output = _default_runner(path)
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("Probing llama-server version for %s failed: %s", path, exc)
             return None
         identity = parse_llama_server_version(output)
         if identity is None:
+            logger.warning(
+                "Could not parse llama-server version from output for %s: %r",
+                path,
+                output,
+            )
             return None
 
         resolved_path = cache_key[0]
@@ -512,12 +567,12 @@ def _executable_cache_key(path: Path) -> _ExecutableCacheKey:
     )
 
 
-def _default_runner(binary: Path) -> str:
+def _default_runner(binary: Path, timeout: float | None = None) -> str:
     completed = subprocess.run(
         [str(binary), "--version"],
         capture_output=True,
         text=True,
-        timeout=2.0,
+        timeout=timeout if timeout is not None else DEFAULT_PROBE_TIMEOUT_SECONDS,
         check=False,
     )
     return "\n".join(
