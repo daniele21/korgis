@@ -44,6 +44,7 @@ _FALLBACKS: dict[str, Any] = {
     "mmproj_path": None,
     "llama_server_port": 8091,
     "llama_server_bin": None,
+    "llama_server_min_build": None,
     "llama_server_allow_unvalidated": False,
     "llama_server_cont_batching": True,
     "llama_server_kv_unified": True,
@@ -63,6 +64,11 @@ _FALLBACKS: dict[str, Any] = {
     "sd_server_port": 8093,
     "sd_server_bin": None,
     "sd_server_poll_interval_seconds": 0.25,
+    "sd_server_params_backend": None,
+    "sd_server_max_vram": None,
+    "sd_server_model_args": None,
+    "sd_server_mmap": False,
+    "sd_server_disable_prefetch": False,
     "image_device": "auto",
     "image_dtype": "bfloat16",
     "image_width": 1024,
@@ -77,6 +83,8 @@ _FALLBACKS: dict[str, Any] = {
     "image_scheduler": None,
     "image_diffusion_flash_attention": True,
     "image_offload_to_cpu": True,
+    "image_vae_tiling": False,
+    "image_vae_tile_size": None,
     "multimodal": False,
     "modalities": ["text"],
     "startup_timeout": 60,
@@ -104,6 +112,7 @@ _ENV_MAP: dict[str, str] = {
     "backend": "LOCAL_LLM_BACKEND",
     "llama_server_port": "LOCAL_LLM_SERVER_PORT",
     "llama_server_bin": "LOCAL_LLM_SERVER_BIN",
+    "llama_server_min_build": "LOCAL_LLM_SERVER_MIN_BUILD",
     "llama_server_allow_unvalidated": "LOCAL_LLM_SERVER_ALLOW_UNVALIDATED",
     "llama_server_cont_batching": "LOCAL_LLM_SERVER_CONT_BATCHING",
     "llama_server_kv_unified": "LOCAL_LLM_SERVER_KV_UNIFIED",
@@ -123,6 +132,11 @@ _ENV_MAP: dict[str, str] = {
     "sd_server_port": "LOCAL_LLM_SD_SERVER_PORT",
     "sd_server_bin": "LOCAL_LLM_SD_SERVER_BIN",
     "sd_server_poll_interval_seconds": "LOCAL_LLM_SD_SERVER_POLL_INTERVAL_SECONDS",
+    "sd_server_params_backend": "LOCAL_LLM_SD_SERVER_PARAMS_BACKEND",
+    "sd_server_max_vram": "LOCAL_LLM_SD_SERVER_MAX_VRAM",
+    "sd_server_model_args": "LOCAL_LLM_SD_SERVER_MODEL_ARGS",
+    "sd_server_mmap": "LOCAL_LLM_SD_SERVER_MMAP",
+    "sd_server_disable_prefetch": "LOCAL_LLM_SD_SERVER_DISABLE_PREFETCH",
     "image_device": "LOCAL_LLM_IMAGE_DEVICE",
     "image_dtype": "LOCAL_LLM_IMAGE_DTYPE",
     "image_width": "LOCAL_LLM_IMAGE_WIDTH",
@@ -137,6 +151,8 @@ _ENV_MAP: dict[str, str] = {
     "image_scheduler": "LOCAL_LLM_IMAGE_SCHEDULER",
     "image_diffusion_flash_attention": "LOCAL_LLM_IMAGE_DIFFUSION_FLASH_ATTENTION",
     "image_offload_to_cpu": "LOCAL_LLM_IMAGE_OFFLOAD_TO_CPU",
+    "image_vae_tiling": "LOCAL_LLM_IMAGE_VAE_TILING",
+    "image_vae_tile_size": "LOCAL_LLM_IMAGE_VAE_TILE_SIZE",
     "startup_timeout": "LOCAL_LLM_STARTUP_TIMEOUT",
     "max_concurrent_requests": "LOCAL_LLM_MAX_CONCURRENT_REQUESTS",
     "max_kv_size": "LOCAL_LLM_MAX_KV_SIZE",
@@ -155,14 +171,16 @@ _BOOL_ENV = {
     "llama_server_allow_unvalidated", "llama_server_cont_batching",
     "llama_server_kv_unified", "llama_server_fit",
     "image_diffusion_flash_attention", "image_offload_to_cpu",
+    "sd_server_mmap", "sd_server_disable_prefetch", "image_vae_tiling",
 }
 _INT_ENV = {
     "port", "ctx_size", "n_gpu_layers", "n_threads", "n_batch", "n_ubatch", "timeout",
     "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout", "default_top_k",
     "image_width", "image_height", "image_num_inference_steps", "image_quantization_bits",
     "image_max_inference_steps", "image_max_pixels",
-    "max_concurrent_requests", "max_kv_size", "llama_server_fit_target_mib",
-    "llama_server_fit_ctx", "llama_server_cache_ram_mib",
+    "max_concurrent_requests", "max_kv_size", "llama_server_min_build",
+    "llama_server_fit_target_mib", "llama_server_fit_ctx",
+    "llama_server_cache_ram_mib",
     "llama_server_moe_stream_cache_gib", "llama_server_moe_stream_io_threads",
     "llama_server_moe_cache_mib",
 }
@@ -216,6 +234,30 @@ def build_config(
         if key in explicit and explicit[key] is not None:
             cfg[key] = explicit[key]
             continue
+
+        if key == "llama_server_bin":
+            model_bin_env = reg_params.get("llama_server_bin_env")
+            if model_bin_env is not None:
+                if not isinstance(model_bin_env, str) or not model_bin_env.strip():
+                    raise ValueError(
+                        f"Model '{model}' has invalid llama_server_bin_env"
+                    )
+                env_val = os.getenv(model_bin_env.strip(), "")
+                if not env_val:
+                    model_bin = reg_params.get("llama_server_bin")
+                    if model_bin is not None:
+                        cfg[key] = str(Path(model_bin).expanduser())
+                        continue
+                    raise ValueError(
+                        f"Model '{model}' requires llama-server binary via "
+                        f"environment variable '{model_bin_env.strip()}'"
+                    )
+                cfg[key] = env_val
+                continue
+            model_bin = reg_params.get("llama_server_bin")
+            if model_bin is not None:
+                cfg[key] = str(Path(model_bin).expanduser())
+                continue
 
         env_name = _ENV_MAP.get(key)
         env_val = os.getenv(env_name, "") if env_name else ""

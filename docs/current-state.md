@@ -89,6 +89,24 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Performance Lab comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
+## Cross-branch reconciliation candidate (2026-11-14)
+
+The `main`-only additions being reconciled into `dev` include specialist
+model entries/validated per-model `llama-server` minimum builds, explicit
+specialist binary environment selection, Qwen Image GGUF low-memory flags,
+observational RSS/CPU reporting in `/api/v1/resources`, and the source-owned
+generic Mac CI dispatch. These combine with `dev`'s bounded host admission,
+v1 exact-source attribution, inherited-loopback embedded session and
+process/stream lifecycle. A model-specific build minimum cannot be waived
+by source attribution for build-1 v1. Unknown build-1 specialist binaries
+must never unlock modern stock-only CLI flags. The standard Mac runner
+entrypoint stays lightweight; the pinned v1 Metal smoke remains separately
+runnable in `.github/ci/llama-v1-native-smoke.sh`.
+
+**Release status: candidate only.** A two-parent reconciliation tree is
+subject to exact-head FULL deterministic testing and renewed representative
+hardware evidence. `main` promotion and production safety remain blocked.
+
 ## Durable references
 
 `docs/architecture.md`, `.engineering/e2e.json`,

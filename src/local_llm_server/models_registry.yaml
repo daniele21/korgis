@@ -17,6 +17,49 @@ defaults:
   default_repeat_penalty: 1.0
 
 models:
+  lfm2.5-24b-a2b-ud-q3-k-xl:
+    model_id: lfm2.5-24b-a2b-ud-q3-k-xl
+    backend: llama_server
+    filename: LFM2.5-24B-A2B-UD-Q3_K_XL.gguf
+    lmstudio_path: unsloth/LFM2.5-24B-A2B-GGUF
+    quantization: UD-Q3_K_XL
+    params:
+      ctx_size: 8192
+      n_gpu_layers: -1
+    tags: [local, open-weight, moe, local-benchmark]
+
+  lfm2.5-24b-a2b-ud-q4-k-xl:
+    model_id: lfm2.5-24b-a2b-ud-q4-k-xl
+    backend: llama_server
+    filename: LFM2.5-24B-A2B-UD-Q4_K_XL.gguf
+    lmstudio_path: unsloth/LFM2.5-24B-A2B-GGUF
+    quantization: UD-Q4_K_XL
+    params:
+      ctx_size: 8192
+      n_gpu_layers: -1
+    tags: [local, open-weight, moe, local-benchmark]
+
+  lfm3-1.7b-q8:
+    model_id: LiquidAI/LFM3-1.7B-GGUF
+    filename: LFM3-1.7B-Q8_0.gguf
+    lmstudio_path: LiquidAI/LFM3-1.7B-GGUF
+    quantization: Q8_0
+    size_gb: 1.70
+    sha256: "8f6b24182258205e9e01e21f1f24a1f208c1e8115578825d202ce39976af20b6"
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_min_build: 1
+      llama_server_bin_env: LFM3_LLAMA_SERVER_BIN
+      llama_server_bin: ~/.lmstudio/extensions/backends/llama.cpp-mac-arm64-apple-metal-advsimd-2.65.1/llama-server
+    tags: [local, open-weight, small, 1.7b, q8_0, local-benchmark]
+
   nemotron-nano-4b:
     filename: "NVIDIA-Nemotron-3-Nano-4B-Q4_K_M.gguf"
     url: "https://huggingface.co/lmstudio-community/NVIDIA-Nemotron-3-Nano-4B-GGUF/resolve/main/NVIDIA-Nemotron-3-Nano-4B-Q4_K_M.gguf"
@@ -86,6 +129,104 @@ models:
       enable_thinking: false
       show_thinking: false
     tags: [reasoning, qwen, local-benchmark, 9b]
+
+  qwen3.8-27b-q40:
+    path: "~/.lmstudio/models/unsloth/Qwen3.8-27B-GGUF/Qwen3.8-27B-Q4_0.gguf"
+    filename: "Qwen3.8-27B-Q4_0.gguf"
+    lmstudio_path: "unsloth/Qwen3.8-27B-GGUF"
+    url: "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-Q4_0.gguf"
+    model_id: "Qwen/Qwen3.8-27B"
+    quantization: "Q4_0"
+    sha256: "ede16c7b36e578ca87a8c70e011e4b4633a32c831c0ce76d0f474582384e671d"
+    size_gb: 16.1
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 600
+      max_concurrent_requests: 1
+      default_temperature: 0.7
+      default_top_p: 0.8
+      default_top_k: 20
+      enable_thinking: false
+      show_thinking: false
+    tags: [reasoning, qwen, local-benchmark, 27b, q40]
+
+  spark-x2.5-4b-q4km:
+    filename: "Spark-X2.5-4B-Q4_K_M.gguf"
+    lmstudio_path: "XHToken/Spark-X2.5-4B-GGUF"
+    url: "https://huggingface.co/XHToken/Spark-X2.5-4B-GGUF/resolve/main/Spark-X2.5-4B-Q4_K_M.gguf"
+    model_id: "XHToken/Spark-X2.5-4B"
+    quantization: "Q4_K_M"
+    sha256: "adfcfa19a4ed6a5985da8bf565fe15f8e1a7e131d79bae2d19d48d1c40109428"
+    revision: "d313463f1ff7dc29db20193fddc4ad8386d16261"
+    size_gb: 2.60
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_min_build: 10828
+    tags: [reasoning, coding, agentic, spark, local-benchmark, small, 4b, q4km]
+
+  spark-x2.6-4b-q4km:
+    filename: "Spark-X2.6-4B-Q4_K_M.gguf"
+    lmstudio_path: "XHToken/Spark-X2.6-4B-GGUF"
+    model_id: "XHToken/Spark-X2.6-4B"
+    quantization: "Q4_K_M"
+    sha256: "91cb2811aebb47ac916aa619d27d4cdd7f4143106b7917accb8ead4cd7f5cbd9"
+    size_gb: 3.30
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 300
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_min_build: 11669
+    tags: [reasoning, coding, agentic, spark, local-benchmark, small, 4b, q4km]
+
+  ternary-bonsai2-27b-ptq1:
+    filename: "Ternary-Bonsai-2-27B-PTQ1_0.gguf"
+    url: "https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf/resolve/main/Ternary-Bonsai-2-27B-PTQ1_0.gguf"
+    model_id: "prism-ml/Ternary-Bonsai-2-27B-gguf"
+    quantization: "PTQ1_0"
+    sha256: "53107f530aa52eb00912263ab1ee29bd199261c87cd7b4ad4ca1318c1fe33ee3"
+    size_gb: 5.95
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 65536
+      startup_timeout: 600
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+      llama_server_bin_env: PRISM_LLAMA_SERVER_BIN
+    tags: [reasoning, ternary, bonsai, prismml, local-benchmark, 27b, ptq1]
+
+  bonsai-27b-q10:
+    filename: "Bonsai-27B-Q1_0.gguf"
+    lmstudio_path: "prism-ml/Bonsai-27B-gguf"
+    model_id: "prism-ml/bonsai-27b"
+    quantization: "Q1_0"
+    size_gb: 3.50
+    backend: llama_server
+    thinking_mode: switchable
+    params:
+      ctx_size: 8192
+      startup_timeout: 600
+      max_concurrent_requests: 1
+      default_temperature: 0.0
+      enable_thinking: false
+      show_thinking: false
+    tags: [reasoning, ternary, bonsai, prismml, local-benchmark, 27b, q10]
 
   qwen3-vl-4b:
     model_id: "mlx-community/Qwen3-VL-4B-Instruct-4bit"
@@ -182,6 +323,12 @@ models:
       image_sampling_method: euler
       image_diffusion_flash_attention: true
       image_offload_to_cpu: true
+      sd_server_params_backend: "diffusion=disk,te=cpu,vae=cpu"
+      sd_server_max_vram: "-2"
+      sd_server_model_args: "qwen_image_2_1_prefix_cache=false"
+      sd_server_disable_prefetch: true
+      image_vae_tiling: true
+      image_vae_tile_size: "256x256"
       image_output_format: png
       max_concurrent_requests: 1
       startup_timeout: 600

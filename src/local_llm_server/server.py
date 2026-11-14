@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .runtime import ModelRuntimeManager
+from .runtime_evidence import attached_runtime_identity
 
 logger = logging.getLogger("local-llm.server")
 
@@ -483,6 +484,7 @@ def get_health(request: Request):
         "default_model": manager.default_model,
         "loaded_models": [runtime.key for runtime in manager.list()],
         "admin_api_enabled": admin_enabled,
+        "inference_cache_max_entries": request.app.state.settings.inference_cache_max_entries,
         "config_capabilities": config_capabilities_for_backend(
             str(cfg.get("backend", "unknown")),
             thinking_mode=str(cfg.get("thinking_mode", "none")),
@@ -1111,17 +1113,24 @@ def _load_or_activate_model(
             app_state.cfg = runtime.cfg
             app_state.llm = runtime.engine
         logger.info("Model %s ready (newly loaded: %s)", req.model, loaded)
+        identity_snapshot = attached_runtime_identity(runtime)
         return {
             "ok": True,
             "model": runtime.model_id,
             "key": runtime.key,
             "loaded": loaded,
             "default": runtime.key == manager.default_model,
+            "runtime_identity": (
+                identity_snapshot.to_public_dict()
+                if identity_snapshot is not None
+                else None
+            ),
             "cfg": {
                 "model": runtime.cfg["model"],
                 "model_id": runtime.model_id,
                 "model_path": runtime.cfg["model_path"],
                 "backend": runtime.cfg["backend"],
+                "quantization": runtime.cfg.get("quantization"),
                 "llama_server_port": runtime.cfg.get("llama_server_port"),
                 "mlx_vlm_server_port": runtime.cfg.get("mlx_vlm_server_port"),
             },

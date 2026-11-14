@@ -416,9 +416,84 @@ Korgis owns the `sd-server` subprocess lifecycle and talks to its native asynchr
 `/sdcpp/v1/img_gen` job API. The public application boundary remains
 `POST /v1/images/generations`.
 
-The built-in profile uses 1024×1024, 20 steps, CFG 6.0 and Euler sampling. Dimensions for
-Qwen Image 2.1 must be divisible by 32. Request-level `sampling_method`, `scheduler`,
-`num_inference_steps`, `guidance_scale` and `seed` can override the configured defaults.
+The built-in profile keeps 1024×1024, 20 steps, CFG 6.0 and Euler as its quality-oriented
+generation defaults, while its `sd-server` startup is memory-bounded for Apple Silicon / shared-memory
+machines:
+
+```text
+--offload-to-cpu
+--params-backend diffusion=disk,te=cpu,vae=cpu
+--max-vram -2
+--model-args qwen_image_2_1_prefix_cache=false
+--disable-prefetch
+--vae-tiling --vae-tile-size 256x256
+```
+
+This keeps the largest diffusion parameters disk-backed, reserves approximately 2 GiB from the
+managed device budget, avoids the persistent Qwen Image 2.1 prefix cache, prevents asynchronous
+next-segment prefetch, and tiles VAE work. The trade-off is lower peak memory at the cost of more
+disk I/O and slower generation. These settings are written into image-generation evidence under
+`korgis.generation.memory`.
+
+Dimensions for Qwen Image 2.1 must be divisible by 32. Request-level `size`,
+`num_inference_steps`, `sampling_method`, `scheduler`, `guidance_scale` and `seed`
+can override the configured generation defaults.
+
+The low-memory startup controls are configurable through CLI or environment variables:
+
+```text
+--sd-server-params-backend     LOCAL_LLM_SD_SERVER_PARAMS_BACKEND
+--sd-server-max-vram           LOCAL_LLM_SD_SERVER_MAX_VRAM
+--sd-server-model-args         LOCAL_LLM_SD_SERVER_MODEL_ARGS
+--sd-server-mmap               LOCAL_LLM_SD_SERVER_MMAP
+--sd-server-disable-prefetch   LOCAL_LLM_SD_SERVER_DISABLE_PREFETCH
+--image-vae-tiling             LOCAL_LLM_IMAGE_VAE_TILING
+--image-vae-tile-size          LOCAL_LLM_IMAGE_VAE_TILE_SIZE
+```
+
+#### Reuse an existing local / LM Studio bundle without copying files
+
+For the `stable_diffusion_cpp_image` backend, `--model-path` is a **bundle root**. Artifact
+`local_path` values are resolved relative to that root. This allows Korgis to reuse files that
+already exist under another model manager without duplicating multi-gigabyte weights.
+
+Override the built-in artifact layout in `~/.local-llm/models.yaml`. For example:
+
+```yaml
+models:
+  qwen-image-2.1-gguf-q4km:
+    artifacts:
+      diffusion_model:
+        repo: "unsloth/Qwen-Image-2.1-GGUF"
+        filename: "qwen-image-2.1-Q4_K_M.gguf"
+        local_path: "unsloth/Qwen-Image-2.1-GGUF/qwen-image-2.1-Q4_K_M.gguf"
+      text_encoder:
+        repo: "unsloth/Qwen3-VL-8B-Instruct-GGUF"
+        filename: "Qwen3-VL-8B-Instruct-Q4_K_S.gguf"
+        local_path: "unsloth/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-Q4_K_S.gguf"
+      vae:
+        repo: "Comfy-Org/Qwen-Image-2.1"
+        filename: "vae/qwen_image_2.1_vae_bf16.safetensors"
+        local_path: "qwen_image_2.1_vae_bf16.safetensors"
+```
+
+Then point Korgis at the common root:
+
+```bash
+uv run --frozen local-llm serve \
+  --model qwen-image-2.1-gguf-q4km \
+  --model-path "$HOME/.lmstudio/models" \
+  --no-download
+```
+
+No absolute artifact paths are written into public generation metadata. Korgis records the safe
+artifact basenames plus configured source repository/revision/hash metadata when available, so a
+benchmark can distinguish different text-encoder quantizations without leaking the user's local
+filesystem layout.
+
+The built-in text encoder remains the validated `UD-Q4_K_XL` profile. A different compatible
+Qwen3-VL GGUF quantization can be supplied through the override above, but it should be treated as
+a distinct benchmark/runtime variant until representative generation evidence is collected.
 
 The catalog size (~10.03 GB) describes the three artifacts, not peak runtime RAM. When the
 files are local, resource admission uses their exact summed file size before falling back to
