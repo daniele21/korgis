@@ -28,6 +28,7 @@ def plan_application_profile(
     resource_manager: ResourceManager | None,
     resident_runtime_reservations: Mapping[str, str | None],
     config_for_model: Callable[[str], Mapping[str, Any]],
+    model_storage_volume: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Estimate additional intended residency without changing any runtime.
 
@@ -191,6 +192,15 @@ def plan_application_profile(
         if remaining_before is not None and prospective_additional is not None
         else None
     )
+    storage_free = model_storage_volume or {}
+    storage_free_bytes = storage_free.get("value")
+    storage_free_measured = (
+        storage_free.get("source") == "measured"
+        and isinstance(storage_free_bytes, int)
+        and not isinstance(storage_free_bytes, bool)
+        and storage_free_bytes >= 0
+    )
+
     return {
         "schema_version": profile.schema_version,
         "application_id": profile.application_id,
@@ -250,7 +260,10 @@ def plan_application_profile(
                     planned_artifact_bytes if not missing_artifact_sizes else None
                 ),
                 "missing_artifact_sizes": missing_artifact_sizes,
-                "available_disk_bytes": {"value": None, "source": "unavailable"},
+                "available_disk_bytes": {
+                    "value": storage_free_bytes if storage_free_measured else None,
+                    "source": "measured" if storage_free_measured else "unavailable",
+                },
                 "additional_download_bytes": {"value": None, "source": "unavailable"},
                 "fit": "unverified",
                 "streaming_memory_discount_applied": False,

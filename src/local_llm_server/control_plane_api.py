@@ -21,7 +21,7 @@ from .evaluation_service import (
 )
 from .evaluation_testsets import CustomTestSetStore, parse_test_set_bytes
 from .live_evidence import manager_evidence_payload
-from .resource_observation import resource_observation_payload
+from .resource_observation import model_storage_volume_available_bytes, resource_observation_payload
 from .resource_policy import ResourcePolicySettings, resource_policy_snapshot
 from .scheduler_evidence import scheduler_evidence_payload
 from .transcription import ResidentTranscriptionService, TranscriptionRequest
@@ -131,20 +131,21 @@ def install_product_api(
         try:
             from .registry import load_registry
             profile = ApplicationProfile.parse(body)
-            registry_models = load_registry()["models"]
+            registry = load_registry()
+            registry_models = registry["models"]
             validation = validate_application_profile(profile, registry_models)
         except ApplicationProfileError as exc:
             raise HTTPException(status_code=422, detail={
                 "code": "invalid_application_profile", "message": str(exc),
             }) from exc
-        return profile, registry_models, validation
+        return profile, registry_models, validation, registry.get("models_dir")
 
     def validate_profile(body: dict[str, Any]):
-        _, _, validated = _parsed_application_profile(body)
+        _, _, validated, _ = _parsed_application_profile(body)
         return validated
 
     def plan_profile(body: dict[str, Any], request: Request):
-        profile, registry_models, _ = _parsed_application_profile(body)
+        profile, registry_models, _, models_dir = _parsed_application_profile(body)
         from .config import build_config
 
         manager = request.app.state.runtime_manager
@@ -163,6 +164,7 @@ def install_product_api(
                 resource_manager=manager.resource_manager,
                 resident_runtime_reservations=resident,
                 config_for_model=lambda key: build_config(model=key, no_download=True),
+                model_storage_volume=model_storage_volume_available_bytes(models_dir),
             )
         except (ValueError, LookupError, OSError) as exc:
             raise HTTPException(status_code=422, detail={
