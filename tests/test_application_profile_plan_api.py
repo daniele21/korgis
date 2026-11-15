@@ -87,6 +87,9 @@ def test_validate_plan_exact_model_zero_resident_no_mutation(tmp_path, monkeypat
     assert advisory["storage"]["additional_download_bytes"]["value"] is None
     assert advisory["storage"]["streaming_memory_discount_applied"] is False
     assert advisory["runtime_admission_required"] is True
+    assert advisory["admission_preview"]["status"] == "not_rejected_at_snapshot"
+    assert advisory["admission_preview"]["requested_additional_bytes"] == 235
+    assert advisory["admission_preview"]["load_authorized"] is False
     assert result["mutated_runtime"] is False
     assert resource.snapshot() == before
     assert runtime.list() == []
