@@ -164,6 +164,36 @@ admission accepted at 8,704,049,152; stricter **test-only**
 prestart guard (+256 MiB estimated load) blocked before download
 or launch. Production thresholds/eviction unchanged.
 HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
+## Latest release-candidate read-only Mac preflight (2026-11-15)
+
+[Central Mac run #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
+uses the immutable approved diagnostic request pinned to
+Korgis `bbac85ebf2a9be5aa98778e9a9b8de9dcb4afcf6`.
+The preflight script runs on the central Mac and observes the host and
+local GGUF cache **without executing Korgis inference source**:
+
+- Native v1 binary SHA-256 verified:
+  `edcbed3bee42714afb517717d75d047b241ede0cd1c304c7ef3f8f696ace7efc`.
+  Other `llama-server` processes: **0**.
+- Observed coarse reclaimable-memory estimate: **7,550,943,232 bytes**;
+  required read-only preflight threshold for the detected 4B GGUF:
+  **9,776,843,072 bytes**. Host has 32 GiB physical RAM; swap
+  **5,614,012,989 bytes used** (not added to available RAM).
+- Cache GGUF `qwen3.5-4b-q4km`: 2,740,937,888 bytes, observed SHA-256
+  `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`.
+  This is the Unsloth artifact, not the registry's independently
+  fingerprinted LM Studio variant; do not substitute silently.
+- Result **`ready=false`** with reason
+  `host_headroom_insufficient_or_unknown`. The workflow itself **PASS**
+  as a safe **diagnostic**, not load admission. **No inference, model
+  download, process eviction or host configuration change** occurred.
+
+Representative HE-2/RES-2/RRG-5, real SSE abort and externally served
+Experiments comparison all remain **PENDING**. No lowering of Korgis
+headroom, no treating swap used as RAM and no release promotion on
+this evidence. Rerun a pinned preflight only when the Mac naturally
+has sufficient safely observed headroom and valid model artifacts.
+
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
