@@ -153,3 +153,83 @@ def test_no_paths_prompts_or_outputs_in_plan():
     assert "/secret/person" not in rendered
     assert "TOP SECRET" not in rendered
     assert "SECRET TOKEN" not in rendered
+
+
+def test_capacity_advisory_has_budget_margin_and_catalog_not_download_size():
+    plan = _plan(_profile(intents=("warm", "warm"), models=("text", "other")),
+                 ResourceManager(ResourceBudget(limit_bytes=1500)), limit=1500)
+    advisory = plan["capacity_advisory"]
+    assert advisory["configured_remaining_before_bytes"] == 1400
+    assert advisory["configured_remaining_after_bytes"] == 600
+    assert advisory["known_configured_shortfall_bytes"] == 0
+    assert advisory["storage"]["planned_models_catalog_artifact_bytes"] == 2 * 1024**3
+    assert advisory["storage"]["additional_download_bytes"]["value"] is None
+    assert advisory["storage"]["available_disk_bytes"]["value"] is None
+    assert advisory["storage"]["fit"] == "unverified"
+    assert advisory["runtime_admission_required"] is True
+
+
+def test_capacity_advisory_preserves_unknowns_without_claiming_host_fit():
+    rm = ResourceManager(ResourceBudget(limit_bytes=None))
+    plan = _plan(_profile(), rm, limit=None,
+                 configs={"text": _config("text", complete=False)})
+    advisory = plan["capacity_advisory"]
+    assert plan["decision"] == "uncertain"
+    assert advisory["configured_remaining_before_bytes"] is None
+    assert advisory["configured_remaining_after_bytes"] is None
+    assert advisory["host"]["available_bytes"] == {"value": None, "source": "unavailable"}
+    assert advisory["host"]["fit"] == "unverified"
+
+
+def test_capacity_advisory_observes_existing_host_guard_without_authorizing_load():
+    from local_llm_server.resources import (
+        ResourceValue, ResourceValueSource, SystemResourceSnapshot,
+    )
+
+    class Observer:
+        def snapshot(self):
+            return SystemResourceSnapshot(
+                captured_at_monotonic=0.0,
+                platform="darwin",
+                total_memory_bytes=ResourceValue(32 * 1024**3, ResourceValueSource.MEASURED, "bytes"),
+                available_memory_bytes=ResourceValue(4 * 1024**3, ResourceValueSource.MEASURED, "bytes"),
+                swap_used_bytes=ResourceValue(25 * 1024**3, ResourceValueSource.MEASURED, "bytes"),
+            )
+
+    rm = ResourceManager(ResourceBudget(limit_bytes=1000), host_observer=Observer())
+    before = rm.snapshot()
+    plan = _plan(_profile(), rm)
+    host = plan["capacity_advisory"]["host"]
+    assert host["host_guard_enabled"] is True
+    assert host["available_bytes"] == {"value": 4 * 1024**3, "source": "measured"}
+    assert host["swap_used_bytes"]["value"] == 25 * 1024**3
+    assert host["pressure"]["value"] == "elevated"
+    assert host["fit"] == "unverified"
+    assert rm.snapshot() == before
+
+
+def test_capacity_advisory_does_not_assume_ssd_streaming_reduces_residency():
+    cfg = {**_config("text"), "llama_server_moe_stream_cache_gib": 2}
+    plan = _plan(_profile(), ResourceManager(ResourceBudget(limit_bytes=1000)),
+                 configs={"text": cfg})
+    assert plan["decision"] == "rejected"
+    assert plan["capacity_advisory"]["storage"]["streaming_memory_discount_applied"] is False
+    assert plan["capacity_advisory"]["known_configured_shortfall_bytes"] > 0
+
+
+def test_capacity_advisory_missing_catalog_artifact_is_unavailable_not_zero():
+    profile = _profile()
+    rm = ResourceManager(ResourceBudget(limit_bytes=1000))
+    plan = plan_application_profile(
+        profile,
+        registry_models={"text": {"tasks": ["chat"], "input_modalities": ["text"],
+                                  "output_modalities": ["text"], "features": []}},
+        settings=ResourcePolicySettings(memory_limit_bytes=1000),
+        resource_manager=rm,
+        resident_runtime_reservations={},
+        config_for_model=lambda key: _config(key),
+    )
+    storage = plan["capacity_advisory"]["storage"]
+    assert storage["planned_models_catalog_artifact_bytes"] is None
+    assert storage["missing_artifact_sizes"] == ["text"]
+    assert storage["fit"] == "unverified"

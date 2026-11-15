@@ -57,6 +57,18 @@ Per-model evidence labels distinguish registry artifact size, configured/compose
 
 Because planning is snapshot-based and non-reserving, later resource contention can invalidate a plausible result. ResourceManager remains the sole resource-admission authority during actual load/inference.
 
+### Read-only capacity advisory (experimental)
+
+The plan response also exposes `capacity_advisory`. It reuses the same configured budget and resident estimates instead of introducing an independent admission policy:
+
+- `configured_remaining_before_bytes` and `configured_remaining_after_bytes` show the remaining **configured** resource budget (not free physical RAM). When the ledger is absent/unattributed or the planned estimate is incomplete, unavailable margins remain `null`. A negative after-margin is a shortfall, not permission to load.
+- `known_configured_shortfall_bytes` is the positive excess of the known lower bound over the configured budget, or `null` when there is no configured budget.
+- `host` contains only path-free, point-in-time measurements from the existing ResourceManager host observer, when configured; measured available bytes are **not** extended by swap-used bytes. Host pressure can be derived or native-event sourced, and `fit` stays `unverified` even when pressure reads normal.
+- `storage.planned_models_catalog_artifact_bytes` sums declared sizes of **distinct models that would load**. It is not an estimate of bytes to download, disk installation overhead or SSD expert streaming. Unknown catalog sizes make this total unavailable; free disk, download bytes and storage fit remain explicitly unavailable/unverified.
+- `streaming_memory_discount_applied=false` is deliberate: experimental expert streaming does not bypass conservative residency accounting.
+
+This diagnostic does not perform a memory/disk fit decision. A load still requires authoritative host admission and representative-device evidence for stronger fit, performance or reclamation claims. `on_demand` roles are deferred and excluded from current planned residency, not pre-approved for later loads.
+
 ## Acceptance and follow-up
 
 Unit regression lives at tests/test_application_profile.py. M8.3 uses deterministic ResourceManager/MemoryEnvelope snapshots; tests cover mixed residency, duplicate roles, incomplete estimates, over-budget lower bounds, no budget, unaccounted runtimes and path-free API responses. M8.4 still needs a non-mutating Studio UI.
