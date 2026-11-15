@@ -100,19 +100,14 @@ Descriptive **median across 3 cycles per engine**:
 | Completion request elapsed | 0.133 s | 0.123 s |
 | First SSE event | 32 ms | 26 ms |
 
-These are short-model lifecycle timings, **not** statistically
-established prefill/decode throughput, peak-RSS/thermal measurements,
-swap in/out activity, memory-pressure reclamation or model-quality
-equivalence. First comparison attempts
-[#43632142390](https://github.com/daniele21/local-runner-infra/actions/runs/43632142390)
-and [#43632364870](https://github.com/daniele21/local-runner-infra/actions/runs/43632364870)
-failed before inference from shallow v0.3 build-1 rejection;
-[#43632684066](https://github.com/daniele21/local-runner-infra/actions/runs/43632684066)
-isolated real `--version` identities. The first repaired six-cycle
-run [#43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
-passed execution but its final workflow summary attempted to execute
-the receipt path and failed; the final #43633636676 corrected that
-harness-only error. Preserve earlier FAIL classifications.
+These are short-model lifecycle observations, **not** native
+throughput, peak RSS, thermal, swap reclamation or quality parity.
+Pre-inference FAILs #43632142390/#43632364870 came from
+shallow v0.3 build-1 attribution; #43632684066 isolated versions.
+[#43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
+completed inference but failed receipt summarization;
+[#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)
+repaired this harness-only error. Earlier FAIL classifications stand.
 
 ## Korgis-only runtime qualification (no external evaluation)
 
@@ -164,6 +159,13 @@ admission accepted at 8,704,049,152; stricter **test-only**
 prestart guard (+256 MiB estimated load) blocked before download
 or launch. Production thresholds/eviction unchanged.
 HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
+## Latest read-only Mac preflight — BLOCKED (2026-11-15)
+
+[Mac #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460):
+pinned `dev@bbac85e`, `ready=false` (7.55 GB reclaimable estimate vs
+9.78 GB required for cached 4B). Native v1 verified; cached 4B hash
+differs from registry. No inference/download/host change; LC7 pending.
+
 ## Outstanding LC7 / release contract
 
 - Korgis: representative repeated HE-2 reclamation, RES-2 admission,
