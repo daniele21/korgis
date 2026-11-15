@@ -83,3 +83,34 @@ def test_parse_ps_cpu_time_supports_hours_and_days():
     assert resource_observation._parse_ps_cpu_time("01:02:03") == 3723
     assert resource_observation._parse_ps_cpu_time("2-01:00:00") == 176400
     assert resource_observation._parse_ps_cpu_time("bad") is None
+
+
+def test_configured_model_storage_reports_only_real_mounted_directory_bytes(monkeypatch, tmp_path):
+    from collections import namedtuple
+
+    source = tmp_path / "models"
+    source.mkdir()
+    usage = namedtuple("Usage", "total used free")
+    monkeypatch.setattr(resource_observation.shutil, "disk_usage", lambda path: usage(9000, 3200, 5800))
+    assert resource_observation.model_storage_volume_available_bytes(source) == {
+        "value": 5800, "source": "measured",
+    }
+    assert resource_observation.model_storage_volume_available_bytes(source / "missing") == {
+        "value": None, "source": "unavailable",
+    }
+    assert resource_observation.model_storage_volume_available_bytes(None) == {
+        "value": None, "source": "unavailable",
+    }
+
+
+def test_storage_observation_failure_is_unavailable_not_fake_zero(monkeypatch, tmp_path):
+    source = tmp_path / "models"
+    source.mkdir()
+
+    def denied(_path):
+        raise OSError("private model directory inaccessible")
+
+    monkeypatch.setattr(resource_observation.shutil, "disk_usage", denied)
+    observed = resource_observation.model_storage_volume_available_bytes(source)
+    assert observed == {"value": None, "source": "unavailable"}
+    assert str(source) not in repr(observed)

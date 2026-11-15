@@ -287,3 +287,33 @@ def test_admission_preview_unknown_estimate_unattributed_and_deferred_are_not_au
     assert unattributed["capacity_advisory"]["admission_preview"]["status"] == "unverified"
     assert unattributed["capacity_advisory"]["admission_preview"]["reason"] == "unattributed_resident_runtime"
 
+
+
+def test_storage_volume_observation_is_only_diagnostic_and_privacy_safe():
+    manager = ResourceManager(ResourceBudget(limit_bytes=1000))
+    profile = _profile()
+    plan = plan_application_profile(
+        profile,
+        registry_models=_registry("text"),
+        settings=ResourcePolicySettings(memory_limit_bytes=1000),
+        resource_manager=manager,
+        resident_runtime_reservations={},
+        config_for_model=lambda key: _config(key),
+        model_storage_volume={"value": 4200, "source": "measured", "path": "/private/cache"},
+    )
+    storage = plan["capacity_advisory"]["storage"]
+    assert storage["available_disk_bytes"] == {"value": 4200, "source": "measured"}
+    assert storage["fit"] == "unverified"
+    assert storage["additional_download_bytes"]["value"] is None
+    assert storage["streaming_memory_discount_applied"] is False
+    assert "/private/cache" not in repr(plan)
+    unmeasured = plan_application_profile(
+        profile,
+        registry_models=_registry("text"),
+        settings=ResourcePolicySettings(memory_limit_bytes=1000),
+        resource_manager=manager,
+        resident_runtime_reservations={},
+        config_for_model=lambda key: _config(key),
+        model_storage_volume={"value": 4200, "source": "estimated"},
+    )
+    assert unmeasured["capacity_advisory"]["storage"]["available_disk_bytes"]["value"] is None

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import platform
 import resource
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -25,6 +26,30 @@ def _value_payload(value: ResourceValue) -> dict[str, object]:
         "source": value.source.value,
         "unit": value.unit,
     }
+
+
+def model_storage_volume_available_bytes(models_dir: str | Path | None) -> dict[str, object]:
+    """Observe free bytes on the actual configured model-cache volume.
+
+    A missing or inaccessible cache directory is unavailable, not treated as
+    free space on a guessed ancestor mount. This reports the filesystem
+    currently hosting the directory; it cannot detect a missing intended mount.
+    Only the measured count is exposed:
+    never reveal paths or derive model download/installation fit from it.
+    """
+    result: dict[str, object] = {"value": None, "source": "unavailable"}
+    if not isinstance(models_dir, (str, Path)) or not str(models_dir):
+        return result
+    try:
+        path = Path(models_dir).expanduser()
+        if not path.is_dir():
+            return result
+        available = shutil.disk_usage(path).free
+    except (OSError, ValueError, TypeError):
+        return result
+    if isinstance(available, int) and not isinstance(available, bool) and available >= 0:
+        return {"value": available, "source": "measured"}
+    return result
 
 
 def _observer_for_platform() -> ResourceObserver:

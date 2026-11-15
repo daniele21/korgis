@@ -24,7 +24,7 @@ def _profile(task="chat", model="text", residency="warm"):
     }
 
 
-def _client(tmp_path: Path, *, admin: bool, monkeypatch, memory_budget=1000):
+def _client(tmp_path: Path, *, admin: bool, monkeypatch, memory_budget=1000, models_dir=None):
     from local_llm_server import config, registry
 
     model_entry = {
@@ -35,7 +35,9 @@ def _client(tmp_path: Path, *, admin: bool, monkeypatch, memory_budget=1000):
         "model_id": "org/text",
         "size_gb": 0.00001,
     }
-    monkeypatch.setattr(registry, "load_registry", lambda: {"models": {"text": model_entry}})
+    monkeypatch.setattr(registry, "load_registry", lambda: {
+        "models": {"text": model_entry}, "models_dir": models_dir,
+    })
     monkeypatch.setattr(config, "build_config", lambda model, no_download: {
         "model": model,
         "model_path": "/home/private/document",
@@ -112,3 +114,23 @@ def test_invalid_profile_and_unknown_capability_fail_before_planning(tmp_path, m
         "/api/v1/applications/profiles/validate",
         json=invalid,
     ).status_code == 422
+
+
+def test_plan_api_observes_model_storage_volume_without_paths(tmp_path, monkeypatch):
+    from collections import namedtuple
+    from local_llm_server import resource_observation
+
+    models_dir = tmp_path / "private-model-cache"
+    models_dir.mkdir()
+    usage = namedtuple("Usage", "total used free")
+    monkeypatch.setattr(resource_observation.shutil, "disk_usage", lambda path: usage(10000, 4000, 6000))
+    client, _, resource = _client(tmp_path, admin=True, monkeypatch=monkeypatch, models_dir=models_dir)
+    before = resource.snapshot()
+    res = client.post("/api/v1/applications/profiles/plan", json=_profile())
+    assert res.status_code == 200
+    storage = res.json()["capacity_advisory"]["storage"]
+    assert storage["available_disk_bytes"] == {"value": 6000, "source": "measured"}
+    assert storage["additional_download_bytes"]["value"] is None
+    assert storage["fit"] == "unverified"
+    assert str(models_dir) not in res.text
+    assert resource.snapshot() == before
