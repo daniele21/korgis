@@ -188,3 +188,54 @@ test('a failed inference does not poison the next request @full-media', async ({
   await expect(page.locator('#typing-status')).toBeHidden();
   await expect(page.locator('#send-chat-btn')).toBeEnabled();
 });
+
+
+test('model capacity check explains canonical snapshot without loading and recovers from admin failure @full-media', async ({ page }) => {
+  await openStudio(page);
+  await page.getByRole('link', { name: 'Models & Runtimes' }).click();
+  await page.locator('[data-open-model="e2e-alt"]').first().click();
+  let checks = 0;
+  let loads = 0;
+  await page.route('**/api/v1/models/load', async (route) => {
+    loads += 1;
+    await route.fulfill({ status: 500, body: 'Unexpected load' });
+  });
+  await page.route('**/api/v1/applications/profiles/plan', async (route) => {
+    const profile = route.request().postDataJSON();
+    expect(profile.schema_version).toBe('korgis-application-profile-v1');
+    expect(profile.roles.selected.model).toBe('e2e-alt');
+    expect(profile.roles.selected.residency).toBe('warm');
+    expect(profile.roles.selected.task).toBe('chat');
+    checks += 1;
+    if (checks === 2) {
+      await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        decision: 'plausible',
+        capacity_advisory: {
+          configured_remaining_after_bytes: 2 * 1024 ** 3,
+          admission_preview: { status: 'rejected_at_snapshot', reason: 'host memory pressure is elevated', load_authorized: false },
+          host: { pressure: { value: 'elevated', source: 'derived_available_fraction' }, available_bytes: { value: 3 * 1024 ** 3, source: 'measured' } },
+          storage: { available_disk_bytes: { value: null, source: 'unavailable' }, fit: 'unverified' },
+        },
+      }),
+    });
+  });
+
+  const detail = page.locator('[data-model-detail]');
+  await detail.getByRole('button', { name: 'Check capacity' }).click();
+  await expect(detail.locator('[data-capacity-result]')).toContainText('Rejected at snapshot');
+  await expect(detail.locator('[data-capacity-result]')).toContainText('host memory pressure is elevated');
+  await expect(detail.locator('[data-capacity-result]')).toContainText('measured');
+  await expect(detail.locator('[data-capacity-result]')).toContainText('Not permission to load');
+  await expect(detail.locator('[data-capacity-result]')).toContainText('Model-cache volume free');
+  await expect(detail.locator('[data-capacity-result]')).toContainText('Unavailable');
+  await detail.getByRole('button', { name: 'Check capacity' }).click();
+  await expect(detail.locator('[data-capacity-result]')).toContainText('requires the local admin API');
+  expect(checks).toBe(2);
+  expect(loads).toBe(0);
+});
