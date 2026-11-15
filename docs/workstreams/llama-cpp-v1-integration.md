@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Korgis managed `llama_server` runtime, resource admission and identity
-Last reviewed: 2026-11-16
+Last reviewed: 2026-11-15
 Read when: validating the llama.cpp upgrade or representative release evidence
 
 ## Outcome and boundary
@@ -156,7 +156,7 @@ admission accepted at 8,704,049,152; stricter **test-only**
 prestart guard (+256 MiB estimated load) blocked before download
 or launch. Production thresholds/eviction unchanged.
 HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
-## Mac LC7 admission — BLOCKED (2026-11-16)
+## Mac LC7 admission — BLOCKED (2026-11-15 UTC)
 
 [4B #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460):
 7.55 GB estimated reclaimable / 9.78 GB required; `ready=false`,

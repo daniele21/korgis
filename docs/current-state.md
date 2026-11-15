@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-16
+Last reviewed: 2026-11-15
 
 Korgis / Local LLM Server is a local-first multi-backend AI runtime
 control plane; Local LLM Studio provides browser control. Hosted tests
@@ -91,7 +91,7 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Experiments endpoint comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Release state (2026-11-16)
+## Release state (2026-11-15 UTC)
 
 `dev@34f8e12` passed exact-head RELEASE/FULL
 [#43772076129](https://github.com/daniele21/korgis/actions/runs/43772076129)
