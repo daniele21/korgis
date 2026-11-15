@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-14
+Last reviewed: 2026-11-15
 
 Korgis / Local LLM Server is a local-first multi-backend AI runtime
 control plane; Local LLM Studio provides browser control. Hosted tests
@@ -42,7 +42,11 @@ model eviction; post-stop memory deltas remain observational.
   ApplicationProfile parser/validator (#230) do not establish a stable
   application embedding API. M8.3 dry-run and optional validate/plan
   endpoints (#231) do **not** prove actual memory admission.
-  M8.4 Studio, M9–M10 and M12 are incomplete; production embedding
+  M8.3 now also exposes a conservative read-only capacity advisory,
+  canonical admission preview and configured model-cache free space
+  (#277–#279). M8.4 has a bounded single-model **Studio capacity check**
+  (#280), not a multi-role editor or real-device fit guarantee.
+  M9–M10, full M8.4 and M12 remain incomplete; production embedding
   requires loopback authorization and owned process/listener proof (#229).
   ClosedRoom migration is consumer-owned.
 - llama.cpp v1.0.0 (#262) is an **opt-in external** runtime with explicit

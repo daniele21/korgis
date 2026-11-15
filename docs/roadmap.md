@@ -3,7 +3,7 @@
 Status: active
 Owner: repository
 Read when: selecting the next capability milestone or understanding release dependencies
-Last reviewed: 2026-10-11
+Last reviewed: 2026-11-15
 
 This file owns milestone sequencing only. Detailed product intent belongs in [`implementation-plan.md`](implementation-plan.md), active implementation planning/progress belongs in `docs/workstreams/`, and integrated/blocker/next truth belongs in [`current-state.md`](current-state.md).
 
@@ -92,7 +92,7 @@ The program is intentionally sequenced from **declarative intent and planning** 
 
 No M8-M12 item is implemented merely because its target contract is documented here.
 
-M8.1–M8.2 have an experimental core schema/zero-resident validator (PR #230). M8.3's conservative configured-residency preview and opt-in admin API are integrated (PR #231). Studio M8.4, compatible historical observed resident/peak and request-specific concurrency planning, and the stable M12 external contract remain incomplete. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
+M8.1–M8.2 have an experimental core schema/zero-resident validator (PR #230). M8.3's conservative configured-residency preview and opt-in admin API are integrated (PR #231); read-only configured capacity, canonical admission preview, and configured model-cache volume observations have followed (#277–#279). M8.4 includes a bounded single-model Studio capacity-check journey (#280), but the multi-role editor, compatible historical observed resident/peak evidence, request-specific concurrency planning, and stable M12 external contract remain incomplete. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
 
 The separately owned managed-sidecar hardening is an experimental transport/lifecycle integration tranche, not M9 automatic model residency and not a completed M12 packaged distribution. Attested inherited sockets do not prove representative target-Mac packaging or sandbox isolation.
 
