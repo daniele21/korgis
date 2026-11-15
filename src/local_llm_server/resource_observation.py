@@ -31,8 +31,10 @@ def _value_payload(value: ResourceValue) -> dict[str, object]:
 def model_storage_volume_available_bytes(models_dir: str | Path | None) -> dict[str, object]:
     """Observe free bytes on the actual configured model-cache volume.
 
-    A missing/unmounted cache directory is unavailable, not treated as free
-    space on a guessed ancestor mount. Only the measured count is exposed:
+    A missing or inaccessible cache directory is unavailable, not treated as
+    free space on a guessed ancestor mount. This reports the filesystem
+    currently hosting the directory; it cannot detect a missing intended mount.
+    Only the measured count is exposed:
     never reveal paths or derive model download/installation fit from it.
     """
     result: dict[str, object] = {"value": None, "source": "unavailable"}
