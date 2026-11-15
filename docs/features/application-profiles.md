@@ -72,6 +72,10 @@ The plan response also exposes `capacity_advisory`. It reuses the same configure
 
 This diagnostic does not perform a memory/disk fit decision. A load still requires authoritative host admission and representative-device evidence for stronger fit, performance or reclamation claims. `on_demand` roles are deferred and excluded from current planned residency, not pre-approved for later loads.
 
+## Studio single-model capacity check (M8.4 bounded slice)
+
+Models & Runtimes includes a read-only **Check capacity** action in a selected model detail. It constructs a temporary one-role, warm-intent ApplicationProfile using the exact configured model key and the server-provided task descriptor, then calls the existing admin-only plan endpoint. No profile is stored; no model is started or stopped. The UI displays configured-budget decision separately from live-policy admission preview, with a canonical reason, measured-vs-unavailable host RAM, pressure and free bytes on the configured model-cache volume. Disk fit and observed peak memory stay unverified. A non-rejected snapshot never authorizes loading. Results persist across UI refreshes as timestamped evidence until the selected model changes; 404/422 failures explain recovery without leaking server-side details. This is not yet the full multi-role ApplicationProfile editor or hardware optimization recommender.
+
 ## Acceptance and follow-up
 
 Unit regression lives at tests/test_application_profile.py. M8.3 uses deterministic ResourceManager/MemoryEnvelope snapshots; tests cover mixed residency, duplicate roles, incomplete estimates, over-budget lower bounds, no budget, unaccounted runtimes and path-free API responses. M8.4 still needs a non-mutating Studio UI.

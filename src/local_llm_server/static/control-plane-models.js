@@ -4,6 +4,8 @@
     let refreshing = false;
     let selectedKey = null;
     let latestState = null;
+    let capacityPreview = null;
+    let capacityRequestVersion = 0;
 
     async function fetchJson(path, options = {}) {
         const response = await fetch(path, {
@@ -144,7 +146,11 @@
     }
 
     function render(surface, state) {
-        if (selectedKey && !state.models.some((model) => model.key === selectedKey)) selectedKey = null;
+        if (selectedKey && !state.models.some((model) => model.key === selectedKey)) {
+            selectedKey = null;
+            capacityPreview = null;
+            capacityRequestVersion += 1;
+        }
         const residentCount = state.models.filter((model) => model.resident).length;
         const coldCount = state.models.filter((model) => !model.resident).length;
         const resource = state.resource || {};
@@ -213,6 +219,7 @@
             <div data-load-feasibility-host></div>`;
 
         bindModelActions(surface, state);
+        displayCapacityPreview(surface);
     }
 
     function summaryMetric(label, value, note, status) {
@@ -365,6 +372,12 @@
                     <div><dt>Evidence kind</dt><dd>${model.estimateBytes === null ? 'Unavailable' : 'Estimated'}</dd></div>
                 </dl>
             </section>
+            <section data-capacity-check>
+                <h4>Capacity check</h4>
+                <p class="control-plane-models__evidence-note">Preview one warm runtime without loading it. Snapshot estimates are not permission to start.</p>
+                <button type="button" class="ds-button" data-check-capacity>Check capacity</button>
+                <div class="control-plane-models__capacity-result" data-capacity-result role="status" aria-live="polite"></div>
+            </section>
             <section>
                 <h4>Capabilities</h4>
                 <p>${escapeHtml(capabilitySummary(model.capabilities))}</p>
@@ -385,12 +398,130 @@
             </div>`;
     }
 
+
+    const PLAN_TASKS = ['chat', 'structured_generation', 'vision_language', 'transcription', 'image_generation'];
+
+    function planningTask(model) {
+        const tasks = Array.isArray(model.capabilities?.tasks) ? model.capabilities.tasks : [];
+        return tasks.includes('chat') ? 'chat' : tasks.find((task) => PLAN_TASKS.includes(task)) || null;
+    }
+
+    function addCapacityRow(list, name, description) {
+        const row = document.createElement('div');
+        const label = document.createElement('dt');
+        const value = document.createElement('dd');
+        label.textContent = name;
+        value.textContent = description;
+        row.append(label, value);
+        list.appendChild(row);
+    }
+
+    function displayCapacityPreview(surface) {
+        const host = surface.querySelector('[data-capacity-result]');
+        const button = surface.querySelector('[data-check-capacity]');
+        if (!host || !button) return;
+        const model = latestState?.models.find((item) => item.key === selectedKey);
+        const task = model && planningTask(model);
+        const preview = capacityPreview?.key === selectedKey ? capacityPreview : null;
+        button.disabled = !task || preview?.status === 'pending';
+        button.textContent = preview?.status === 'pending' ? 'Checking…' : 'Check capacity';
+        host.replaceChildren();
+
+        const explain = document.createElement('p');
+        if (!task) {
+            explain.textContent = 'No declared task is available for planning this model.';
+        } else if (!preview) {
+            explain.textContent = 'Not checked. Request a read-only capacity snapshot.';
+        } else if (preview.status === 'pending') {
+            explain.textContent = 'Reading configured budget and host observations…';
+        } else if (preview.status === 'error') {
+            explain.textContent = preview.message;
+        } else {
+            const plan = preview.plan;
+            const advisory = plan.capacity_advisory || {};
+            const admission = advisory.admission_preview || {};
+            const labels = {
+                rejected_at_snapshot: 'Rejected at snapshot',
+                not_rejected_at_snapshot: 'No admission block observed',
+                not_applicable: 'No new residency planned',
+                unverified: 'Unverified',
+            };
+            explain.textContent = (labels[admission.status] || 'Unverified')
+                + ' · Checked at ' + new Date(preview.at).toLocaleTimeString()
+                + ' · Snapshot only';
+            explain.className = 'control-plane-models__capacity-state';
+            host.appendChild(explain);
+
+            const list = document.createElement('dl');
+            list.className = 'control-plane-models__definition-list';
+            addCapacityRow(list, 'Configured budget', (plan.decision || 'uncertain')
+                + ' · ' + formatBytes(advisory.configured_remaining_after_bytes) + ' remaining after planned residency');
+            addCapacityRow(list, 'Admission reason', admission.reason || 'Unavailable');
+            const pressure = advisory.host?.pressure;
+            addCapacityRow(list, 'Host pressure', (pressure?.value || 'unknown') + ' · ' + (pressure?.source || 'unavailable'));
+            const mem = advisory.host?.available_bytes;
+            addCapacityRow(list, 'Host RAM available', mem?.source === 'measured' ? formatBytes(mem.value) + ' · measured' : 'Unavailable');
+            const disk = advisory.storage?.available_disk_bytes;
+            addCapacityRow(list, 'Model-cache volume free', disk?.source === 'measured' ? formatBytes(disk.value) + ' · measured' : 'Unavailable');
+            host.appendChild(list);
+            const warning = document.createElement('p');
+            warning.className = 'control-plane-models__evidence-note';
+            warning.textContent = 'Not permission to load. Disk fit and peak memory remain unverified. Rerun after resource changes.';
+            host.appendChild(warning);
+            return;
+        }
+        host.appendChild(explain);
+    }
+
+    async function checkCapacity(surface, model) {
+        const task = planningTask(model);
+        if (!task) return;
+        const version = ++capacityRequestVersion;
+        capacityPreview = { key: model.key, status: 'pending' };
+        displayCapacityPreview(surface);
+        try {
+            const plan = await fetchJson('/api/v1/applications/profiles/plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    schema_version: 'korgis-application-profile-v1',
+                    application_id: 'studio-capacity-check',
+                    profile_id: 'single-model',
+                    roles: { selected: { model: model.key, task, residency: 'warm' } },
+                }),
+            });
+            if (version !== capacityRequestVersion || selectedKey !== model.key) return;
+            capacityPreview = { key: model.key, status: 'ready', plan, at: Date.now() };
+        } catch (error) {
+            if (version !== capacityRequestVersion || selectedKey !== model.key) return;
+            const message = error?.status === 404
+                ? 'Capacity planning requires the local admin API, which is disabled or unavailable.'
+                : error?.status === 422
+                    ? 'The configured model cannot be planned with its current capability or resource metadata.'
+                    : 'Capacity planning is unavailable. No runtime action was taken.';
+            capacityPreview = { key: model.key, status: 'error', message };
+        }
+        if (latestState) render(surface, latestState);
+        surface.querySelector('[data-check-capacity]')?.focus();
+    }
+
     function bindModelActions(surface, state) {
         surface.querySelectorAll('[data-open-model]').forEach((button) => {
             button.addEventListener('click', () => {
+                if (selectedKey !== button.dataset.openModel) {
+                    capacityPreview = null;
+                    capacityRequestVersion += 1;
+                }
                 selectedKey = button.dataset.openModel;
                 render(surface, state);
                 surface.querySelector('[data-model-detail]')?.scrollIntoView({ block: 'nearest' });
+            });
+        });
+
+        surface.querySelectorAll('[data-check-capacity]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const model = state.models.find((item) => item.key === selectedKey);
+                if (model) checkCapacity(surface, model);
             });
         });
 
