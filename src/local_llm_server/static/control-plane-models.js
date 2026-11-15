@@ -437,7 +437,7 @@
         } else if (preview.status === 'error') {
             explain.textContent = preview.message;
         } else {
-            const plan = preview.plan;
+            const plan = preview.plan || {};
             const advisory = plan.capacity_advisory || {};
             const admission = advisory.admission_preview || {};
             const labels = {
@@ -490,6 +490,9 @@
                     roles: { selected: { model: model.key, task, residency: 'warm' } },
                 }),
             });
+            if (!plan || typeof plan !== 'object' || !plan.capacity_advisory || typeof plan.capacity_advisory !== 'object') {
+                throw new Error('Invalid capacity plan response');
+            }
             if (version !== capacityRequestVersion || selectedKey !== model.key) return;
             capacityPreview = { key: model.key, status: 'ready', plan, at: Date.now() };
         } catch (error) {

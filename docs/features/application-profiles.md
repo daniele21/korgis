@@ -78,6 +78,6 @@ Models & Runtimes includes a read-only **Check capacity** action in a selected m
 
 ## Acceptance and follow-up
 
-Unit regression lives at tests/test_application_profile.py. M8.3 uses deterministic ResourceManager/MemoryEnvelope snapshots; tests cover mixed residency, duplicate roles, incomplete estimates, over-budget lower bounds, no budget, unaccounted runtimes and path-free API responses. M8.4 still needs a non-mutating Studio UI.
+Unit regression lives at tests/test_application_profile.py. M8.3 uses deterministic ResourceManager/MemoryEnvelope snapshots; tests cover mixed residency, duplicate roles, incomplete estimates, over-budget lower bounds, no budget, unaccounted runtimes and path-free API responses. M8.4 has a read-only **single-model** Studio preview, but a multi-role ApplicationProfile builder/editor remains future work.
 
 Before shipping a stable application-profile API, test the canonical route/admission parity with actual HTTP composition and resolve schema compatibility with the standalone consumer SDK.
