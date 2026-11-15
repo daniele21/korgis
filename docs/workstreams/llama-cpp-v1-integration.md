@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Korgis managed `llama_server` runtime, resource admission and identity
-Last reviewed: 2026-11-14
+Last reviewed: 2026-11-16
 Read when: validating the llama.cpp upgrade or representative release evidence
 
 ## Outcome and boundary
@@ -100,14 +100,11 @@ Descriptive **median across 3 cycles per engine**:
 | Completion request elapsed | 0.133 s | 0.123 s |
 | First SSE event | 32 ms | 26 ms |
 
-These are short-model lifecycle observations, **not** native
-throughput, peak RSS, thermal, swap reclamation or quality parity.
-Pre-inference FAILs #43632142390/#43632364870 came from
-shallow v0.3 build-1 attribution; #43632684066 isolated versions.
-[#43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
-completed inference but failed receipt summarization;
-[#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)
-repaired this harness-only error. Earlier FAIL classifications stand.
+Short lifecycle observations only, **not** native throughput,
+RSS, reclamation or quality equivalence. Shallow v0.3 build-1
+caused pre-inference FAILs (#43632142390/#43632364870);
+#43632684066 identified versions. #43633363555 failed
+receipt summarization; #43633636676 repaired it. FAILs retained.
 
 ## Korgis-only runtime qualification (no external evaluation)
 
@@ -159,12 +156,17 @@ admission accepted at 8,704,049,152; stricter **test-only**
 prestart guard (+256 MiB estimated load) blocked before download
 or launch. Production thresholds/eviction unchanged.
 HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
-## Latest read-only Mac preflight — BLOCKED (2026-11-15)
+## Mac LC7 admission — BLOCKED (2026-11-16)
 
-[Mac #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460):
-pinned `dev@bbac85e`, `ready=false` (7.55 GB reclaimable estimate vs
-9.78 GB required for cached 4B). Native v1 verified; cached 4B hash
-differs from registry. No inference/download/host change; LC7 pending.
+[4B #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460):
+7.55 GB estimated reclaimable / 9.78 GB required; `ready=false`,
+GGUF hash differs from registry; no inference.
+[0.8B #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533):
+`dev@34f8e12`, 7.34 GB available / 8.46 GB canonical floor
+(6 GiB OS reserve + 1.5 × 1.25 GiB growth).
+`host_admission_refused_before_download`: no download, load or
+inference. Environment headroom failure, not a proven engine bug.
+LC7 remains blocked.
 
 ## Outstanding LC7 / release contract
 
