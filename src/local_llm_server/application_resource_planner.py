@@ -52,6 +52,8 @@ def plan_application_profile(
     unknown_evidence = bool(unattributed)
     additional_lower_bound = 0
     prospective_additional: int | None = 0
+    planned_artifact_bytes = 0
+    missing_artifact_sizes: list[str] = []
     models: list[dict[str, Any]] = []
     requested_models: dict[str, dict[str, Any]] = {}
     for name, role in profile.roles.items():
@@ -90,6 +92,11 @@ def plan_application_profile(
                     artifact_size = int(size * _GIB)
             except (ValueError, TypeError):
                 pass
+        if planned_load:
+            if artifact_size is None:
+                missing_artifact_sizes.append(key)
+            else:
+                planned_artifact_bytes += artifact_size
         models.append({
             "model": key,
             "roles": item["role_names"],
@@ -113,6 +120,24 @@ def plan_application_profile(
             },
         })
 
+    # The host observation is provided by the *existing* ResourceManager
+    # policy owner. It is a non-reserving, point-in-time diagnostic, not
+    # another memory-admission implementation.
+    host_status = resource_manager.host_memory_status() if resource_manager is not None else None
+    host_status = host_status if isinstance(host_status, Mapping) else {}
+
+    def observed_bytes(field: str) -> dict[str, Any]:
+        value = host_status.get(field)
+        measured = isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        return {"value": value if measured else None, "source": "measured" if measured else "unavailable"}
+
+    pressure = host_status.get("pressure")
+    if pressure not in {"normal", "elevated", "critical", "unknown"}:
+        pressure = "unknown"
+    pressure_source = host_status.get("source")
+    if pressure_source not in {"derived_available_fraction", "native_dispatch_event"}:
+        pressure_source = "unavailable"
+
     lower_bound_total = accounted_bytes + additional_lower_bound
     if usable is not None and lower_bound_total > usable:
         decision, reason = "rejected", "known_lower_bound_exceeds_configured_budget"
@@ -125,6 +150,15 @@ def plan_application_profile(
     else:
         decision, reason = "plausible", "complete_configured_residency_estimates"
 
+    remaining_before = (
+        max(0, usable - accounted_bytes)
+        if usable is not None and resource_manager is not None and not unattributed else None
+    )
+    remaining_after = (
+        usable - accounted_bytes - prospective_additional
+        if remaining_before is not None and prospective_additional is not None
+        else None
+    )
     return {
         "schema_version": profile.schema_version,
         "application_id": profile.application_id,
@@ -162,4 +196,33 @@ def plan_application_profile(
             ),
         },
         "models": models,
+        "capacity_advisory": {
+            "status": "snapshot_only_not_load_authorization",
+            "configured_remaining_before_bytes": remaining_before,
+            "configured_remaining_after_bytes": remaining_after,
+            "known_configured_shortfall_bytes": (
+                max(0, lower_bound_total - usable) if usable is not None else None
+            ),
+            "host": {
+                "available_bytes": observed_bytes("available_bytes"),
+                "total_bytes": observed_bytes("total_bytes"),
+                "swap_used_bytes": observed_bytes("swap_used_bytes"),
+                "pressure": {"value": pressure, "source": pressure_source},
+                "host_guard_enabled": bool(
+                    resource_manager is not None and resource_manager.host_protection_enabled
+                ),
+                "fit": "unverified",
+            },
+            "storage": {
+                "planned_models_catalog_artifact_bytes": (
+                    planned_artifact_bytes if not missing_artifact_sizes else None
+                ),
+                "missing_artifact_sizes": missing_artifact_sizes,
+                "available_disk_bytes": {"value": None, "source": "unavailable"},
+                "additional_download_bytes": {"value": None, "source": "unavailable"},
+                "fit": "unverified",
+                "streaming_memory_discount_applied": False,
+            },
+            "runtime_admission_required": True,
+        },
     }
