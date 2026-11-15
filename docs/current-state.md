@@ -91,20 +91,21 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Experiments endpoint comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Reconciled branches and release status (2026-11-15)
+## Release state (2026-11-15 UTC)
 
-PR #274 reconciled `main` into `dev`; `dev@61bea2dc` passed
-RELEASE/FULL and native CLI/Metal, not LC7 acceptance.
-[Mac #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051):
-NORMAL pressure but 130–171 MB short of 0.8B canonical admission;
-46 browser processes ~7.1–7.2 GB non-additive RSS; pinned GGUF
-not found in inspected caches. 4B headroom refused, with cached
-Unsloth quantization different from registered LM Studio asset.
-[SSE #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308):
-initial admission accepted but server refused at startup; cleanup
-clean. Safer test-only retry #43652047011 blocked before download.
-SSE and LC7 remain unproven; external evaluation still pending.
-Korgis policy and `main` unchanged. Details in llama.cpp workstream.
+`dev@34f8e12` passed exact-head RELEASE/FULL
+[#43772076129](https://github.com/daniele21/korgis/actions/runs/43772076129)
+and native CLI/Metal
+[#43772076059](https://github.com/daniele21/korgis/actions/runs/43772076059).
+Mac [4B #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
+refused at 7.55 GB reclaimable / 9.78 GB required with a different
+cached quantization. The exact-head
+[0.8B canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
+refused **before download/inference** at 7.34 GB available vs
+8.46 GB floor; 5.60 GB swap used is not additional free RAM.
+Earlier SSE startup #43651722308 refused cleanly; live SSE abort,
+HE-2, RES-2, RRG-5 and Experiments external comparison are pending.
+`main` unchanged; LC7 release-blocked. No safety margin reduced.
 
 ## Durable references
 
