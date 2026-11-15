@@ -233,3 +233,57 @@ def test_capacity_advisory_missing_catalog_artifact_is_unavailable_not_zero():
     assert storage["planned_models_catalog_artifact_bytes"] is None
     assert storage["missing_artifact_sizes"] == ["text"]
     assert storage["fit"] == "unverified"
+
+
+def test_admission_preview_reports_canonical_budget_refusal_without_mutation():
+    manager = ResourceManager(ResourceBudget(limit_bytes=1000, headroom_bytes=100))
+    manager.reserve("other-job", 600)
+    before = manager.snapshot()
+    plan = _plan(_profile(), manager)
+    assert plan["decision"] == "rejected"
+    preview = plan["capacity_advisory"]["admission_preview"]
+    assert preview["status"] == "rejected_at_snapshot"
+    assert preview["reason"] == "configured usable budget would be exceeded"
+    assert preview["requested_additional_bytes"] == 400
+    assert preview["load_authorized"] is False
+    assert manager.snapshot() == before
+
+
+def test_admission_preview_host_pressure_can_reject_plausible_configured_budget():
+    from local_llm_server.resources import ResourceValue, ResourceValueSource, SystemResourceSnapshot
+
+    class Host:
+        def snapshot(self):
+            return SystemResourceSnapshot(
+                captured_at_monotonic=1.0, platform="darwin",
+                total_memory_bytes=ResourceValue(32 * 1024**3, ResourceValueSource.MEASURED, "bytes"),
+                available_memory_bytes=ResourceValue(4 * 1024**3, ResourceValueSource.MEASURED, "bytes"),
+            )
+
+    manager = ResourceManager(ResourceBudget(limit_bytes=1000, headroom_bytes=100), host_observer=Host())
+    before = manager.snapshot()
+    plan = _plan(_profile(), manager)
+    assert plan["decision"] == "plausible"  # Configured budget only; unchanged meaning.
+    preview = plan["capacity_advisory"]["admission_preview"]
+    assert preview["status"] == "rejected_at_snapshot"
+    assert "host memory pressure is elevated" in preview["reason"]
+    assert preview["load_authorized"] is False
+    assert manager.snapshot() == before
+
+
+def test_admission_preview_unknown_estimate_unattributed_and_deferred_are_not_authorized():
+    incomplete = _plan(_profile(), ResourceManager(ResourceBudget(limit_bytes=1000)),
+                       configs={"text": _config("text", complete=False)})
+    assert incomplete["capacity_advisory"]["admission_preview"]["status"] == "unverified"
+    assert incomplete["capacity_advisory"]["admission_preview"]["reason"] == "incomplete_resident_estimate"
+    missing_manager = _plan(_profile(), None)
+    assert missing_manager["capacity_advisory"]["admission_preview"]["status"] == "unverified"
+    assert missing_manager["capacity_advisory"]["admission_preview"]["reason"] == "resource_ledger_unavailable"
+    deferred = _plan(_profile(intents=("on_demand",)), ResourceManager(ResourceBudget(limit_bytes=1000)))
+    assert deferred["capacity_advisory"]["admission_preview"]["status"] == "not_applicable"
+    assert deferred["capacity_advisory"]["admission_preview"]["reason"] == "no_planned_new_residency"
+    unattributed = _plan(_profile(intents=("pinned", "warm"), models=("text", "other")),
+                         ResourceManager(ResourceBudget(limit_bytes=1000)), resident={"text": None})
+    assert unattributed["capacity_advisory"]["admission_preview"]["status"] == "unverified"
+    assert unattributed["capacity_advisory"]["admission_preview"]["reason"] == "unattributed_resident_runtime"
+

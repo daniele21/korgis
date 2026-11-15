@@ -195,6 +195,19 @@ class ResourceManager:
                 reservations = (item for item in reservations if item.kind is kind)
             return tuple(sorted(reservations, key=lambda item: item.reservation_id))
 
+    def preview_reservation(self, requested_bytes: int) -> AdmissionResult:
+        """Read-only snapshot of canonical reservation admission.
+
+        Applies the same configured ledger, pending-load growth allowance and
+        host-pressure gate as reserve(), but never creates a reservation.
+        A non-rejected preview is NOT permission to load: host availability
+        may change and reserve()/commit() remain authoritative.
+        """
+        if requested_bytes < 0:
+            raise ValueError("requested_bytes must be >= 0")
+        with self._lock:
+            return self._decision_for(requested_bytes)
+
     def reserve(
         self,
         reservation_id: str,

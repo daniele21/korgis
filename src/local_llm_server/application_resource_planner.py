@@ -138,6 +138,38 @@ def plan_application_profile(
     if pressure_source not in {"derived_available_fraction", "native_dispatch_event"}:
         pressure_source = "unavailable"
 
+    # Preview the *same* admission implementation that reserve() uses; no
+    # reservation is made. A complete estimate is required to avoid a false
+    # clearance from only a partial lower bound. All intended cold loads are
+    # considered together as one conservative growth estimate.
+    admission_preview: dict[str, Any] = {
+        "status": "unverified",
+        "reason": "not_evaluated",
+        "requested_additional_bytes": prospective_additional,
+        "source": "resource_manager_snapshot",
+        "load_authorized": False,
+    }
+    if not any(model["would_load"] for model in models):
+        admission_preview.update(status="not_applicable", reason="no_planned_new_residency")
+    elif resource_manager is None:
+        admission_preview["reason"] = "resource_ledger_unavailable"
+    elif unattributed:
+        admission_preview["reason"] = "unattributed_resident_runtime"
+    elif prospective_additional is None:
+        admission_preview["reason"] = "incomplete_resident_estimate"
+    else:
+        preview = resource_manager.preview_reservation(prospective_additional)
+        admission_preview.update(
+            status=(
+                "rejected_at_snapshot"
+                if preview.decision.value == "reject"
+                else "not_rejected_at_snapshot"
+                if preview.decision.value == "admit"
+                else "unverified"
+            ),
+            reason=preview.reason,
+        )
+
     lower_bound_total = accounted_bytes + additional_lower_bound
     if usable is not None and lower_bound_total > usable:
         decision, reason = "rejected", "known_lower_bound_exceeds_configured_budget"
@@ -224,5 +256,6 @@ def plan_application_profile(
                 "streaming_memory_discount_applied": False,
             },
             "runtime_admission_required": True,
+            "admission_preview": admission_preview,
         },
     }

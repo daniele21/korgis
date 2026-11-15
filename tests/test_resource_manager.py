@@ -79,3 +79,25 @@ def test_duplicate_reservation_is_rejected():
 
     with pytest.raises(ValueError, match="reservation already exists"):
         manager.reserve("load-a", 100)
+
+
+def test_preview_uses_exact_budget_policy_without_reserving():
+    manager = ResourceManager(ResourceBudget(limit_bytes=1000, headroom_bytes=100))
+    manager.reserve("existing", 600)
+    before = manager.snapshot()
+    preview = manager.preview_reservation(400)
+    assert preview.decision is AdmissionDecision.REJECT
+    assert preview.reason == manager.reserve("new", 400).reason
+    assert manager.snapshot() == before
+    assert manager.preview_reservation(300).decision is AdmissionDecision.ADMIT
+    assert manager.snapshot() == before
+
+
+def test_preview_without_configured_budget_does_not_invent_admission():
+    manager = ResourceManager(ResourceBudget(limit_bytes=None))
+    preview = manager.preview_reservation(100)
+    assert preview.decision is AdmissionDecision.UNKNOWN
+    assert manager.snapshot() == ()
+    with pytest.raises(ValueError, match="requested_bytes"):
+        manager.preview_reservation(-1)
+
