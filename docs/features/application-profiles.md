@@ -1,4 +1,4 @@
-# Experimental ApplicationProfile validation and resource preview (M8.1–M8.3)
+# Experimental ApplicationProfile validation, resource preview and Studio check (M8.1–M8.4 partial)
 
 Status: experimental
 Document type: feature-contract
@@ -11,7 +11,7 @@ Last reviewed: 2026-11-15
 
 The canonical server-side ApplicationProfile contract lives in local_llm_server.core.application_profile. It binds a named application/profile and task roles to **exact configured registry keys**. It deliberately has no implicit model selection, download, activation, process construction, filesystem scan or persistent state.
 
-M8.1 and M8.2 cover the canonical vocabulary and capability validation. M8.3 adds a bounded, non-mutating *configured-residency* planning preview. M8.4 Studio, M9 residency automation, M10 request priorities and M12 stable integration remain future work.
+M8.1 and M8.2 cover the canonical vocabulary and capability validation. M8.3 adds a bounded, non-mutating *configured-residency* planning preview. M8.4 provides a **single-model read-only Studio capacity check**; the multi-role editor, M9 residency automation, M10 request priorities and M12 stable integration remain future work.
 
 ## Experimental schema
 
