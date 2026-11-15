@@ -100,19 +100,14 @@ Descriptive **median across 3 cycles per engine**:
 | Completion request elapsed | 0.133 s | 0.123 s |
 | First SSE event | 32 ms | 26 ms |
 
-These are short-model lifecycle timings, **not** statistically
-established prefill/decode throughput, peak-RSS/thermal measurements,
-swap in/out activity, memory-pressure reclamation or model-quality
-equivalence. First comparison attempts
-[#43632142390](https://github.com/daniele21/local-runner-infra/actions/runs/43632142390)
-and [#43632364870](https://github.com/daniele21/local-runner-infra/actions/runs/43632364870)
-failed before inference from shallow v0.3 build-1 rejection;
-[#43632684066](https://github.com/daniele21/local-runner-infra/actions/runs/43632684066)
-isolated real `--version` identities. The first repaired six-cycle
-run [#43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
-passed execution but its final workflow summary attempted to execute
-the receipt path and failed; the final #43633636676 corrected that
-harness-only error. Preserve earlier FAIL classifications.
+These are short-model lifecycle observations, **not** native
+throughput, peak RSS, thermal, swap reclamation or quality parity.
+Pre-inference FAILs #43632142390/#43632364870 came from
+shallow v0.3 build-1 attribution; #43632684066 isolated versions.
+[#43633363555](https://github.com/daniele21/local-runner-infra/actions/runs/43633363555)
+completed inference but failed receipt summarization;
+[#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676)
+repaired this harness-only error. Earlier FAIL classifications stand.
 
 ## Korgis-only runtime qualification (no external evaluation)
 
