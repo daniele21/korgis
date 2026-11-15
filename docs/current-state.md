@@ -88,7 +88,7 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   benchmark/representative device evidence.
   See `docs/workstreams/qwen-image-2-1.md`.
 - llama.cpp v1: release-critical LC7 memory/reclamation,
-  larger-model and Performance Lab comparison evidence outstanding.
+  larger-model and Experiments endpoint comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
 ## Reconciled branches and release status (2026-11-15)

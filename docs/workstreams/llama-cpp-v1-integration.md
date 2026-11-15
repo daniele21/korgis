@@ -10,9 +10,10 @@ Read when: validating the llama.cpp upgrade or representative release evidence
 Keep Korgis' existing OpenAI-compatible serving, memory guard, security,
 runtime lifecycle and explicit external binary selection while supporting
 attributable llama.cpp v1.0.0 and opt-in FP8 KV/MoE host cache settings.
-Korgis owns execution, processes, admission and lifecycle. Performance Lab
-(`daniele21/performance-lab`) owns external endpoint evaluation, comparison
-and regression. Neither project may duplicate the other's authority.
+Korgis owns execution, processes, admission and lifecycle.
+Experiments (`daniele21/experiments`, `model-capability-benchmark`) owns
+externally served endpoint evaluation, comparison and regression. Neither
+project may duplicate the other's authority.
 
 Reference source: `ggml-org/llama.cpp` v1.0.0,
 `2d8a32502909ca065c41c4cf5f2fb1c427c047fc` (released
@@ -46,7 +47,7 @@ A separate historical reference is v0.3.0,
 | LC4 | Typed FP8/MoE options, conservative estimates/identity | DONE |
 | LC5 | HTTP/security compatibility, automated E2E and FULL gates | DONE |
 | LC6 | Independent `llama-cpp-python 0.3.36` lock/native build | DONE |
-| LC7 | Matched Mac memory/lifecycle and Performance Lab regression | PARTIAL — release blocking |
+| LC7 | Matched Mac memory/lifecycle and Experiments endpoint regression | PARTIAL — release blocking |
 | LC8 | PR #262 integrated to `dev`; `main` promotion gate | DEV DONE / RELEASE BLOCKED |
 
 PRs #262–#265 landed on `dev`; PR #271 fixes **shallow v0.3
@@ -116,8 +117,8 @@ harness-only error. Preserve earlier FAIL classifications.
 ## Korgis-only runtime qualification (no external evaluation)
 
 This slice records **Korgis runtime-owner** evidence only. It does not
-change Performance Lab's ownership or waive a release-required external
-evaluation; no changes were made to Performance Lab.
+change Experiments' ownership or waive a release-required external
+evaluation; no Korgis benchmark implementation was added.
 
 [Native observation #43635780313](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313):
 physical Mac, Korgis `df034929505dbcc10e6dc6d318c092dd496d0c5b`,
@@ -170,11 +171,12 @@ HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
   resource receipts. Collect actual peak RSS and available swap in/out,
   memory pressure and post-unload observations. Include representative
   larger GGUF if admitted; never lower safety headroom to force PASS.
-- Performance Lab: run versioned identical externally served workloads
+- Experiments: run versioned identical externally served workloads
   against both Korgis-managed endpoints, with compatible fingerprints,
   exact model/hardware/config, warmup/repetitions, TTFT, prefill/decode,
   error rates, quality and regression classification. Missing telemetry
   stays unavailable; never infer throughput from SSE chunk counts.
+  Use the [existing Experiments MCB release comparison protocol](https://github.com/daniele21/experiments/blob/main/experiments/model-capability-benchmark/KORGIS_LLAMA_V1_ENDPOINT_REGRESSION.md). It documents the present TTFT/prefill/decode telemetry gap; the protocol alone is not accepted comparative evidence.
 - Distinguish baseline, candidate, head/tree/base, native binary SHA and
   model hash; retain failed/interrupted observations.
 - Before `dev -> main`: `FULL` deterministic release validation and
@@ -190,7 +192,7 @@ preserve the user's chosen default executable. No silent replacement.
 
 Korgis implementation and short-model Mac lifecycle proof are complete
 on `dev`; LC7 is **not** release complete. Prioritize matched external
-Performance Lab runs and representative heavier/reclamation evidence
+Experiments runs and representative heavier/reclamation evidence
 without reimplementing benchmark ownership inside Korgis.
 See `docs/device-evidence-runbook.md` for canonical HE-2/RES-2/RRG-5
 procedures, `docs/current-state.md` for integrated state, and
