@@ -77,6 +77,16 @@ def test_validate_plan_exact_model_zero_resident_no_mutation(tmp_path, monkeypat
     assert result["decision"] == "plausible"
     assert result["models"][0]["would_load"] is True
     assert result["planned"]["additional_estimated_bytes"] == 235
+    advisory = result["capacity_advisory"]
+    assert advisory["configured_remaining_before_bytes"] == 900
+    assert advisory["configured_remaining_after_bytes"] == 665
+    assert advisory["known_configured_shortfall_bytes"] == 0
+    assert advisory["host"]["fit"] == "unverified"
+    assert advisory["host"]["available_bytes"]["source"] == "unavailable"
+    assert advisory["storage"]["fit"] == "unverified"
+    assert advisory["storage"]["additional_download_bytes"]["value"] is None
+    assert advisory["storage"]["streaming_memory_discount_applied"] is False
+    assert advisory["runtime_admission_required"] is True
     assert result["mutated_runtime"] is False
     assert resource.snapshot() == before
     assert runtime.list() == []

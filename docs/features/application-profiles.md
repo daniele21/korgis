@@ -5,7 +5,7 @@ Document type: feature-contract
 Owner: runtime-and-platform
 Canonical scope: feature.application-profiles
 Read when: shaping declarative application intent and capability validation
-Last reviewed: 2026-10-11
+Last reviewed: 2026-11-15
 
 ## Boundary
 
