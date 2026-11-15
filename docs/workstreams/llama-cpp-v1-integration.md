@@ -10,9 +10,10 @@ Read when: validating the llama.cpp upgrade or representative release evidence
 Keep Korgis' existing OpenAI-compatible serving, memory guard, security,
 runtime lifecycle and explicit external binary selection while supporting
 attributable llama.cpp v1.0.0 and opt-in FP8 KV/MoE host cache settings.
-Korgis owns execution, processes, admission and lifecycle. Experiments
-(`daniele21/performance-lab`) owns external endpoint evaluation, comparison
-and regression. Neither project may duplicate the other's authority.
+Korgis owns execution, processes, admission and lifecycle.
+Experiments (`daniele21/experiments`, `model-capability-benchmark`) owns
+externally served endpoint evaluation, comparison and regression. Neither
+project may duplicate the other's authority.
 
 Reference source: `ggml-org/llama.cpp` v1.0.0,
 `2d8a32502909ca065c41c4cf5f2fb1c427c047fc` (released
