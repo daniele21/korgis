@@ -111,6 +111,73 @@ jobs:
               raise AssertionError("disk cache unexpectedly enabled")
           print("PASS: native import without diskcache; RAM cache preserved")
           PY
+      - name: Bounded Korgis GGUF inference with hardened binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHON="$RUNNER_TEMP/hardened-llama-python/venv/bin/python"
+          "$PYTHON" -m pip install --no-cache-dir -e .
+          "$PYTHON" - <<'PY'
+          import hashlib
+          from importlib import metadata, util
+          import os
+          from pathlib import Path
+          import urllib.request
+
+          assert metadata.version("llama-cpp-python") == "0.3.36+korgis.1"
+          assert util.find_spec("diskcache") is None
+
+          model = Path(os.environ["RUNNER_TEMP"]) / "hardened-llama-python" / "Qwen3.5-0.8B-Q4_K_M.gguf"
+          source = (
+              "https://huggingface.co/lmstudio-community/Qwen3.5-0.8B-GGUF/"
+              "resolve/7925ccdc665d4efdb1034791e6b553e11128e6f8/"
+              "Qwen3.5-0.8B-Q4_K_M.gguf"
+          )
+          digest = hashlib.sha256()
+          downloaded = 0
+          expected_size = 527502816
+          with urllib.request.urlopen(
+              urllib.request.Request(source, headers={"User-Agent": "Korgis-hardened-binding-smoke/1"}),
+              timeout=90,
+          ) as remote, model.open("wb") as output:
+              while chunk := remote.read(4 * 1024 * 1024):
+                  downloaded += len(chunk)
+                  assert downloaded <= expected_size, "GGUF download larger than pinned size"
+                  digest.update(chunk)
+                  output.write(chunk)
+          assert downloaded == expected_size, "GGUF download size mismatch"
+          assert digest.hexdigest() == "f5b14da98939b60bbe1019a964eba656407e1e0b64f1fe3003ff6d650e93bfec"
+          with model.open("rb") as stream:
+              assert stream.read(4) == b"GGUF", "GGUF header mismatch"
+
+          from local_llm_server.engine import LlamaCppEngine
+
+          config = {
+              "model_path": str(model),
+              "no_download": True,
+              "ctx_size": 512,
+              "n_batch": 128,
+              "n_ubatch": 128,
+              "n_gpu_layers": -1,
+              "n_threads": 4,
+              "offload_kqv": True,
+              "flash_attn": False,
+              "use_mmap": True,
+              "verbose": False,
+          }
+          engine = LlamaCppEngine(config)
+          try:
+              response = engine.complete({
+                  "messages": [{"role": "user", "content": "Say hello"}],
+                  "temperature": 0.0,
+                  "max_tokens": 8,
+              })
+              assert response.get("choices"), "missing GGUF completion"
+          finally:
+              engine.close()
+          assert util.find_spec("diskcache") is None
+          print("PASS: Korgis native GGUF inference with hardened binding and no diskcache")
+          PY
       - name: Remove isolated build products
         if: always()
         shell: bash
