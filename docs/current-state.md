@@ -93,39 +93,25 @@ remains `not_provided`, and both `reclamation_safety_claim` and
 
 ## Release state (2026-11-16 UTC)
 
-Current `dev@427de51d` passes exact-head RELEASE/FULL
-[#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474),
-native CLI/Metal
-[#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398),
-native memory-pressure smoke
-[#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558),
-Repository Health
-[#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483)
-and `local-ci/mac`
-[#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801).
-These deterministic checks are not LC7 representative-device proof.
+Current `dev@427de51d` deterministic
+[RELEASE/FULL #43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474),
+[CLI/Metal #43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398),
+[memory-pressure #43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558),
+[Repository Health #43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483),
+and [local-ci/mac #43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801)
+are **PASS**, but do not qualify LC7 hardware behavior.
 
-[4B read-only Mac preflight #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
-refused with 7.55 GB reclaimable estimate versus 9.78 GB required; the
-cached quantization SHA differs from the registered model.
-[Approved 0.8B managed Mac canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
-refused before download/inference on attempt 1 with 7,339,606,016
-bytes available versus the unchanged 8,455,716,864-byte admission floor.
-The 2026-11-16 **attempt 2**, against unchanged runtime source
-`dev@34f8e12`, again returned
-`host_admission_refused_before_download`: 8,053,571,584 bytes
-reclaimable estimate versus 8,455,716,864 bytes required,
-5,529,864,765 bytes already used swap. Managed HTTP, independent
-Python inference and model downloads remained `not_run`. The current
-`dev@427de51d` changes documentation only relative to the tested
-runtime candidate.
-
-Both 0.8B refusals are **environment/host-capacity blocks**, not
-demonstrated native regressions. Do not repeat identical tests
-without materially improved host headroom; do not relax safety margins
-or evict foreign processes. Live SSE cancellation, repeated HE-2,
-RES-2, RRG-5 and Experiments' controlled externally served endpoint
-comparison remain **PENDING**. `main` unchanged; LC7 release-blocked.
+Physical-Mac [4B preflight #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
+refused with 7.55 versus 9.78 GB required, plus GGUF hash mismatch.
+The approved [0.8B canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
+was refused **before download/inference** twice on identical runtime source
+`dev@34f8e12`: attempt 1 had 7.34 GB versus 8.46 GB required;
+2026-11-16 attempt 2 had 8,053,571,584 versus 8,455,716,864
+bytes, with 5,529,864,765 bytes already used swap. This is an
+**environment/host-capacity block**, not an observed native regression.
+No safety margin or foreign process changed. Stop repeated retries without
+new headroom. SSE abort, HE-2/RES-2/RRG-5 and Experiments endpoint
+comparison remain **PENDING**; `main` unchanged.
 
 ## Durable references
 
