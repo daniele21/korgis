@@ -200,9 +200,7 @@ preserve the user's chosen default executable. No silent replacement.
 
 ## Resume checkpoint
 
-Korgis code and small-model real-Mac lifecycle have passed on
-`dev`; LC7 release acceptance is still **PENDING**. Run Experiments'
-paired external evaluation and Korgis representative memory/SSE gates
-without duplicating owners. Canonical procedures:
-`docs/device-evidence-runbook.md`; status: `docs/current-state.md`.
-Delete this workstream only after proof and release disposition agree.
+Small-model Mac lifecycle PASS on `dev`; LC7 release PENDING.
+Run Korgis [device procedures](../device-evidence-runbook.md) and
+Experiments' paired endpoint comparison. Keep `docs/current-state.md`
+authoritative; finalize only after acceptance.
