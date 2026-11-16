@@ -45,6 +45,9 @@ def test_llama_cpp_engine_close_releases_native_owner(monkeypatch, tmp_path):
 
     engine = LlamaCppEngine(_cfg(tmp_path))
     [llm] = _FakeLlama.instances
+    # Korgis may not expose upstream pickle-backed GGUF disk caching.
+    assert "cache" not in llm.kwargs
+    assert not hasattr(llm, "set_cache")
 
     engine.close()
     engine.close()
