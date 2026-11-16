@@ -200,11 +200,9 @@ preserve the user's chosen default executable. No silent replacement.
 
 ## Resume checkpoint
 
-Korgis implementation and short-model Mac lifecycle proof are complete
-on `dev`; LC7 is **not** release complete. Prioritize matched external
-Experiments runs and representative heavier/reclamation evidence
-without reimplementing benchmark ownership inside Korgis.
-See `docs/device-evidence-runbook.md` for canonical HE-2/RES-2/RRG-5
-procedures, `docs/current-state.md` for integrated state, and
-`.engineering/commands.json` for validation. Finalize/delete this
-workstream only when LC7 evidence and release disposition agree.
+Korgis code and small-model real-Mac lifecycle have passed on
+`dev`; LC7 release acceptance is still **PENDING**. Run Experiments'
+paired external evaluation and Korgis representative memory/SSE gates
+without duplicating owners. Canonical procedures:
+`docs/device-evidence-runbook.md`; status: `docs/current-state.md`.
+Delete this workstream only after proof and release disposition agree.
