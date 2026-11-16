@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Korgis managed `llama_server` runtime, resource admission and identity
-Last reviewed: 2026-11-15
+Last reviewed: 2026-11-16
 Read when: validating the llama.cpp upgrade or representative release evidence
 
 ## Outcome and boundary
@@ -167,6 +167,12 @@ GGUF hash differs from registry; no inference.
 `host_admission_refused_before_download`: no download, load or
 inference. Environment headroom failure, not a proven engine bug.
 LC7 remains blocked.
+
+### 2026-11-16 bounded Mac rerun
+
+[Approved 0.8B managed + Python physical-Mac canary #43773079533, attempt 2](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533) was retried **once** at the same pinned runtime source `34f8e12384ae9e2e3e84cedb062a3ed47a2cf810`. It returned `host_admission_refused_before_download`, with reclaimable estimate **8,053,571,584 bytes** below the unchanged **8,455,716,864-byte** canonical floor and 5,529,864,765 bytes already in swap. No model download or native inference occurred; managed/Python outcomes were `not_run`. Classify **environment/capacity block**, not demonstrated llama.cpp failure. No policy margins, eviction, default runtime or external processes were changed. Stop repeating until materially different host conditions exist.
+
+Current `dev@427de51d` deterministic RELEASE/FULL [#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474), native CLI/Metal [#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398), native memory-pressure [#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558), Repository Health [#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483), and `local-ci/mac` [#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801) all PASS. Real LC7 Mac and Experiments release evidence remain pending.
 
 ## Outstanding LC7 / release contract
 
