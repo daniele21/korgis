@@ -101,9 +101,12 @@ def validate_no_llama_disk_cache_wiring(roots: Iterable[Path]) -> list[str]:
                     if module == "diskcache" or module.startswith("diskcache."):
                         problem = "direct diskcache import"
                     elif module in ("llama_cpp", "llama_cpp.llama_cache") and any(
-                        alias.name == "LlamaDiskCache" for alias in node.names
+                        alias.name in ("LlamaDiskCache", "*") for alias in node.names
                     ):
-                        problem = "LlamaDiskCache import"
+                        problem = "LlamaDiskCache-capable import"
+                elif isinstance(node, ast.Name):
+                    if node.id == "LlamaDiskCache":
+                        problem = "LlamaDiskCache reference"
                 elif isinstance(node, ast.Attribute):
                     if node.attr == "LlamaDiskCache":
                         problem = "LlamaDiskCache access"
