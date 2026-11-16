@@ -91,27 +91,41 @@ remains `not_provided`, and both `reclamation_safety_claim` and
   larger-model and Experiments endpoint comparison evidence outstanding.
   No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
 
-## Release state (2026-11-15 UTC)
+## Release state (2026-11-16 UTC)
 
-`dev@34f8e12` passed exact-head RELEASE/FULL
-[#43772076129](https://github.com/daniele21/korgis/actions/runs/43772076129)
-and native CLI/Metal
-[#43772076059](https://github.com/daniele21/korgis/actions/runs/43772076059).
-Mac [4B #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
-refused at 7.55 GB reclaimable / 9.78 GB required with a different
-cached quantization. The exact-head
-[0.8B canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
-refused **before download/inference** at 7.34 GB available vs
-8.46 GB floor; 5.60 GB swap used is not additional free RAM.
-Earlier SSE startup #43651722308 refused cleanly; live SSE abort,
-HE-2, RES-2, RRG-5 and Experiments external comparison are pending.
-`main` unchanged; LC7 release-blocked. No safety margin reduced.
+Current `dev@427de51d` passes exact-head RELEASE/FULL
+[#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474),
+native CLI/Metal
+[#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398),
+native memory-pressure smoke
+[#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558),
+Repository Health
+[#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483)
+and `local-ci/mac`
+[#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801).
+These deterministic checks are not LC7 representative-device proof.
 
-## 2026-11-16 verification update
+[4B read-only Mac preflight #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
+refused with 7.55 GB reclaimable estimate versus 9.78 GB required; the
+cached quantization SHA differs from the registered model.
+[Approved 0.8B managed Mac canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
+refused before download/inference on attempt 1 with 7,339,606,016
+bytes available versus the unchanged 8,455,716,864-byte admission floor.
+The 2026-11-16 **attempt 2**, against unchanged runtime source
+`dev@34f8e12`, again returned
+`host_admission_refused_before_download`: 8,053,571,584 bytes
+reclaimable estimate versus 8,455,716,864 bytes required,
+5,529,864,765 bytes already used swap. Managed HTTP, independent
+Python inference and model downloads remained `not_run`. The current
+`dev@427de51d` changes documentation only relative to the tested
+runtime candidate.
 
-- Current `dev@427de51d` deterministic RELEASE/FULL [#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474), CLI/Metal [#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398), native memory-pressure [#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558), Repository Health [#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483) and `local-ci/mac` [#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801) are **PASS**; these are not LC7 representative-hardware acceptance.
-- On [approved 0.8B physical-Mac canary #43773079533, attempt 2](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533), **host admission refused before download/inference**: reclaimable estimate 8,053,571,584 bytes versus unchanged 8,455,716,864-byte requirement; swap already used 5,529,864,765 bytes is not additional available RAM. Managed HTTP and independent Python inference were both `not_run`. This was the unchanged runtime source `dev@34f8e12`; newer `dev@427de51d` changed docs only.
-- Classify as **environment/host-capacity blocked**, not a native regression. Do not repeat identical tests without substantially improved memory headroom; retain fail-conservative policy. Actual SSE cancellation, LC7 HE-2/RES-2/RRG-5 and Experiments external endpoint comparison remain **PENDING**. `main` remains unchanged.
+Both 0.8B refusals are **environment/host-capacity blocks**, not
+demonstrated native regressions. Do not repeat identical tests
+without materially improved host headroom; do not relax safety margins
+or evict foreign processes. Live SSE cancellation, repeated HE-2,
+RES-2, RRG-5 and Experiments' controlled externally served endpoint
+comparison remain **PENDING**. `main` unchanged; LC7 release-blocked.
 
 ## Durable references
 
