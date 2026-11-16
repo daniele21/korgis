@@ -45,6 +45,9 @@ def test_llama_cpp_engine_close_releases_native_owner(monkeypatch, tmp_path):
 
     engine = LlamaCppEngine(_cfg(tmp_path))
     [llm] = _FakeLlama.instances
+    # Korgis may not expose upstream pickle-backed GGUF disk caching.
+    assert "cache" not in llm.kwargs
+    assert not hasattr(llm, "set_cache")
 
     engine.close()
     engine.close()
@@ -63,3 +66,21 @@ def test_closed_llama_cpp_engine_cannot_accept_new_inference(monkeypatch, tmp_pa
 
     with pytest.raises(RuntimeError, match="closed"):
         engine.complete({"messages": []})
+
+
+def test_llama_cpp_backend_ignores_untrusted_disk_cache_configuration(monkeypatch, tmp_path):
+    _FakeLlama.instances.clear()
+    monkeypatch.setitem(sys.modules, "llama_cpp", SimpleNamespace(Llama=_FakeLlama))
+    monkeypatch.setattr("local_llm_server.engine.ensure_model", lambda **_kwargs: None)
+
+    config = _cfg(tmp_path)
+    config["cache"] = object()
+    config["disk_cache"] = True
+    config["cache_dir"] = str(tmp_path / "untrusted-cache")
+    engine = LlamaCppEngine(config)
+    [llm] = _FakeLlama.instances
+
+    assert "cache" not in llm.kwargs
+    assert "disk_cache" not in llm.kwargs
+    assert "cache_dir" not in llm.kwargs
+    engine.close()
