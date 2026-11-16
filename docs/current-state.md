@@ -38,35 +38,20 @@ model eviction; post-stop memory deltas remain observational.
 
 ## Active developer integration (`dev`)
 
-- Experimental Python SDK (#227), auth (#233) and M8.1–M8.2
-  ApplicationProfile parser/validator (#230) do not establish a stable
-  application embedding API. M8.3 dry-run and optional validate/plan
-  endpoints (#231) do **not** prove actual memory admission.
-  M8.3 capacity/admission/storage previews (#277–#279) and the M8.4
-  single-model Studio check (#280) are read-only, not device-fit proof.
-  Multi-role M8.4, M9–M10, M12 and embedding authorization/ownership
-  (#229) remain pending.
-  ClosedRoom migration is consumer-owned.
-- llama.cpp v1.0.0 (#262) is an **opt-in external** runtime with explicit
-  FP8/MoE features. Independent Python 0.3.36 is **not** v1 C API and
-  does not auto-activate. Real Korgis-managed HTTP/stream/unload plus
-  separate Python GGUF canaries PASS twice
-  ([#43629147770](https://github.com/daniele21/local-runner-infra/actions/runs/43629147770),
-  [#43629484166](https://github.com/daniele21/local-runner-infra/actions/runs/43629484166)).
-  Exact-tag historical v0.3 vs v1 managed lifecycle also passes
-  **6/6 physical-Mac cycles**
-  ([#43633636676](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676))
-  after shallow-build version attribution fix (#271, merged to dev).
-  Subsequent Korgis-only resource telemetry
-  [#43635780313](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313)
-  passes 8/8 managed 0.8B cycles with observed native RSS,
-  96-token HTTP timings and zero sampled swap in/out.
-  The 4B read-only safety preflight [#43636178878](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878)
-  refuses launch; v1 streaming-disconnect follow-ups also stopped
-  before model startup on canonical host admission (#43636531152).
-  None establishes pressure-safe production reclamation;
-  LC7 **release-blocked**.
-  See `docs/workstreams/llama-cpp-v1-integration.md`.
+- Experimental SDK/auth (#227/#233), ApplicationProfiles (#230/#231)
+  and M8 capacity previews (#277–#280) are not a stable embedding API
+  or proof of device fit. Multi-role M8.4, M9–M10, M12 and authorization
+  (#229) remain pending; ClosedRoom migration is consumer-owned.
+- llama.cpp v1 (#262) remains **opt-in**, with explicit FP8/MoE flags;
+  independent Python 0.3.36 is not its C API. Real HTTP/stream/unload
+  plus Python canaries [PASS twice](https://github.com/daniele21/local-runner-infra/actions/runs/43629484166);
+  historical v0.3/v1 lifecycle [6/6 PASS](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676);
+  [8/8 managed resource cycles](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313)
+  report bounded RSS/HTTP observations. Neither larger-model
+  [admission refusal](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878)
+  nor refused SSE startup qualifies production reclamation;
+  LC7 **release-blocked**. See
+  `docs/workstreams/llama-cpp-v1-integration.md`.
 
 ## Evidence boundaries
 
