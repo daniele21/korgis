@@ -1,0 +1,136 @@
+"""Product API accepts M8 planning requests without resident backends or mutation."""
+from __future__ import annotations
+
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from local_llm_server.control_plane_api import install_product_api
+from local_llm_server.resource_manager import ResourceManager
+from local_llm_server.resource_policy import ResourcePolicySettings
+from local_llm_server.resources import ResourceBudget
+from local_llm_server.product_runtime_manager import ProductRuntimeManager
+from local_llm_server.server import ServerSettings, create_app
+
+
+def _profile(task="chat", model="text", residency="warm"):
+    return {
+        "schema_version": "korgis-application-profile-v1",
+        "application_id": "closedroom",
+        "profile_id": "meeting",
+        "roles": {
+            "analysis": {"model": model, "task": task, "residency": residency},
+        },
+    }
+
+
+def _client(tmp_path: Path, *, admin: bool, monkeypatch, memory_budget=1000, models_dir=None):
+    from local_llm_server import config, registry
+
+    model_entry = {
+        "tasks": ["chat"],
+        "input_modalities": ["text"],
+        "output_modalities": ["text"],
+        "features": [],
+        "model_id": "org/text",
+        "size_gb": 0.00001,
+    }
+    monkeypatch.setattr(registry, "load_registry", lambda: {
+        "models": {"text": model_entry}, "models_dir": models_dir,
+    })
+    monkeypatch.setattr(config, "build_config", lambda model, no_download: {
+        "model": model,
+        "model_path": "/home/private/document",
+        "resource_model_weights_bytes": 200,
+        "resource_backend_overhead_bytes": 20,
+        "resource_context_cache_bytes": 10,
+        "resource_safety_margin_bytes": 5,
+        "resource_request_estimate_bytes": 90,
+    })
+    resource = ResourceManager(ResourceBudget(limit_bytes=memory_budget, headroom_bytes=100))
+    manager = ProductRuntimeManager(default_model="text", resource_manager=resource)
+    app = create_app(settings=ServerSettings(enable_admin_api=admin))
+    app.state.runtime_manager = manager
+    app.state.cfg = None
+    app.state.llm = None
+    app.state.resource_policy_settings = ResourcePolicySettings(
+        memory_limit_bytes=memory_budget, headroom_bytes=100,
+    )
+    install_product_api(app, evaluation_root=tmp_path / "evaluations")
+    return TestClient(app), manager, resource
+
+
+def test_profiles_are_admin_only(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, admin=False, monkeypatch=monkeypatch)
+    assert client.post("/api/v1/applications/profiles/validate", json=_profile()).status_code == 404
+    assert client.post("/api/v1/applications/profiles/plan", json=_profile()).status_code == 404
+
+
+def test_validate_plan_exact_model_zero_resident_no_mutation(tmp_path, monkeypatch):
+    client, runtime, resource = _client(tmp_path, admin=True, monkeypatch=monkeypatch)
+    before = resource.snapshot()
+    validation = client.post("/api/v1/applications/profiles/validate", json=_profile())
+    assert validation.status_code == 200
+    assert validation.json()["valid"] is True
+    assert validation.json()["roles"][0]["model"] == "text"
+    plan = client.post("/api/v1/applications/profiles/plan", json=_profile())
+    assert plan.status_code == 200
+    result = plan.json()
+    assert result["decision"] == "plausible"
+    assert result["models"][0]["would_load"] is True
+    assert result["planned"]["additional_estimated_bytes"] == 235
+    advisory = result["capacity_advisory"]
+    assert advisory["configured_remaining_before_bytes"] == 900
+    assert advisory["configured_remaining_after_bytes"] == 665
+    assert advisory["known_configured_shortfall_bytes"] == 0
+    assert advisory["host"]["fit"] == "unverified"
+    assert advisory["host"]["available_bytes"]["source"] == "unavailable"
+    assert advisory["storage"]["fit"] == "unverified"
+    assert advisory["storage"]["additional_download_bytes"]["value"] is None
+    assert advisory["storage"]["streaming_memory_discount_applied"] is False
+    assert advisory["runtime_admission_required"] is True
+    assert advisory["admission_preview"]["status"] == "not_rejected_at_snapshot"
+    assert advisory["admission_preview"]["requested_additional_bytes"] == 235
+    assert advisory["admission_preview"]["load_authorized"] is False
+    assert result["mutated_runtime"] is False
+    assert resource.snapshot() == before
+    assert runtime.list() == []
+    assert "/home/private/" not in str(result)
+
+
+def test_invalid_profile_and_unknown_capability_fail_before_planning(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, admin=True, monkeypatch=monkeypatch)
+    assert client.post(
+        "/api/v1/applications/profiles/plan",
+        json=_profile(task="transcription"),
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/applications/profiles/plan",
+        json=_profile(model="unknown"),
+    ).status_code == 422
+    invalid = _profile()
+    invalid["exfiltrate"] = True
+    assert client.post(
+        "/api/v1/applications/profiles/validate",
+        json=invalid,
+    ).status_code == 422
+
+
+def test_plan_api_observes_model_storage_volume_without_paths(tmp_path, monkeypatch):
+    from collections import namedtuple
+    from local_llm_server import resource_observation
+
+    models_dir = tmp_path / "private-model-cache"
+    models_dir.mkdir()
+    usage = namedtuple("Usage", "total used free")
+    monkeypatch.setattr(resource_observation.shutil, "disk_usage", lambda path: usage(10000, 4000, 6000))
+    client, _, resource = _client(tmp_path, admin=True, monkeypatch=monkeypatch, models_dir=models_dir)
+    before = resource.snapshot()
+    res = client.post("/api/v1/applications/profiles/plan", json=_profile())
+    assert res.status_code == 200
+    storage = res.json()["capacity_advisory"]["storage"]
+    assert storage["available_disk_bytes"] == {"value": 6000, "source": "measured"}
+    assert storage["additional_download_bytes"]["value"] is None
+    assert storage["fit"] == "unverified"
+    assert str(models_dir) not in res.text
+    assert resource.snapshot() == before

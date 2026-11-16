@@ -789,7 +789,7 @@ wheels = [
 
 [[package]]
 name = "llama-cpp-python"
-version = "0.3.28"
+version = "0.3.36"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "diskcache" },
@@ -798,7 +798,7 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/c1/ac90e90d28f405009a89f08a5727d3f0dac49309575fb2d1a5ff1d265826/llama_cpp_python-0.3.28.tar.gz", hash = "sha256:958227b394f413425d6039952096daa0b8b98328c6b99d652862aec775f1672d", size = 68296944, upload-time = "2026-06-07T23:54:28.292Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/e9/e7de2b0463ea3ffbf0ede6cb21b58c1258a8f6521aae45ca773a59fe7cf3/llama_cpp_python-0.3.36.tar.gz", hash = "sha256:832db0699007f1be95a7e41ef12e88926b02ba836461e36a36372db2760c1a2e" }
 
 [[package]]
 name = "llguidance"
@@ -870,7 +870,7 @@ requires-dist = [
     { name = "huggingface-hub", marker = "extra == 'dev'", specifier = ">=0.34.0,<2.0.0" },
     { name = "huggingface-hub", marker = "extra == 'mlx'", specifier = ">=0.34.0,<2.0.0" },
     { name = "huggingface-hub", marker = "extra == 'vision'", specifier = ">=0.34.0,<2.0.0" },
-    { name = "llama-cpp-python", specifier = ">=0.3.0" },
+    { name = "llama-cpp-python", specifier = ">=0.3.36,<0.4.0" },
     { name = "mlx-lm", marker = "extra == 'mlx'", specifier = ">=0.31.0" },
     { name = "mlx-vlm", marker = "extra == 'vision'", specifier = ">=0.6.4,<0.7.0" },
     { name = "numpy", marker = "extra == 'audio'", specifier = ">=1.24.0" },

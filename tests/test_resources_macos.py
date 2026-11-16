@@ -9,6 +9,7 @@ from local_llm_server.resources_macos import MacOSResourceObserver
 def test_macos_observer_reads_total_reclaimable_and_process_memory_without_fake_vram():
     outputs = {
         ("sysctl", "-n", "hw.memsize"): "17179869184\n",
+        ("sysctl", "vm.swapusage"): "vm.swapusage: total = 2048.00M  used = 128.50M  free = 1919.50M (encrypted)\n",
         ("vm_stat",): """Mach Virtual Memory Statistics: (page size of 16384 bytes)
 Pages free:                               100.
 Pages active:                             500.
@@ -34,6 +35,8 @@ Pages wired down:                         300.
     assert snapshot.process_rss_bytes.source is ResourceValueSource.MEASURED
     assert snapshot.accelerator_memory_bytes.value is None
     assert snapshot.accelerator_memory_bytes.source is ResourceValueSource.UNAVAILABLE
+    assert snapshot.swap_used_bytes.value == int(128.5 * 1024 ** 2)
+    assert snapshot.swap_used_bytes.source is ResourceValueSource.MEASURED
 
 
 def test_macos_observer_fails_closed_when_vm_stat_is_incomplete():
@@ -78,3 +81,17 @@ Pages speculative: 5.
 
     assert snapshot.process_rss_bytes.value is None
     assert snapshot.process_rss_bytes.source is ResourceValueSource.UNAVAILABLE
+
+
+def test_macos_observer_swap_usage_stays_unavailable_without_valid_counter():
+    from local_llm_server.resources_macos import _read_swap_used
+
+    assert _read_swap_used(lambda _: "vm.swapusage: unavailable").value is None
+    assert _read_swap_used(lambda _: "vm.swapusage: used = -10M").value is None
+    assert _read_swap_used(lambda _: "vm.swapusage: used = nanM").value is None
+    assert _read_swap_used(lambda _: "vm.swapusage: used = 1.25G").value == int(1.25 * 1024 ** 3)
+
+    def failed(_command):
+        raise OSError("not supported")
+
+    assert _read_swap_used(failed).source is ResourceValueSource.UNAVAILABLE

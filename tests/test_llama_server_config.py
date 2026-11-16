@@ -158,3 +158,68 @@ def test_model_specific_llama_server_min_build_flows_into_resolved_config(
     cfg = build_config(model="demo")
 
     assert cfg["llama_server_min_build"] == 10828
+
+
+
+def test_llama_server_moe_streaming_environment_is_typed(monkeypatch, tmp_path):
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB", "4")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS", "2")
+
+    cfg = build_config(model="demo")
+
+    assert cfg["llama_server_moe_stream_cache_gib"] == 4
+    assert cfg["llama_server_moe_stream_io_threads"] == 2
+
+
+def test_llama_server_moe_streaming_rejects_non_llama_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "llama_cpp")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB", "4")
+
+    with pytest.raises(ValueError, match="requires the llama_server backend"):
+        build_config(model="demo")
+
+
+def test_llama_server_moe_io_threads_require_cache(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS", "4")
+
+    with pytest.raises(ValueError, match="require a cache budget"):
+        build_config(model="demo")
+
+
+def test_llama_server_v1_moe_cache_environment_is_typed(monkeypatch, tmp_path):
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_MIB", "512")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_CPU_SHARE", "0.25")
+
+    cfg = build_config(model="demo")
+    assert cfg["llama_server_moe_cache_mib"] == 512
+    assert cfg["llama_server_moe_cache_cpu_share"] == 0.25
+
+
+def test_llama_server_v1_moe_cache_rejects_wrong_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "mlx")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_MOE_CACHE_MIB", "128")
+
+    with pytest.raises(ValueError, match="requires the llama_server backend"):
+        build_config(model="demo")
+
+
+def test_llama_server_v1_fp8_rejects_non_llama_backend(monkeypatch, tmp_path):
+    import pytest
+
+    _patch_registry(monkeypatch, tmp_path)
+    monkeypatch.setenv("LOCAL_LLM_BACKEND", "mlx")
+    monkeypatch.setenv("LOCAL_LLM_SERVER_CACHE_TYPE_K", "f8_e4m3")
+
+    with pytest.raises(ValueError, match="FP8 KV cache requires the llama_server backend"):
+        build_config(model="demo")

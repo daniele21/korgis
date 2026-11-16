@@ -47,6 +47,34 @@ The public `/v1/runtime/identity` endpoint exposes only a safe allowlisted effec
 
 Boolean environment variables accept common truthy values such as `1`, `true`, `yes` and `on` case-insensitively.
 
+## Host memory safety (macOS)
+
+On macOS, Korgis enables a live host-memory admission guard by default, even if
+no configured resource budget is supplied. Each new managed runtime load checks
+the observed available system memory before starting the backend, and checks
+headroom again before committing residency. It reserves an operational OS
+margin of 18.75% of total RAM, bounded to 2–6 GiB (6 GiB on a 32 GiB Mac),
+and allows 1.5x the estimated load size when evaluating new allocations.
+Concurrent pending model reservations are included to prevent overlapping
+loads within one Korgis process from independently passing the same check.
+Unmeasurable available memory or entirely unknown resident load estimates
+cause rejection rather than silently bypassing host admission.
+
+Set `LOCAL_LLM_HOST_MEMORY_GUARD=0` to explicitly disable this guard, or
+`LOCAL_LLM_HOST_MEMORY_GUARD=1` to force it on. Explicit configured limits
+(`LOCAL_LLM_MEMORY_LIMIT_GIB` / `LOCAL_LLM_MEMORY_HEADROOM_GIB`) remain
+separate and are enforced alongside host admission. On other platforms the
+host guard is off by default; setting it on currently uses the macOS observer
+and will reject when unavailable, rather than fabricating memory measurements.
+
+This is a conservative best-effort **admission guard**, not a hard OS memory
+quota or validated native peak predictor. `vm_stat` provides an approximation
+of reclaimable host memory; concurrent non-Korgis allocations, memory-mapped
+pages, unified-memory backend peaks, and unknown context/cache sizes mean a
+safe outcome cannot be guaranteed by the heuristic. Representative Apple
+Silicon evidence remains required. Automatic memory-pressure eviction is
+still disabled.
+
 ## Request admission and global execution governor
 
 Request admission is explicitly opt-in and is configured independently from per-model `build_config`. Leaving all values unset preserves the existing no-queue/no-global-cap behavior.
@@ -105,6 +133,110 @@ Request-level OpenAI-compatible generation values can still override applicable 
 | `mmproj_path` | `--mmproj-path` | — | `null` |
 
 Paths and executable locations are private deployment details and are intentionally excluded from the public execution-identity response.
+
+## Experimental MoE SSD expert streaming (llama-server only)
+
+The preview requires a separately installed **experimental llama.cpp build** that
+advertises `--moe-stream-cache` in its `--help` output. Stable/modern
+`llama-server` version attribution alone is **not** sufficient evidence.
+Korgis never downloads or substitutes such a binary; the explicitly selected
+`llama_server_bin` remains authoritative. The preview is off by default.
+
+| Key | Environment | Default | Meaning |
+| --- | --- | --- | --- |
+| `llama_server_moe_stream_cache_gib` | `LOCAL_LLM_SERVER_MOE_STREAM_CACHE_GIB` | `null` | Opt in with a positive whole-GiB expert-cache budget; maps to `--moe-stream-cache <N>G` (which implies `--moe-stream` in the experimental implementation). |
+| `llama_server_moe_stream_io_threads` | `LOCAL_LLM_SERVER_MOE_STREAM_IO_THREADS` | `null` | Optional positive worker count for `--moe-stream-io-threads`; requires a cache budget. |
+
+The launcher verifies the **selected** binary's exact advertised options before
+starting a model. Unsupported binaries, legacy compatibility profiles, explicit
+`mmap`/`mlock`/`dio` load modes and I/O threads without a cache budget fail
+closed. The experimental backend itself disables memory mapping while expert
+streaming is enabled. Korgis does not silently rewrite the configured load mode.
+
+**Memory accounting is intentionally conservative:** the full GGUF artifact
+size **plus** configured expert-cache GiB and existing overhead/context/safety
+budgets remain reserved. This can reject models that exceed RAM, despite the
+upstream feature's technical intent. No reduced resident-set estimate, SSD page
+cache avoidance, output equivalence, token/s, or Apple Silicon memory-safety
+claim is approved without calibrated 32-GiB Mac evidence. A configuration
+override `resource_estimate_bytes` remains an operator assertion, not measured
+proof, and must not be reduced merely to bypass admission.
+
+Representative acceptance requires matched GGUF/model identity, standard
+mmap vs experimental MoE streaming comparisons, TTFT/prefill/decode, page
+fault/swap, real RSS/host headroom, cache behavior, error recovery,
+multi-runtime lease/shutdown and output comparison. A safe refusal is valid
+evidence. The upstream experimental proposal is
+[llama.cpp PR #25294](https://github.com/ggml-org/llama.cpp/pull/25294);
+it is not an endorsed stable backend contract.
+
+## Stable llama.cpp v1.0.0 opt-in runtime features
+
+Korgis accepts an **externally installed** `llama-server` attributable to the
+upstream `v1.0.0` tag (commit `2d8a32502909...`). Build numbers may differ in
+shallow-history rebuilds; the attributed commit and CLI options are authoritative.
+Choose it with
+`LOCAL_LLM_SERVER_BIN`; Korgis does not silently replace the installed binary.
+A larger build number alone is not evidence of the v1 tag, and the legacy
+v0.3-compatible runtime remains supported.
+
+The optional features below are **disabled by default**. They require an
+attributed v1.0.0 binary advertising the relevant CLI options, otherwise the
+configuration fails before process start.
+
+| Key | Environment | Default | Meaning |
+| --- | --- | --- | --- |
+| `llama_server_cache_type_k` / `llama_server_cache_type_v` = `f8_e4m3` | `LOCAL_LLM_SERVER_CACHE_TYPE_K` / `LOCAL_LLM_SERVER_CACHE_TYPE_V` | `null` | Opt-in FP8 KV cache; hardware/model correctness must be measured |
+| `llama_server_moe_cache_mib` | `LOCAL_LLM_SERVER_MOE_CACHE_MIB` | `null` | Positive integer MiB size of v1 MoE host-expert GPU cache |
+| `llama_server_moe_cache_cpu_share` | `LOCAL_LLM_SERVER_MOE_CACHE_CPU_SHARE` | `null` | Finite share 0–1 of cache misses computed on CPU; needs a cache budget |
+
+The v1 MoE cache is **not** experimental SSD expert streaming. The two
+caching modes are deliberately mutually exclusive here. The conservative
+resident-memory estimate adds this configured cache budget to the full model
+weights and other overhead; it does not assume free physical RAM from CPU
+residency on Apple Silicon. Neither better throughput nor safe macOS swap
+reclamation is claimed without representative evidence.
+
+`llama-cpp-python` is a separately packaged Python binding. Selecting the
+external v1 `llama-server` does not update that native dependency.
+
+### Optional exact-tag Apple Silicon Metal installation
+
+From a Mac with Apple Silicon, Xcode Command Line Tools, git and CMake installed:
+
+```bash
+bash scripts/install_llama_cpp_v1_macos.sh
+```
+
+The script builds **exact** upstream v1.0.0 source commit
+`2d8a32502909ca065c41c4cf5f2fb1c427c047fc` with Metal, checks the
+resulting server version/commit, FP8 and MoE CLI support, and stages the
+runtime binary/resources in a versioned
+directory below `~/.local-llm/engines/llama-cpp/`. Internal libraries are
+linked statically; the installer checks the **relocated** executable with
+the original build/bin directory absent, so no temporary macOS `@rpath`
+remains a hidden dependency. Its build explicitly
+skips upstream Web UI asset downloads, since Korgis serves its own UI. A path-free
+`build-identity.json` records the source revision and binary SHA-256.
+It never overwrites an existing directory, changes PATH or active runtime,
+downloads GGUF files or automatically enables v1 options.
+
+To activate it, copy the script's printed `export LOCAL_LLM_SERVER_BIN=...`
+command to the **same shell/environment running Korgis**, and select
+`LOCAL_LLM_BACKEND=llama_server`. For rollback, stop/unload the v1 model,
+disable v1-only FP8/MoE flags and restore the previous verified binary path
+(or unset the variable if it was originally discovered). Do not delete
+the earlier binary until tests with a real GGUF pass.
+
+The separately packaged **in-process** `llama-cpp-python` binding is
+locked to `0.3.36` (bounded to the 0.3.x line), versus the previous
+`0.3.28`. Its vendored llama.cpp source is commit `0c1e57098` from
+2026-10-01; it is **not llama.cpp v1.0.0**. Do not link its native
+libraries to the external v1 server. To produce a Metal-enabled
+Python binding on macOS, an explicit native rebuild may be required,
+for example with `CMAKE_ARGS='-DGGML_METAL=on'` when installing the
+locked environment. The dependency bump alone does not prove any Metal
+offloading, real-model inference, speedup or safe reclamation.
 
 ## Security-sensitive settings
 

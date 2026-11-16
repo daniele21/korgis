@@ -1,66 +1,110 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-09-28
+Last reviewed: 2026-11-16
 
-Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
+Korgis / Local LLM Server is a local-first multi-backend AI runtime
+control plane; Local LLM Studio provides browser control. Hosted tests
+prove deterministic contracts, never representative hardware claims.
 
 ## Engineering baseline
 
-- Standard: `daniele21/repo-template-sw` **0.8.0**, revision `6677c5349d64ea6d935f1b460d03a47c236821bc`.
-- Target maturity: **L2** across Python, local-AI, TypeScript, macOS and `product-ui`.
-- Repository-side L2 acceptance: `d528b6c5b676e705e7ccf24800929da6d5534203`.
-- Representative Apple Silicon evidence is accepted for TH-E1, EV-3, HE-2, RES-2 and RRG-5.
-- Bounded manual accessibility and representative-user usability evidence is accepted for tested source `a29e77c1ce4e65294440cfe4fc47e33c92173096`.
-- Full L2 evidence is complete; the current action is final FULL publication preflight and promotion to `main`.
+- Standard `daniele21/repo-template-sw` 0.10.0
+  (`f392e4ded5cd3ec5efbf806934789c6cb9f10ded`); L2 Python,
+  local-AI, TypeScript, macOS and product-UI.
+- Repository-side L2 accepted at `d528b6c5b676e705e7ccf24800929da6d5534203`.
+  Representative TH-E1, EV-3, HE-2, RES-2 and RRG-5 accepted
+  2026-08-31 for that tested source and scope.
+- Bounded manual accessibility/usability evidence accepted for
+  `a29e77c1ce4e65294440cfe4fc47e33c92173096`;
+  see `docs/evidence/product-ui-evidence-summary-2026-08-31.json`.
 
-## Accepted deterministic surface
+## Integrated runtime contracts
 
-Repository Health blocks on architecture, resource, lifecycle, security, repeatability, built-surface, product-experience, design-system, documentation and real-evidence-bridge fitness. Separate gates cover performance regression, artifact lifecycle, security, package smoke, Python 3.10/3.11/3.12, Ruff, Playwright and zero residue.
+Repository Health and CI cover architecture, resources, security,
+lifecycle/repeatability, build, package, documentation, Python 3.10–3.12,
+Ruff, Playwright and zero residue. Inference remains fail-conservative:
+runtime leases and route accounting survive failed teardown; streams
+retain ownership to the last byte. Resident/transient memory share
+one budget; queued work reserves none, and unknown host observations
+never become zero. Explicit `llama-server` binary selection wins;
+Korgis maps admitted concurrency to `--parallel` while llama.cpp owns
+native batching/KV. Automatic pressure eviction stays **disabled**.
 
-Runtime hardening remains fail-conservative: routing/accounting persists until teardown succeeds; failed teardown stays retryable; resident and transient work share one configured memory budget; queued work reserves no transient memory; optional global execution admission bounds cross-runtime compute while preserving runtime semaphores/backend batching. Streams retain ownership through the final byte. Missing memory evidence stays unavailable.
+macOS has parent-death supervision, bounded swap/derived-pressure
+observation, guarded admission and optional native Swift observer.
+Pressure may trim Korgis response cache, not authorize automatic
+model eviction; post-stop memory deltas remain observational.
 
-Managed `llama_server` uses the attributable llama.cpp `v0.3.0` feature floor by default. Explicit executable selection is authoritative. Local LLM Server maps admitted concurrency to `--parallel`; llama.cpp owns runtime-local batching/KV. Automatic pressure eviction remains disabled.
+## Active developer integration (`dev`)
 
-Automated E2E proves deterministic browser/API journeys and installed-wheel behavior independently from representative hardware. New production-backend, performance, native cancellation, thermal/power or cross-device claims still require matching representative evidence.
+- Experimental SDK/auth (#227/#233), ApplicationProfiles (#230/#231)
+  and M8 capacity previews (#277–#280) are not a stable embedding API
+  or proof of device fit. Multi-role M8.4, M9–M10, M12 and authorization
+  (#229) remain pending; ClosedRoom migration is consumer-owned.
+- llama.cpp v1 (#262) remains **opt-in**, with explicit FP8/MoE flags;
+  independent Python 0.3.36 is not its C API. Real HTTP/stream/unload
+  plus Python canaries [PASS twice](https://github.com/daniele21/local-runner-infra/actions/runs/43629484166);
+  historical v0.3/v1 lifecycle [6/6 PASS](https://github.com/daniele21/local-runner-infra/actions/runs/43633636676);
+  [8/8 managed resource cycles](https://github.com/daniele21/local-runner-infra/actions/runs/43635780313)
+  report bounded RSS/HTTP observations. Neither larger-model
+  [admission refusal](https://github.com/daniele21/local-runner-infra/actions/runs/43636178878)
+  nor refused SSE startup qualifies production reclamation;
+  LC7 **release-blocked**. See
+  `docs/workstreams/llama-cpp-v1-integration.md`.
 
-## Accepted real evidence
+## Evidence boundaries
 
-The 2026-08-31 representative Mac campaign accepted:
-
-- TH-E1 thinking OFF and ON-hidden;
-- EV-3 two comparable attribution-safe 10-sample, seed-0 reasoning-OFF runs;
-- HE-2 two compatible verified 3-cycle reclamation reports;
-- RES-2 bounded admit/account/infer/unload/reject behavior;
-- RRG-5 two compatible reports covering two-model residency, transient overlap, clean accounting and shutdown-under-load.
-
-Post-stop memory deltas remain observational. `automatic_eviction_recommendation=not_provided`, `reclamation_safety_claim=false` and `production_safety_claim=false`.
-
-Product experience evidence is retained in:
-
-- `docs/evidence/manual-accessibility-2026-08-31.json`;
-- `docs/evidence/representative-usability-2026-08-31.json`;
-- `docs/evidence/product-ui-evidence-summary-2026-08-31.json`.
-
-All required checks/journeys are acceptance-ready with no blocking finding. No raw prompt/output/private machine content is retained.
+Earlier 2026-08-31 device procedures accepted TH-E1 thinking policy,
+EV-3 repeatable evaluations, HE-2 reclamation, RES-2 admit/unload/reject
+and RRG-5 concurrent residence and shutdown-under-load for their
+particular baseline. Their conclusions do **not** transfer to the new
+llama.cpp v1 hardware candidate. `automatic_eviction_recommendation`
+remains `not_provided`, and both `reclamation_safety_claim` and
+`production_safety_claim` remain `false`.
 
 ## Active workstreams
 
-- Qwen Image 2.1 local generation: BF16 Diffusers, MFlux Q8 and the shared
-  `/v1/images/generations` admission path are integrated. The active slice adds a distinct
-  stable-diffusion.cpp GGUF Q4_K_M runtime composed of denoiser, Qwen3-VL text encoder and
-  Qwen Image 2.1 VAE. Bundle download/checksum, subprocess lifecycle, native job polling and
-  resource artifact accounting passed deterministic integration validation. The remaining next
-  slice is benchmark consumption/representative-device evidence; real peak memory, latency,
-  thermal and reclamation remain unproven.
+- Qwen Image 2.1: BF16 Diffusers, MFlux Q8 and shared image API
+  integrated. Separate stable-diffusion.cpp Q4_K_M GGUF runtime,
+  text encoder and VAE, verified downloads and bounded subprocess
+  lifecycle pass deterministic validation. Native peak memory,
+  latency, thermal and reclamation remain unproven; next is
+  benchmark/representative device evidence.
   See `docs/workstreams/qwen-image-2-1.md`.
+- llama.cpp v1: release-critical LC7 memory/reclamation,
+  larger-model and Experiments endpoint comparison evidence outstanding.
+  No `dev -> main` promotion until FULL and REAL_ENVIRONMENT gates.
+
+## Release state (2026-11-16 UTC)
+
+Previous `dev@427de51d` deterministic
+[RELEASE/FULL #43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474),
+[CLI/Metal #43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398),
+[memory-pressure #43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558),
+[Repository Health #43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483),
+and [local-ci/mac #43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801)
+are **PASS**, but do not qualify LC7 hardware behavior.
+Current `dev@18c8d05d` [FULL #43824698200](https://github.com/daniele21/korgis/actions/runs/43824698200)
+**FAILS**: pre-existing `diskcache` security exception expired
+2026-11-15. See [security issue #286](https://github.com/daniele21/korgis/issues/286).
+Do not bypass the audit or auto-extend the exception.
+
+Physical-Mac [4B preflight #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
+refused with 7.55 versus 9.78 GB required, plus GGUF hash mismatch.
+The approved [0.8B canary #43773079533](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
+was refused **before download/inference** twice on identical runtime source
+`dev@34f8e12`: attempt 1 had 7.34 GB versus 8.46 GB required;
+2026-11-16 attempt 2 had 8,053,571,584 versus 8,455,716,864
+bytes, with 5,529,864,765 bytes already used swap. This is an
+**environment/host-capacity block**, not an observed native regression.
+No safety margin or foreign process changed. Stop repeated retries without
+new headroom. SSE abort, HE-2/RES-2/RRG-5 and Experiments endpoint
+comparison remain **PENDING**; `main` unchanged.
 
 ## Durable references
 
-- `docs/architecture.md`
-- `.engineering/e2e.json`
-- `docs/resource-regression-contract.md`
-- `docs/performance-regression.md`
-- `docs/repeatability-contract.md`
-- `docs/product-experience-validation.md`
-- `docs/device-evidence-runbook.md`
+`docs/architecture.md`, `.engineering/e2e.json`,
+`docs/device-evidence-runbook.md`, `docs/resource-regression-contract.md`,
+`docs/performance-regression.md`, `docs/repeatability-contract.md`,
+and `docs/product-experience-validation.md`.

@@ -642,6 +642,8 @@ class ModelRuntimeManager:
     def _reserve_runtime_load(self, runtime_key: str, cfg: dict[str, Any]) -> str | None:
         estimate = estimated_runtime_load_bytes(cfg)
         manager = self._resource_manager
+        if manager is not None and manager.host_protection_enabled and estimate is None:
+            raise ResourceAdmissionError(manager.reject_unestimated_load())
         if manager is None or estimate is None:
             cfg["resource_admission"] = admission_metadata(None, estimate_bytes=estimate)
             return None

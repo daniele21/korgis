@@ -219,6 +219,25 @@
     min-height: var(--ds-control-min-height);
 }
 
+.control-plane-models__capacity-result {
+    display: grid;
+    gap: var(--ds-space-3);
+    min-width: 0;
+    padding: var(--ds-space-3);
+    border: 1px solid var(--ds-border-subtle);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-surface-2);
+}
+
+.control-plane-models__capacity-result p {
+    margin: 0;
+}
+
+.control-plane-models__capacity-state {
+    font-weight: 600;
+}
+
+
 @media (max-width: 1100px) {
     .control-plane-models__summary,
     .control-plane-models__budget-legend {

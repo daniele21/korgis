@@ -93,6 +93,38 @@ def test_modern_v030_release_uses_validated_profile():
     assert compatibility.profile == "validated-v0.3.0"
 
 
+def test_shallow_history_exact_v030_build_is_attributed_without_fabricated_build_number():
+    # A source-pinned checkout can report build=1. The exact release commit
+    # must still be allowed, as for the already-validated v1 source tag.
+    compatibility = validate_llama_server_binary(
+        "/tmp/llama-server",
+        run_command=lambda _path: (
+            "version: 0.3.0 (build 1, commit c1d0e7a)\n"
+        ),
+    )
+    assert compatibility.supported is True
+    assert compatibility.exact_validated_release is True
+    assert compatibility.modern_runtime_options is True
+    assert compatibility.profile == "validated-v0.3.0"
+    assert compatibility.backend_version == "build-1@c1d0e7a"
+
+
+def test_shallow_history_unrecognized_source_fails_closed():
+    with pytest.raises(RuntimeError, match="older than the validated runtime floor"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            run_command=lambda _path: "version: 0.3.0 (build 1, commit 1234567)\n",
+        )
+
+
+def test_shallow_history_semver_without_commit_is_still_unattributable():
+    with pytest.raises(RuntimeError, match="Cannot verify llama-server version"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            run_command=lambda _path: "version: 0.3.0 (build 1)\n",
+        )
+
+
 def test_newer_attributable_build_keeps_exact_identity_and_feature_floor():
     compatibility = validate_llama_server_binary(
         "/tmp/llama-server",
@@ -311,3 +343,38 @@ def test_auto_discovery_prefers_which_before_lmstudio(tmp_path):
     # The PATH binary must be evaluated first, avoiding scanning lmstudio binaries
     assert probed_order == [str(which_binary)]
 
+
+
+def test_shallow_v1_exact_source_respects_stricter_model_build_floor():
+    # Source-attributed build 1 is accepted for the default v1 runtime,
+    # but never substitutes for a model-specific fork/newer build floor.
+    from local_llm_server.llama_server_compat import LLAMA_CPP_V1_RELEASE_COMMIT
+
+    runner = lambda _path: (
+        f"version: 1 ({LLAMA_CPP_V1_RELEASE_COMMIT[:9]})\n"
+    )
+    compatibility = validate_llama_server_binary(
+        "/tmp/llama-server", run_command=runner,
+    )
+    assert compatibility.supported is True
+    assert compatibility.exact_v1_release is True
+    assert compatibility.modern_runtime_options is True
+
+    with pytest.raises(RuntimeError, match="require build 10828"):
+        validate_llama_server_binary(
+            "/tmp/llama-server",
+            minimum_build=10828,
+            run_command=runner,
+        )
+
+
+def test_specialist_build_floor_one_does_not_enable_unverified_modern_flags():
+    # Model-specific floor 1 may permit an attributable specialist binary,
+    # but it does not prove that the binary implements stock v0.3 CLI flags.
+    compatibility = validate_llama_server_binary(
+        "/tmp/specialist-llama-server",
+        minimum_build=1,
+        run_command=lambda _path: "version: 1 (1234567)\n",
+    )
+    assert compatibility.supported is True
+    assert compatibility.modern_runtime_options is False

@@ -12,6 +12,7 @@ from typing import Any, Mapping
 
 from fastapi import APIRouter, FastAPI, Request
 
+from .artifact_verification import verified_receipt_for_config
 from .runtime_evidence import attached_runtime_identity
 from .runtime_identity import (
     BackendIdentity,
@@ -65,6 +66,18 @@ def _runtime_identity_payload(runtime: Any) -> dict[str, object]:
 
     snapshot = attached_runtime_identity(runtime)
     sha256 = _valid_sha256_text(cfg.get("artifact_sha256"))
+    if sha256 is None:
+        # The canonical runtime-identity capture also accepts a locally verified
+        # artifact receipt. Public identity must report that same strong source,
+        # not claim an unverified model beside a verified runtime fingerprint.
+        # Receipt lookup only stats the exact local artifact; no rehash or paths
+        # are exposed in this HTTP response.
+        receipt = verified_receipt_for_config(cfg)
+        sha256 = receipt.sha256 if receipt is not None else None
+        if sha256 is None:
+            # A previously attached runtime fingerprint is not evidence that
+            # a receipt still matches the current artifact file.
+            snapshot = None
     revision = _optional_text(cfg.get("artifact_revision"))
     quantization = _optional_text(cfg.get("quantization"))
     total_memory_bytes = _positive_int_or_none(cfg.get("hardware_total_memory_bytes"))

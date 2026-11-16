@@ -26,6 +26,7 @@ DEFAULT_PROBE_TIMEOUT_SECONDS = float(
 LLAMA_CPP_VALIDATED_RELEASE = "v0.3.0"
 LLAMA_CPP_VALIDATED_MIN_BUILD = 10621
 LLAMA_CPP_VALIDATED_RELEASE_COMMIT = "c1d0e7a004015f23bc0233470b747b596f29b264"
+LLAMA_CPP_V1_RELEASE_COMMIT = "2d8a32502909ca065c41c4cf5f2fb1c427c047fc"
 
 _VERSION_PATTERNS = (
     re.compile(
@@ -66,10 +67,16 @@ class LlamaServerBuildIdentity:
 
     @property
     def matches_validated_release(self) -> bool:
+        """Exact v0.3 source also works when shallow checkout reports build 1."""
         return bool(
-            self.build == LLAMA_CPP_VALIDATED_MIN_BUILD
+            self.build in (1, LLAMA_CPP_VALIDATED_MIN_BUILD)
             and LLAMA_CPP_VALIDATED_RELEASE_COMMIT.startswith(self.commit)
         )
+
+    @property
+    def matches_v1_release(self) -> bool:
+        """Identify exact upstream source even in shallow-history builds."""
+        return LLAMA_CPP_V1_RELEASE_COMMIT.startswith(self.commit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +97,11 @@ class LlamaServerCompatibility:
         return bool(
             self.supported
             and self.identity is not None
-            and self.identity.build >= self.minimum_build
+            and (
+                self.identity.build >= LLAMA_CPP_VALIDATED_MIN_BUILD
+                or self.identity.matches_validated_release
+                or self.identity.matches_v1_release
+            )
         )
 
     @property
@@ -98,7 +109,13 @@ class LlamaServerCompatibility:
         return bool(self.identity and self.identity.matches_validated_release)
 
     @property
+    def exact_v1_release(self) -> bool:
+        return bool(self.supported and self.identity and self.identity.matches_v1_release)
+
+    @property
     def profile(self) -> str:
+        if self.exact_v1_release:
+            return "attributed-v1.0.0"
         if self.exact_validated_release:
             return "validated-v0.3.0"
         if self.modern_runtime_options:
@@ -182,7 +199,10 @@ def validate_llama_server_binary(
             "that binary, or explicitly allow an unvalidated legacy runtime."
         )
 
-    if identity.build < minimum_build:
+    if (identity.build < minimum_build and not (
+        minimum_build == LLAMA_CPP_VALIDATED_MIN_BUILD
+        and (identity.matches_validated_release or identity.matches_v1_release)
+    )):
         if allow_unvalidated:
             return LlamaServerCompatibility(
                 identity=identity,
@@ -313,6 +333,8 @@ def build_llama_server_command(
     port: int,
     cfg: Mapping[str, Any],
     compatibility: LlamaServerCompatibility,
+    moe_stream_help_runner: Callable[[str], str] | None = None,
+    v1_help_runner: Callable[[str], str] | None = None,
 ) -> list[str]:
     """Build the owned subprocess command from one compatibility decision."""
     cmd = [
@@ -330,6 +352,18 @@ def build_llama_server_command(
         cmd.extend(["--mmproj", str(mmproj_path)])
 
     if not compatibility.modern_runtime_options:
+        if cfg.get("llama_server_moe_stream_cache_gib") is not None:
+            raise ValueError("MoE expert streaming requires an attributable modern llama-server")
+        if (
+            any(cfg.get(key) is not None for key in (
+                "llama_server_moe_cache_mib", "llama_server_moe_cache_cpu_share",
+            ))
+            or any(
+                str(cfg.get(key) or "").strip().lower() == "f8_e4m3"
+                for key in ("llama_server_cache_type_k", "llama_server_cache_type_v")
+            )
+        ):
+            raise ValueError("llama.cpp v1 features require an attributable v1.0.0 llama-server")
         return cmd
 
     parallel = _positive_int(
@@ -366,6 +400,27 @@ def build_llama_server_command(
             + ", ".join(sorted(_ALLOWED_LOAD_MODES))
         )
     cmd.extend(["--load-mode", load_mode])
+
+    stream_cache = cfg.get("llama_server_moe_stream_cache_gib")
+    stream_threads = cfg.get("llama_server_moe_stream_io_threads")
+    if stream_cache is None and stream_threads is not None:
+        raise ValueError("MoE streaming I/O threads require a cache budget")
+    if stream_cache is not None and cfg.get("llama_server_moe_cache_mib") is not None:
+        raise ValueError("v1 MoE host cache cannot be combined with experimental SSD streaming")
+    if stream_cache is not None:
+        if load_mode not in {"auto", "none"}:
+            raise ValueError("MoE expert streaming cannot be combined with mmap/mlock/direct load mode")
+        cache_gib = _strict_positive_int(stream_cache, "llama_server_moe_stream_cache_gib")
+        required = ["--moe-stream-cache"]
+        if stream_threads is not None:
+            threads = _strict_positive_int(stream_threads, "llama_server_moe_stream_io_threads")
+            required.append("--moe-stream-io-threads")
+        _verify_moe_stream_options(binary, required, help_runner=moe_stream_help_runner)
+        # Experimental llama.cpp CLI: --moe-stream-cache implies --moe-stream.
+        # The engine disables mmap; Korgis deliberately retains conservative accounting.
+        cmd.extend(["--moe-stream-cache", f"{cache_gib}G"])
+        if stream_threads is not None:
+            cmd.extend(["--moe-stream-io-threads", str(threads)])
     cmd.extend(
         [
             "--fit",
@@ -400,10 +455,13 @@ def build_llama_server_command(
         if value is None:
             continue
         cache_type = str(value).strip().lower()
-        if cache_type not in _ALLOWED_CACHE_TYPES:
+        if cache_type not in _ALLOWED_CACHE_TYPES and not (
+            cache_type == "f8_e4m3" and compatibility.exact_v1_release
+        ):
             raise ValueError(
                 f"{cfg_key} must be one of: "
                 + ", ".join(sorted(_ALLOWED_CACHE_TYPES))
+                + (" or f8_e4m3 for v1.0.0" if compatibility.exact_v1_release else "")
             )
         cmd.extend([flag, cache_type])
 
@@ -414,7 +472,51 @@ def build_llama_server_command(
         )
         cmd.extend(["--cache-ram", str(cache_ram)])
 
+    # Keep v1-only options out of the shared v0.3-compatible CLI owner.
+    from .llama_server_v1_options import build_v1_option_args
+
+    cmd.extend(build_v1_option_args(
+        cfg,
+        exact_v1_release=compatibility.exact_v1_release,
+        binary=binary,
+        help_runner=v1_help_runner,
+    ))
     return cmd
+
+
+def _strict_positive_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not (isinstance(value, int) or (
+        isinstance(value, str) and value.isascii() and value.isdecimal()
+    )):
+        raise ValueError(f"{name} must be a positive integer")
+    parsed = int(value)
+    if parsed <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
+def _verify_moe_stream_options(
+    binary: Path | str,
+    required: list[str],
+    *,
+    help_runner: Callable[[str], str] | None = None,
+) -> None:
+    # Newer build numbers do not establish experimental feature support.
+    if help_runner is not None:
+        help_text = help_runner(str(binary))
+    else:
+        try:
+            result = subprocess.run(
+                [str(binary), "--help"], capture_output=True, text=True,
+                timeout=10, check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError("Cannot verify MoE streaming options on selected llama-server") from exc
+        help_text = result.stdout + "\n" + result.stderr
+    if not all(option in help_text for option in required):
+        raise RuntimeError(
+            "Selected llama-server does not advertise required experimental MoE streaming options"
+        )
 
 
 def _probe_default_runner_cached(path: Path) -> LlamaServerBuildIdentity | None:

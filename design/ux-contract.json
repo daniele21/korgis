@@ -257,6 +257,8 @@
     "resident_footprint_prefers_observed_evidence": true,
     "cold_load_requirement_is_explicitly_estimated_until_observed": true,
     "load_feasibility_explains_requirement_available_capacity_and_deficit": true,
+    "model_detail_capacity_check_uses_canonical_non_mutating_profile_plan": true,
+    "capacity_check_cannot_authorize_model_loading": true,
     "insufficient_capacity_offers_safe_explicit_user_actions": true,
     "never_unload_or_evict_a_runtime_as_a_hidden_side_effect": true,
     "automatic_pressure_eviction_remains_disabled_until_repository_evidence_gate_is_satisfied": true,

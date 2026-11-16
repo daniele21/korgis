@@ -207,3 +207,90 @@ def test_ttl_preview_rejects_missing_threshold():
 
     assert response.status_code == 422
     assert "ttl_seconds" in response.text
+
+
+def test_explicit_unload_correlates_measured_host_headroom_without_claiming_reclaim():
+    from local_llm_server.resource_manager import ResourceManager
+    from local_llm_server.resources import ResourceBudget, ResourceValue, ResourceValueSource, SystemResourceSnapshot
+
+    class Host:
+        available = 8 * (1024 ** 3)
+        swap = 1024 ** 3
+
+        def snapshot(self):
+            return SystemResourceSnapshot(
+                captured_at_monotonic=0.0,
+                platform="darwin",
+                total_memory_bytes=ResourceValue(32 * 1024 ** 3, ResourceValueSource.MEASURED, "bytes"),
+                available_memory_bytes=ResourceValue(self.available, ResourceValueSource.MEASURED, "bytes"),
+                swap_used_bytes=ResourceValue(self.swap, ResourceValueSource.MEASURED, "bytes"),
+            )
+
+    class Engine:
+        backend = "fake"
+        def __init__(self, host):
+            self.host = host
+            self.closed = False
+        def close(self):
+            self.closed = True
+            self.host.available += 2 * (1024 ** 3)
+            self.host.swap -= 256 * (1024 ** 2)
+
+    host = Host()
+    resources = ResourceManager(ResourceBudget(limit_bytes=None), host_observer=host)
+    manager = ProductRuntimeManager(default_model="default", resource_manager=resources)
+    cfg = {"model": "idle", "model_id": "org/idle", "backend": "fake", "modalities": ["text"]}
+    engine = Engine(host)
+    manager.add(cfg, engine, key="idle")
+
+    # A default route may be the only resident runtime: explicit manual unload
+    # is permitted, whereas pressure-triggered automatic eviction stays off.
+    response = TestClient(_residency_app(manager)).post(
+        "/api/v1/residency/evict",
+        json={"mode": "lru", "limit": 1, "protect_resident_default": False},
+    )
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["ok"] is True
+    assert [item["key"] for item in payload["evicted"]] == ["idle"]
+    assert engine.closed is True
+    observation = payload["host_memory_observation"]
+    assert observation["available_memory_delta_bytes"] == 2 * (1024 ** 3)
+    assert observation["swap_used_delta_bytes"] == -256 * (1024 ** 2)
+    assert observation["before"]["available_bytes"] == 8 * (1024 ** 3)
+    assert observation["after"]["available_bytes"] == 10 * (1024 ** 3)
+    assert observation["reclamation_claim"] is False
+    assert observation["attribution"] == "unattributed_external_activity_possible"
+    assert payload["automatic"] is False
+
+
+def test_unload_failure_remains_unattributed_and_does_not_report_freed_bytes():
+    from local_llm_server.resource_manager import ResourceManager
+    from local_llm_server.resources import ResourceBudget, ResourceValue, ResourceValueSource, SystemResourceSnapshot
+
+    class BrokenHost:
+        def snapshot(self):
+            return SystemResourceSnapshot(
+                captured_at_monotonic=0.0,
+                platform="darwin",
+                total_memory_bytes=ResourceValue(32 * 1024 ** 3, ResourceValueSource.MEASURED, "bytes"),
+                available_memory_bytes=ResourceValue.unavailable("bytes"),
+                swap_used_bytes=ResourceValue.unavailable("bytes"),
+            )
+
+    resources = ResourceManager(ResourceBudget(limit_bytes=None), host_observer=BrokenHost())
+
+    class Manager(_SkipManager):
+        resource_manager = resources
+
+    resp = TestClient(_residency_app(Manager())).post(
+        "/api/v1/residency/evict", json={"mode": "lru", "limit": 1},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["evicted"] == []
+    assert payload["ok"] is False
+    observed = payload["host_memory_observation"]
+    assert observed["available_memory_delta_bytes"] is None
+    assert observed["swap_used_delta_bytes"] is None
+    assert observed["reclamation_claim"] is False

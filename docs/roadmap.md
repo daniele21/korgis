@@ -3,7 +3,7 @@
 Status: active
 Owner: repository
 Read when: selecting the next capability milestone or understanding release dependencies
-Last reviewed: 2026-08-31
+Last reviewed: 2026-11-15
 
 This file owns milestone sequencing only. Detailed product intent belongs in [`implementation-plan.md`](implementation-plan.md), active implementation planning/progress belongs in `docs/workstreams/`, and integrated/blocker/next truth belongs in [`current-state.md`](current-state.md).
 
@@ -84,13 +84,17 @@ The program is intentionally sequenced from **declarative intent and planning** 
 
 | Milestone | State | Product outcome |
 | --- | --- | --- |
-| M8 Application Profiles & resource planner | PLANNED | application can declare exact specialist roles and inspect a validated/dry-run resource plan without loading everything |
+| M8 Application Profiles & resource planner | PARTIAL | application can declare exact specialist roles and inspect a validated/dry-run resource plan without loading everything |
 | M9 Explicit residency & on-demand lifecycle | PLANNED | profile can express pinned/warm/on-demand intent and trigger safe explicit load/unload policy under existing ownership guarantees |
 | M10 Workload-aware scheduling | PLANNED | role/task priorities, deadlines and bounded cross-runtime execution make multi-model application workloads predictable |
 | M11 Apple Silicon reference runtime | PLANNED | application-runtime lifecycle/resource behavior is evidenced on representative Apple Silicon configurations with claim-scoped support data |
 | M12 Developer integration & application-runtime candidate | PLANNED | external applications can adopt the runtime through stable versioned profile/integration contracts and pass the end-to-end product gate |
 
 No M8-M12 item is implemented merely because its target contract is documented here.
+
+M8.1–M8.2 have an experimental core schema/zero-resident validator (PR #230). M8.3's conservative configured-residency preview and opt-in admin API are integrated (PR #231); read-only configured capacity, canonical admission preview, and configured model-cache volume observations have followed (#277–#279). M8.4 includes a bounded single-model Studio capacity-check journey (#280), but the multi-role editor, compatible historical observed resident/peak evidence, request-specific concurrency planning, and stable M12 external contract remain incomplete. The separately packaged Python SDK (PR #227) has narrower experimental client bindings and a developer-only managed launcher.
+
+The separately owned managed-sidecar hardening is an experimental transport/lifecycle integration tranche, not M9 automatic model residency and not a completed M12 packaged distribution. Attested inherited sockets do not prove representative target-Mac packaging or sandbox isolation.
 
 ## M8 — Application Profiles & resource planner
 
