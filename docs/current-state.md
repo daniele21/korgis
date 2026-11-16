@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-11-15
+Last reviewed: 2026-11-16
 
 Korgis / Local LLM Server is a local-first multi-backend AI runtime
 control plane; Local LLM Studio provides browser control. Hosted tests
@@ -106,6 +106,12 @@ refused **before download/inference** at 7.34 GB available vs
 Earlier SSE startup #43651722308 refused cleanly; live SSE abort,
 HE-2, RES-2, RRG-5 and Experiments external comparison are pending.
 `main` unchanged; LC7 release-blocked. No safety margin reduced.
+
+## 2026-11-16 verification update
+
+- Current `dev@427de51d` deterministic RELEASE/FULL [#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474), CLI/Metal [#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398), native memory-pressure [#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558), Repository Health [#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483) and `local-ci/mac` [#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801) are **PASS**; these are not LC7 representative-hardware acceptance.
+- On [approved 0.8B physical-Mac canary #43773079533, attempt 2](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533), **host admission refused before download/inference**: reclaimable estimate 8,053,571,584 bytes versus unchanged 8,455,716,864-byte requirement; swap already used 5,529,864,765 bytes is not additional available RAM. Managed HTTP and independent Python inference were both `not_run`. This was the unchanged runtime source `dev@34f8e12`; newer `dev@427de51d` changed docs only.
+- Classify as **environment/host-capacity blocked**, not a native regression. Do not repeat identical tests without substantially improved memory headroom; retain fail-conservative policy. Actual SSE cancellation, LC7 HE-2/RES-2/RRG-5 and Experiments external endpoint comparison remain **PENDING**. `main` remains unchanged.
 
 ## Durable references
 
