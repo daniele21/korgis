@@ -57,7 +57,9 @@ def test_diskcache_guard_rejects_unsafe_wiring(tmp_path) -> None:
     source = tmp_path / "consumer.py"
     cases = {
         "import diskcache": "direct diskcache import",
-        "from llama_cpp import LlamaDiskCache": "LlamaDiskCache import",
+        "from llama_cpp import LlamaDiskCache": "LlamaDiskCache-capable import",
+        "from llama_cpp import *": "LlamaDiskCache-capable import",
+        "LlamaDiskCache()": "LlamaDiskCache reference",
         "cache = llama_cpp.LlamaDiskCache()": "LlamaDiskCache access",
         "model.set_cache(cache)": "set_cache call",
         "llm = Llama(cache=cache)": "Llama(cache=...) configuration",
