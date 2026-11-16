@@ -2,9 +2,11 @@
 """Fail closed when dependency vulnerability exceptions are malformed or expired."""
 from __future__ import annotations
 
+import ast
 from datetime import date
 import json
 from pathlib import Path
+from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 PATH = ROOT / ".engineering" / "security-exceptions.json"
@@ -71,6 +73,51 @@ def validate(payload: object, *, today: date | None = None) -> list[str]:
     return errors
 
 
+
+def validate_no_llama_disk_cache_wiring(roots: Iterable[Path]) -> list[str]:
+    """Reject first-party code enabling upstream pickle-backed GGUF disk caching.
+
+    This checks first-party Python source only. It does not make the installed
+    diskcache distribution safe or supersede vulnerability audit/expiry gates.
+    """
+    errors: list[str] = []
+    for directory in roots:
+        if not directory.exists():
+            continue
+        for path in sorted(directory.rglob("*.py")):
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            except (OSError, SyntaxError) as exc:
+                errors.append(f"{path}: cannot audit source: {exc}")
+                continue
+            for node in ast.walk(tree):
+                problem: str | None = None
+                if isinstance(node, ast.Import):
+                    if any(alias.name == "diskcache" or alias.name.startswith("diskcache.")
+                           for alias in node.names):
+                        problem = "direct diskcache import"
+                elif isinstance(node, ast.ImportFrom):
+                    module = node.module or ""
+                    if module == "diskcache" or module.startswith("diskcache."):
+                        problem = "direct diskcache import"
+                    elif module in ("llama_cpp", "llama_cpp.llama_cache") and any(
+                        alias.name == "LlamaDiskCache" for alias in node.names
+                    ):
+                        problem = "LlamaDiskCache import"
+                elif isinstance(node, ast.Attribute):
+                    if node.attr == "LlamaDiskCache":
+                        problem = "LlamaDiskCache access"
+                elif isinstance(node, ast.Call):
+                    if isinstance(node.func, ast.Attribute) and node.func.attr == "set_cache":
+                        problem = "set_cache call"
+                    elif isinstance(node.func, ast.Name) and node.func.id == "Llama":
+                        if any(keyword.arg == "cache" for keyword in node.keywords):
+                            problem = "Llama(cache=...) configuration"
+                if problem:
+                    errors.append(f"{path}:{node.lineno}: forbidden GGUF disk-cache wiring: {problem}")
+    return errors
+
+
 def main() -> int:
     try:
         payload = json.loads(PATH.read_text(encoding="utf-8"))
@@ -78,6 +125,13 @@ def main() -> int:
         print(f"Security exception check: FAIL: {exc}")
         return 1
     errors = validate(payload)
+    errors.extend(
+        validate_no_llama_disk_cache_wiring(
+            (ROOT / "src" / "local_llm_server",
+             ROOT / "sdk" / "python" / "src",
+             ROOT / "examples" / "korgis-consumer")
+        )
+    )
     print("Security exception contract")
     print(f"path: {PATH}")
     for error in errors:
