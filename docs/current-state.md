@@ -78,13 +78,17 @@ remains `not_provided`, and both `reclamation_safety_claim` and
 
 ## Release state (2026-11-16 UTC)
 
-Current `dev@427de51d` deterministic
+Previous `dev@427de51d` deterministic
 [RELEASE/FULL #43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474),
 [CLI/Metal #43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398),
 [memory-pressure #43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558),
 [Repository Health #43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483),
 and [local-ci/mac #43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801)
 are **PASS**, but do not qualify LC7 hardware behavior.
+Current `dev@18c8d05d` [FULL #43824698200](https://github.com/daniele21/korgis/actions/runs/43824698200)
+**FAILS**: pre-existing `diskcache` security exception expired
+2026-11-15. See [security issue #286](https://github.com/daniele21/korgis/issues/286).
+Do not bypass the audit or auto-extend the exception.
 
 Physical-Mac [4B preflight #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460)
 refused with 7.55 versus 9.78 GB required, plus GGUF hash mismatch.
