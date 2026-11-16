@@ -128,34 +128,21 @@ continuous peak memory or representative large-model behavior.
 
 ## Current dev Mac qualification (2026-11-15)
 
-`dev@61bea2dc`: [RELEASE/FULL #43649459257](https://github.com/daniele21/korgis/actions/runs/43649459257)
-and [native CLI/Metal #43649459270](https://github.com/daniele21/korgis/actions/runs/43649459270)
-PASS; **not LC7 acceptance**.
 [Mac diagnostic #43651554051](https://github.com/daniele21/local-runner-infra/actions/runs/43651554051):
-8,326,021,120 / 8,302,034,944 / 8,285,126,656 available bytes
-versus 8,455,716,864 required for 0.8B (6 GiB OS reserve +
-1.5 × 1.25 GiB estimate). Pressure NORMAL; swap used 3,155,165,184
-bytes with zero observed swap-in/out counter deltas. Browser RSS
-~7.1–7.2 GB across 46 processes, **non-additive**; no process IDs,
-names or paths reported. Pinned 0.8B absent in inspected cache roots.
+0.8B admission refused: available 8.326 / 8.302 / 8.285 GB versus
+8.456 GB required. Pressure NORMAL, 3.155 GB used swap, zero observed
+swap-in/out counter delta; browser RSS ~7.1–7.2 GB across 46 processes
+(non-additive), pinned 0.8B absent from inspected cache.
 
 [4B preflight #43649055434](https://github.com/daniele21/local-runner-infra/actions/runs/43649055434):
-8,200,257,536 available versus 9,776,843,072 required, **blocked**.
-Cached SHA `00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`
-matches [Unsloth Q4_K_M](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/blob/main/Qwen3.5-4B-Q4_K_M.gguf),
-not the LM Studio-quantized registry SHA
-`25082a7dd3776cc3c741c6347d3bd04523f05796607b3fbc32fa3a25dfa1418c`.
-Never silently replace registered artifact identity.
+8.20 versus 9.78 GB required, refused. Cached Unsloth Q4_K_M GGUF
+hash differs from registered LM Studio quantization; do not substitute.
+[SSE startup #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308)
+refused before streaming despite an earlier admission;
+[retry #43652047011](https://github.com/daniele21/local-runner-infra/actions/runs/43652047011)
+was rejected by a stricter **test-only** prestart guard. Ports/processes
+clean, no safety-policy or eviction change. Hardware gates remain pending.
 
-[SSE start #43651722308](https://github.com/daniele21/local-runner-infra/actions/runs/43651722308):
-canonical admission initially accepted at 8,590,655,488 bytes;
-actual server startup then refused host admission. No SSE;
-owned processes and ports clean, no forced kill.
-[Rerun #43652047011](https://github.com/daniele21/local-runner-infra/actions/runs/43652047011):
-admission accepted at 8,704,049,152; stricter **test-only**
-prestart guard (+256 MiB estimated load) blocked before download
-or launch. Production thresholds/eviction unchanged.
-HE-2, RES-2, RRG-5, SSE abort and external comparison remain pending.
 ## Mac LC7 admission — BLOCKED (2026-11-15 UTC)
 
 [4B #43770979460](https://github.com/daniele21/local-runner-infra/actions/runs/43770979460):
@@ -170,9 +157,22 @@ LC7 remains blocked.
 
 ### 2026-11-16 bounded Mac rerun
 
-[Approved 0.8B managed + Python physical-Mac canary #43773079533, attempt 2](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533) was retried **once** at the same pinned runtime source `34f8e12384ae9e2e3e84cedb062a3ed47a2cf810`. It returned `host_admission_refused_before_download`, with reclaimable estimate **8,053,571,584 bytes** below the unchanged **8,455,716,864-byte** canonical floor and 5,529,864,765 bytes already in swap. No model download or native inference occurred; managed/Python outcomes were `not_run`. Classify **environment/capacity block**, not demonstrated llama.cpp failure. No policy margins, eviction, default runtime or external processes were changed. Stop repeating until materially different host conditions exist.
+[Approved 0.8B Mac canary #43773079533 attempt 2](https://github.com/daniele21/local-runner-infra/actions/runs/43773079533)
+used unchanged runtime source `34f8e12`: reclaimable estimate
+8,053,571,584 bytes versus canonical floor 8,455,716,864;
+5,529,864,765 bytes already in swap. Result
+`host_admission_refused_before_download`; managed/Python inference
+`not_run`. **Environment/capacity block**; no model download,
+policy relaxation or process eviction. Stop identical retries until host
+headroom materially improves.
 
-Current `dev@427de51d` deterministic RELEASE/FULL [#43773565474](https://github.com/daniele21/korgis/actions/runs/43773565474), native CLI/Metal [#43773565398](https://github.com/daniele21/korgis/actions/runs/43773565398), native memory-pressure [#43773565558](https://github.com/daniele21/korgis/actions/runs/43773565558), Repository Health [#43773565483](https://github.com/daniele21/korgis/actions/runs/43773565483), and `local-ci/mac` [#43773579801](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801) all PASS. Real LC7 Mac and Experiments release evidence remain pending.
+Current `dev@427de51d` exact-head
+[FULL](https://github.com/daniele21/korgis/actions/runs/43773565474),
+[CLI/Metal](https://github.com/daniele21/korgis/actions/runs/43773565398),
+[memory-pressure](https://github.com/daniele21/korgis/actions/runs/43773565558),
+[Repository Health](https://github.com/daniele21/korgis/actions/runs/43773565483)
+and [local-ci/mac](https://github.com/daniele21/local-runner-infra/actions/runs/43773579801)
+PASS; **not** LC7 real-hardware or Experiments acceptance.
 
 ## Outstanding LC7 / release contract
 
