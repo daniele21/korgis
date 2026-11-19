@@ -220,7 +220,9 @@ def resolve_bundle_artifacts(
             candidate = (lmstudio_root / relative_lm).resolve()
             if candidate == lmstudio_root or lmstudio_root not in candidate.parents:
                 raise ValueError(f"Model '{key}' artifact '{name}' LM Studio path escapes model tree")
-            if candidate.is_file() and explicit_root is None:
+            if explicit_root is None and (
+                candidate.is_file() or bool(raw_spec.get("lmstudio_required", False))
+            ):
                 destination = candidate
         resolved[str(name)] = destination
     return resolved
