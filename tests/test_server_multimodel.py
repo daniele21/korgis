@@ -315,3 +315,35 @@ def test_model_activation_exposes_privacy_safe_runtime_identity():
     )
     assert payload["cfg"]["quantization"] == "PTQ1_0"
     assert "/private/models" not in str(payload["runtime_identity"])
+
+def test_admin_load_propagates_no_download_to_prevent_implicit_weights_download():
+    """Playground can activate an installed image model without network access."""
+    engine = _Engine("image")
+    runtime = SimpleNamespace(
+        key="flux-3-image-klein-gguf-q5km",
+        model_id="unsloth/flux-3-image-klein-GGUF",
+        engine=engine,
+        cfg={
+            "model": "flux-3-image-klein-gguf-q5km",
+            "model_id": "unsloth/flux-3-image-klein-GGUF",
+            "model_path": "/tmp/bundle",
+            "backend": "stable_diffusion_cpp_image",
+        },
+        runtime_identity_snapshot=None,
+    )
+    class _Manager:
+        default_model = None
+        def load(self, model, **explicit):
+            assert model == runtime.key
+            assert explicit == {"no_download": True}
+            return runtime, True
+        def set_default(self, key):
+            self.default_model = key
+    state = SimpleNamespace(runtime_manager=_Manager(), cfg=None, llm=None)
+    result = _load_or_activate_model(
+        ModelActivateRequest(model=runtime.key, no_download=True),
+        set_default=False,
+        app_state=state,
+    )
+    assert result["default"] is False
+    assert result["cfg"]["backend"] == "stable_diffusion_cpp_image"

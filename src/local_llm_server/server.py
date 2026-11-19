@@ -226,6 +226,7 @@ class ModelActivateRequest(BaseModel):
     mlx_vlm_server_port: Optional[int] = Field(None, description="Internal mlx_vlm.server subprocess port.")
     mmproj_path: Optional[str] = Field(None, description="Path to multimodal projector GGUF.")
     startup_timeout: Optional[int] = Field(None, description="Backend subprocess startup timeout in seconds.")
+    no_download: Optional[bool] = Field(None, description="Fail closed if required model files are not installed locally.")
     max_concurrent_requests: Optional[int] = Field(None, ge=1, description="Maximum admitted requests for this runtime.")
     enable_thinking: Optional[bool] = Field(None, description="Enable thinking mode globally.")
     show_thinking: Optional[bool] = Field(None, description="Show thinking globally.")
@@ -1074,7 +1075,7 @@ def _load_or_activate_model(
         "timeout", "offload_kqv", "flash_attn", "use_mmap", "enable_thinking",
         "show_thinking", "verbose", "llama_server_port", "llama_server_bin",
         "mlx_vlm_server_port", "mmproj_path", "startup_timeout",
-        "max_concurrent_requests",
+        "max_concurrent_requests", "no_download",
     ]:
         value = getattr(req, field_name)
         if value is not None:
