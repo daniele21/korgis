@@ -342,8 +342,8 @@ def test_admin_load_propagates_no_download_to_prevent_implicit_weights_download(
     state = SimpleNamespace(runtime_manager=_Manager(), cfg=None, llm=None)
     result = _load_or_activate_model(
         ModelActivateRequest(model=runtime.key, no_download=True),
-        set_default=True,
+        set_default=False,
         app_state=state,
     )
-    assert result["default"] is True
+    assert result["default"] is False
     assert result["cfg"]["backend"] == "stable_diffusion_cpp_image"
