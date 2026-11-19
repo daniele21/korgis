@@ -58,6 +58,7 @@ class SystemResourceSnapshot:
     process_rss_bytes: ResourceValue = field(default_factory=lambda: ResourceValue.unavailable("bytes"))
     accelerator_memory_bytes: ResourceValue = field(default_factory=lambda: ResourceValue.unavailable("bytes"))
     thermal_pressure: ResourceValue = field(default_factory=lambda: ResourceValue.unavailable("level"))
+    swap_used_bytes: ResourceValue = field(default_factory=lambda: ResourceValue.unavailable("bytes"))
 
 
 @dataclass(frozen=True, slots=True)
