@@ -113,10 +113,26 @@ class StableDiffusionCppImageEngine:
                 raise ValueError(
                     f"stable-diffusion.cpp bundle is missing artifact '{name}'"
                 )
+            if spec.get("lmstudio_required"):
+                # Do not silently download or duplicate a model explicitly
+                # owned by LM Studio. Validate it is a plausible complete GGUF
+                # before spawning the native backend.
+                if not path.is_file():
+                    raise FileNotFoundError(
+                        f"LM Studio transformer missing: {path}. "
+                        "Install the exact GGUF in LM Studio or use the matching model path."
+                    )
+                if path.stat().st_size < 3_500_000_000:
+                    raise ValueError(
+                        f"LM Studio GGUF looks incomplete (<3.5 GB): {path}"
+                    )
+                with path.open("rb") as handle:
+                    if handle.read(4) != b"GGUF":
+                        raise ValueError(f"LM Studio file does not have a GGUF header: {path}")
             ensure_model(
                 url=artifact_download_url(dict(spec)),
                 dest=path,
-                no_download=bool(self.cfg.get("no_download", False)),
+                no_download=bool(self.cfg.get("no_download", False)) or bool(spec.get("lmstudio_required")),
                 expected_sha256=(
                     str(spec["sha256"])
                     if spec.get("sha256") is not None
