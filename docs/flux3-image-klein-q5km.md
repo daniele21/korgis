@@ -15,14 +15,18 @@ specify a separate **Qwen3-VL-4B-Instruct text encoder** and **FLUX.2 VAE**.
 1. Diffusion GGUF: **existing**, no copy or automatic download:
    `$HOME/.lmstudio/models/unsloth/flux-3-image-klein-GGUF/flux-3-image-klein-Q5_K_M.gguf`
    (Unsloth Q5_K_M; approximately 4.22 decimal GB).
-2. Text encoder: `unsloth/Qwen3-VL-4B-Instruct-GGUF`,
-   `Qwen3-VL-4B-Instruct-Q4_K_M.gguf`, managed target
-   `~/.local-llm/models/flux-3-image-klein-gguf-q5km/text_encoder/Qwen3-VL-4B-Instruct-Q4_K_M.gguf`.
-   Registry revision `cc8371d67a57fc6ae05fc5a9c2df763914928539`.
-3. VAE: `unsloth/flux-3-image-klein`, `ae.safetensors`, managed target
-   `~/.local-llm/models/flux-3-image-klein-gguf-q5km/vae/ae.safetensors`.
-   **Its upstream SHA256/revision are not yet locked**, so do not treat this
-   provisional source entry as immutable-provenance evidence.
+2. Text encoder: [`Qwen/Qwen3-VL-4B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF/blob/bdc46888d3da9c4578c765ca9eb9f5a385a64e6c/Qwen3VL-4B-Instruct-Q4_K_M.gguf),
+   `Qwen3VL-4B-Instruct-Q4_K_M.gguf` (~2.5 GB), managed target
+   `~/.local-llm/models/flux-3-image-klein-gguf-q5km/text_encoder/Qwen3VL-4B-Instruct-Q4_K_M.gguf`.
+   Pinned revision `bdc46888d3da9c4578c765ca9eb9f5a385a64e6c`,
+   SHA256 `66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a`.
+3. FLUX.2 VAE: [`Comfy-Org/Flux-2-Dev`](https://huggingface.co/Comfy-Org/Flux-2-Dev/blob/ab9055628ea245000e610f2aa2c96f4746093546/split_files/vae/flux2-vae.safetensors),
+   upstream file `split_files/vae/flux2-vae.safetensors` (~336 MB), managed target
+   `~/.local-llm/models/flux-3-image-klein-gguf-q5km/vae/flux2-vae.safetensors`.
+   Pinned revision `ab9055628ea245000e610f2aa2c96f4746093546`,
+   SHA256 `d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5`.
+   This is a FLUX.2 VAE, **not** the Qwen Image VAE. Byte-for-byte equivalence
+   with the gated BFL `ae.safetensors` has **not** been established.
 
 Both auxiliary components must be present to start image inference. The
 registry path is resolved relative to **the current user's home**, not a
@@ -36,14 +40,15 @@ this is *not yet full artifact integrity verification*.
 ```bash
 cd ~/Projects/experiments/korgis
 git fetch origin
-git switch feat/flux3-klein-q5km-lmstudio-20261119
+git switch main
 git pull --ff-only
 
 # Check the local transformer is present; no model inference runs here.
 ls -lh "$HOME/.lmstudio/models/unsloth/flux-3-image-klein-GGUF/flux-3-image-klein-Q5_K_M.gguf"
 
-# First run: Korgis may download the separate 4B encoder and VAE to its
-# own managed bundle. It never re-downloads the existing LM Studio GGUF.
+# First run: Korgis downloads the pinned 4B encoder and FLUX.2 VAE when absent,
+# or verifies existing copies by SHA256. It never copies/downloads the LM Studio GGUF.
+# No symlink is needed: model_sources.py resolves the GGUF directly from LM Studio.
 uv run --frozen local-llm serve \
   --model flux-3-image-klein-gguf-q5km \
   --host 127.0.0.1 --port 1235 \
@@ -52,9 +57,9 @@ uv run --frozen local-llm serve \
 
 For a strictly offline run *after* the two auxiliary artifacts exist, add
 `--no-download` to the command. If they are not installed, the error will
-show the exact missing managed path. Source repository downloads could be
-gated or unavailable; use an approved Hugging Face client to fetch those two
-files explicitly if Korgis cannot obtain them. The pinned native
+show the exact missing managed path. Both pinned sources are publicly listed on Hugging Face. If a download fails,
+obtain each file from the verified source and place it at its managed target path.
+A checksum mismatch must be fixed; never bypass integrity verification. The pinned native
 stable-diffusion.cpp build must include FLUX.3 (upstream support introduced
 October 2026). A filename or revision alone does not establish binary support.
 
@@ -88,8 +93,8 @@ not a benchmarked peak or a license to turn off host protections.
 
 ## Experiments comparison
 
-Check out Experiments branch
-`feat/imagegen-flux3-klein-q5km-20261119`. In the Image Generation
+Use Experiments `main` (the `korgis` submodule points at the merged image
+runtime). In the Image Generation
 Playground select **FLUX.3 Image Klein GGUF Q5_K_M**, or pick it as an
 additional arm in **Compare models**. To generate a FLUX vs Gemini vs GPT
 comparison, start FLUX in Korgis and configure server-side cloud API keys.
@@ -110,9 +115,11 @@ so prompt-upsampled BFL service examples are not identical to this setup.
 - [x] Registered distinct model and 16-step preset, without altering Qwen
 - [x] Deterministic path resolution and local-only GGUF startup checks
 - [x] Separate encoder/VAE dependencies, per-model metadata and benchmark arm
-- [ ] CI test verification and complete native Mac startup
+- [x] Previous Korgis integration CI on main passed; bundle update requires fresh CI
+- [ ] Complete native Mac startup with the corrected pinned bundle
 - [ ] 512px generation at seed 43 with correct 16-step sampling
 - [ ] Measured RSS, unified-memory pressure, swap and runtime latency
 - [ ] Validate outputs at 768/1024 before quality comparisons
-- [ ] Lock the upstream VAE revision/checksum and local GGUF digest
+- [x] Lock the encoder and Comfy-Org FLUX.2 VAE revisions and published SHA256
+- [ ] Record the local LM Studio GGUF digest and validate Comfy-Org VAE compatibility with a native image
 - [ ] Validate native image editing separately; it is not enabled by this PR
