@@ -428,15 +428,17 @@ models:
         lmstudio_relative_path: "unsloth/flux-3-image-klein-GGUF/flux-3-image-klein-Q5_K_M.gguf"
         lmstudio_required: true
       text_encoder:
-        repo: "unsloth/Qwen3-VL-4B-Instruct-GGUF"
-        revision: "cc8371d67a57fc6ae05fc5a9c2df763914928539"
-        filename: "Qwen3-VL-4B-Instruct-Q4_K_M.gguf"
-        local_path: "text_encoder/Qwen3-VL-4B-Instruct-Q4_K_M.gguf"
+        repo: "Qwen/Qwen3-VL-4B-Instruct-GGUF"
+        revision: "bdc46888d3da9c4578c765ca9eb9f5a385a64e6c"
+        filename: "Qwen3VL-4B-Instruct-Q4_K_M.gguf"
+        local_path: "text_encoder/Qwen3VL-4B-Instruct-Q4_K_M.gguf"
+        sha256: "66358cb18bb6b3b1b6675aa412c7a88ef01d228f481184d13668e5201c730a0a"
       vae:
-        repo: "unsloth/flux-3-image-klein"
-        revision: main  # lock to a verified commit/checksum before general release
-        filename: "ae.safetensors"
-        local_path: "vae/ae.safetensors"
+        repo: "Comfy-Org/Flux-2-Dev"
+        revision: "ab9055628ea245000e610f2aa2c96f4746093546"
+        filename: "split_files/vae/flux2-vae.safetensors"
+        local_path: "vae/flux2-vae.safetensors"
+        sha256: "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
     params:
       # Provisional disk-backed envelope; requires real macOS RSS/unified
       # memory and swap evidence before this estimate can be calibrated.
@@ -450,6 +452,7 @@ models:
       image_max_pixels: 1048576
       image_guidance_scale: 1.0
       image_sampling_method: euler
+      image_verify_existing_artifacts: true
       image_output_format: png
       image_diffusion_flash_attention: true
       image_offload_to_cpu: true
