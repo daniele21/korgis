@@ -206,6 +206,22 @@ def resolve_bundle_artifacts(
             raise ValueError(
                 f"Model '{key}' artifact '{name}' escapes its bundle directory"
             )
+        # Artifact-specific LM Studio reuse is opt-in and limited to the
+        # current user's LM Studio model tree. Never copy or re-download the
+        # transformer when its exact GGUF already exists there.
+        lmstudio_relative = raw_spec.get("lmstudio_relative_path")
+        if lmstudio_relative is not None:
+            if not isinstance(lmstudio_relative, str) or not lmstudio_relative.strip():
+                raise ValueError(f"Model '{key}' artifact '{name}' has invalid LM Studio path")
+            relative_lm = Path(lmstudio_relative)
+            if relative_lm.is_absolute() or ".." in relative_lm.parts:
+                raise ValueError(f"Model '{key}' artifact '{name}' LM Studio path must be relative")
+            lmstudio_root = (Path.home() / ".lmstudio" / "models").resolve()
+            candidate = (lmstudio_root / relative_lm).resolve()
+            if candidate == lmstudio_root or lmstudio_root not in candidate.parents:
+                raise ValueError(f"Model '{key}' artifact '{name}' LM Studio path escapes model tree")
+            if candidate.is_file() and explicit_root is None:
+                destination = candidate
         resolved[str(name)] = destination
     return resolved
 
@@ -329,7 +345,13 @@ def resolve_registry_model(
         return ResolvedModel(
             model_path=str(root),
             local_path=root,
-            source_type="explicit" if explicit_path is not None else "managed",
+            source_type=(
+                "explicit" if explicit_path is not None else
+                "lmstudio" if any(
+                    (Path.home() / ".lmstudio" / "models").resolve() in path.parents
+                    for path in artifacts.values()
+                ) else "managed"
+            ),
             downloaded=is_complete_sdcpp_image_bundle(artifacts),
             artifacts=artifacts,
         )
