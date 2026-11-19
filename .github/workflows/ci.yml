@@ -187,7 +187,8 @@ jobs:
     name: Playwright E2E
     needs: [scope, guards, reuse]
     if: always() && needs.guards.result == 'success' && contains(needs.scope.outputs.required_gates, 'browser-e2e') && needs.reuse.outputs.reused != 'true'
-    runs-on: ubuntu-latest
+    # Playwright's pinned Chromium supports Ubuntu 24.04; ubuntu-latest moved to 26.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with: {ref: "${{ needs.scope.outputs.head_sha }}"}

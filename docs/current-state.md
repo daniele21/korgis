@@ -1,7 +1,7 @@
 # Current State
 
 Status: active
-Last reviewed: 2026-09-28
+Last reviewed: 2026-11-19
 
 Local LLM Server is a local-first multi-backend **runtime control plane for local AI applications**, with Local LLM Studio as its browser control plane. Hosted CI proves deterministic software contracts; hardware- and human-dependent claims require matching real evidence.
 
@@ -12,7 +12,7 @@ Local LLM Server is a local-first multi-backend **runtime control plane for loca
 - Repository-side L2 acceptance: `d528b6c5b676e705e7ccf24800929da6d5534203`.
 - Representative Apple Silicon evidence is accepted for TH-E1, EV-3, HE-2, RES-2 and RRG-5.
 - Bounded manual accessibility and representative-user usability evidence is accepted for tested source `a29e77c1ce4e65294440cfe4fc47e33c92173096`.
-- Full L2 evidence is complete; the current action is final FULL publication preflight and promotion to `main`.
+- The August L2 evidence covers its reviewed source; it must not be extended to newly integrated November image-generation engines without matching test and representative-device evidence.
 
 ## Accepted deterministic surface
 
@@ -54,6 +54,13 @@ All required checks/journeys are acceptance-ready with no blocking finding. No r
   slice is benchmark consumption/representative-device evidence; real peak memory, latency,
   thermal and reclamation remain unproven.
   See `docs/workstreams/qwen-image-2-1.md`.
+
+## November 2026 image runtime reconciliation
+
+- The dedicated main-compatibility integration is tracked in [PR #290](https://github.com/daniele21/korgis/pull/290), including separate Qwen Image 2.1 Turbo and FLUX.3 Image Klein Q5_K_M native model profiles. The Experiments Playground implementation is on main via [PR #136](https://github.com/daniele21/experiments/pull/136).
+- FLUX reuses the Q5_K_M transformer directly from the local LM Studio directory. Its Qwen3-VL-4B encoder and FLUX.2 VAE are independent required artifacts. Native image generation on representative macOS hardware is **not yet verified**.
+- Qwen Turbo edit mode remains opt-in. Memory estimates for both profiles are provisional; a first real 512px smoke, latency and unified-memory/swap evidence are required before production acceptance. No automatic memory-protection bypass is introduced.
+- CI and source checks are ongoing on the integration branch. A historical green test does not prove FLUX model startup, image quality, image editing or commercial suitability; checksum/license review remain open.
 
 ## Durable references
 

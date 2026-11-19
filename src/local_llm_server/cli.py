@@ -105,6 +105,7 @@ def main() -> None:
     p_serve.add_argument("--image-scheduler", default=None, dest="image_scheduler")
     p_serve.add_argument("--image-diffusion-flash-attention", action=argparse.BooleanOptionalAction, default=None, dest="image_diffusion_flash_attention")
     p_serve.add_argument("--image-offload-to-cpu", action=argparse.BooleanOptionalAction, default=None, dest="image_offload_to_cpu")
+    p_serve.add_argument("--image-editing-enabled", action=argparse.BooleanOptionalAction, default=None, dest="image_editing_enabled", help="Opt into reference image editing; requires matching vision projector and additional memory")
     p_serve.add_argument("--image-vae-tiling", action=argparse.BooleanOptionalAction, default=None, dest="image_vae_tiling")
     p_serve.add_argument("--image-vae-tile-size", default=None, dest="image_vae_tile_size")
     p_serve.add_argument("--startup-timeout", type=int, default=None, dest="startup_timeout")

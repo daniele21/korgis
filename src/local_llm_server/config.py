@@ -41,6 +41,7 @@ _FALLBACKS: dict[str, Any] = {
     "default_min_p": 0.0,
     "default_repeat_penalty": 1.0,
     "backend": "llama_cpp",
+    "resource_admission_profile": "standard",
     "mmproj_path": None,
     "llama_server_port": 8091,
     "llama_server_bin": None,
@@ -77,8 +78,13 @@ _FALLBACKS: dict[str, Any] = {
     "image_output_format": "png",
     "image_sampling_method": "euler",
     "image_scheduler": None,
+    # Registry-owned schedule; deliberately no public arbitrary sigma-list input.
+    "image_sigma_schedule": None,
+    "image_verify_existing_artifacts": False,
     "image_diffusion_flash_attention": True,
     "image_offload_to_cpu": True,
+    "image_editing_enabled": False,
+    "image_editing_extra_resident_bytes": 0,
     "image_vae_tiling": False,
     "image_vae_tile_size": None,
     "multimodal": False,
@@ -143,6 +149,7 @@ _ENV_MAP: dict[str, str] = {
     "image_scheduler": "LOCAL_LLM_IMAGE_SCHEDULER",
     "image_diffusion_flash_attention": "LOCAL_LLM_IMAGE_DIFFUSION_FLASH_ATTENTION",
     "image_offload_to_cpu": "LOCAL_LLM_IMAGE_OFFLOAD_TO_CPU",
+    "image_editing_enabled": "LOCAL_LLM_IMAGE_EDITING_ENABLED",
     "image_vae_tiling": "LOCAL_LLM_IMAGE_VAE_TILING",
     "image_vae_tile_size": "LOCAL_LLM_IMAGE_VAE_TILE_SIZE",
     "startup_timeout": "LOCAL_LLM_STARTUP_TIMEOUT",
@@ -163,6 +170,7 @@ _BOOL_ENV = {
     "llama_server_allow_unvalidated", "llama_server_cont_batching",
     "llama_server_kv_unified", "llama_server_fit",
     "image_diffusion_flash_attention", "image_offload_to_cpu",
+    "image_editing_enabled",
     "sd_server_mmap", "sd_server_disable_prefetch", "image_vae_tiling",
 }
 _INT_ENV = {
@@ -170,6 +178,7 @@ _INT_ENV = {
     "llama_server_port", "mlx_vlm_server_port", "sd_server_port", "startup_timeout", "default_top_k",
     "image_width", "image_height", "image_num_inference_steps", "image_quantization_bits",
     "image_max_inference_steps", "image_max_pixels",
+    "image_editing_extra_resident_bytes",
     "max_concurrent_requests", "max_kv_size", "llama_server_min_build",
     "llama_server_fit_target_mib", "llama_server_fit_ctx",
     "llama_server_cache_ram_mib",
@@ -293,6 +302,7 @@ def build_config(
     cfg["mmproj_url"] = entry.get("mmproj_url", "")
     cfg["lmstudio_path"] = entry.get("lmstudio_path")
     cfg["size_gb"] = entry.get("size_gb")
+    cfg["license"] = entry.get("license")
     # Immutable identity metadata is optional. Absence means the runtime can
     # still execute, but automatic evidence-grade identity is intentionally not
     # claimed. Explicit kwargs allow controlled direct-path deployments to pin
@@ -344,6 +354,44 @@ def build_config(
     )
     cfg["artifact_specs"] = dict(entry.get("artifacts") or {})
 
+    # Editing is an opt-in extension of the same image runtime. Keep projector
+    # metadata out of the required T2I bundle so existing installs stay valid.
+    projector_spec = entry.get("image_editing_projector")
+    if projector_spec is not None:
+        if not isinstance(projector_spec, dict):
+            raise ValueError("image_editing_projector must be a mapping")
+        raw_relative = projector_spec.get("local_path")
+        if not isinstance(raw_relative, str) or not raw_relative:
+            raise ValueError("image_editing_projector requires a relative local_path")
+        root = (models_dir / model).resolve()
+        projector_path = (root / raw_relative).resolve()
+        if projector_path == root or root not in projector_path.parents:
+            raise ValueError("image_editing_projector path escapes model bundle")
+        cfg["image_editing_projector_path"] = str(projector_path)
+        cfg["image_editing_projector_spec"] = dict(projector_spec)
+    else:
+        cfg["image_editing_projector_path"] = None
+        cfg["image_editing_projector_spec"] = None
+
+    if cfg["image_editing_enabled"]:
+        if backend != "stable_diffusion_cpp_image" or projector_spec is None:
+            raise ValueError(
+                "image editing is only available for an explicitly configured "
+                "stable-diffusion.cpp model with a vision projector"
+            )
+        if cfg["image_editing_extra_resident_bytes"] <= 0:
+            raise ValueError("image editing requires a positive extra resident budget")
+        base_estimate = cfg.get("resource_estimate_bytes")
+        if not isinstance(base_estimate, int) or isinstance(base_estimate, bool) or base_estimate <= 0:
+            raise ValueError("image editing requires a calibrated baseline resident estimate")
+        # The resource envelope, admission policy and status must agree.
+        cfg["resource_estimate_bytes"] = (
+            base_estimate + cfg["image_editing_extra_resident_bytes"]
+        )
+        # Per-runtime descriptor, not a claim about all GGUF models.
+        inputs = list(entry.get("input_modalities") or ["text"])
+        cfg["input_modalities"] = sorted(set(inputs + ["image"]))
+
     if not cfg.get("mmproj_path") and entry.get("mmproj_filename"):
         cfg["mmproj_path"] = str(
             resolved_source.mmproj_path
@@ -359,6 +407,9 @@ def build_config(
     ):
         if capability_key in entry and capability_key not in explicit:
             cfg[capability_key] = list(entry.get(capability_key) or [])
+
+    if cfg["image_editing_enabled"]:
+        cfg["input_modalities"] = sorted(set(cfg.get("input_modalities") or ["text"]) | {"image"})
 
     return cfg
 

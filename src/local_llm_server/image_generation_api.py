@@ -7,6 +7,7 @@ import time
 from fastapi import FastAPI, HTTPException, Request, status
 
 from .core.contracts import InferenceError
+from .image_editing_api import install_image_editing_api
 from .image_generation_request import (
     ImageGenerationRequest,
     prepare_image_generation_request,
@@ -118,4 +119,4 @@ def install_image_generation_api(application: FastAPI) -> FastAPI:
             },
         }
 
-    return application
+    return install_image_editing_api(application)
