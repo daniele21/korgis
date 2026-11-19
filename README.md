@@ -257,3 +257,4 @@ Contributors work from `dev` and follow [`AGENTS.md`](AGENTS.md). Canonical setu
 See [`LICENSE`](LICENSE).
 
 Built by [Daniele Moltisanti](https://daniele21.github.io/) as the reusable execution layer of a broader Local AI effort: control the runtime, measure the result, then decide Local, Hybrid or Cloud.
+See also [FLUX.3 Image Klein local GGUF setup](docs/flux3-image-klein-q5km.md) and [Qwen Turbo reference editing](docs/qwen-21-turbo-image-edit.md).

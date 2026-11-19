@@ -489,6 +489,7 @@ def get_models(request: Request):
                 "path": runtime.cfg["model_path"],
                 "backend": getattr(runtime.engine, "backend", runtime.cfg.get("backend")),
                 "default": runtime.key == manager.default_model,
+                "image_editing_enabled": bool(runtime.cfg.get("image_editing_enabled", False)),
             }
             for runtime in manager.list()
         ],
