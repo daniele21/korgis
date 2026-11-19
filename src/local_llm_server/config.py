@@ -285,6 +285,7 @@ def build_config(
     cfg["mmproj_url"] = entry.get("mmproj_url", "")
     cfg["lmstudio_path"] = entry.get("lmstudio_path")
     cfg["size_gb"] = entry.get("size_gb")
+    cfg["license"] = entry.get("license")
     # Immutable identity metadata is optional. Absence means the runtime can
     # still execute, but automatic evidence-grade identity is intentionally not
     # claimed. Explicit kwargs allow controlled direct-path deployments to pin
