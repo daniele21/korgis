@@ -209,3 +209,70 @@ def test_metrics_only_terminal_event_reaches_client_transport_and_inner_telemetr
     metrics = getattr(runtime, "latest_inference_metrics", None)
     assert metrics is not None
     assert metrics.counts.output_tokens == 4
+
+
+def test_nonstream_structured_output_accepts_backend_separated_reasoning_content():
+    client, _ = _client([])
+    runtime = client.app.state.runtime_manager.resolve("demo")
+    runtime.engine.complete = lambda payload: {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "model": "org/demo",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": '{"answer": 42}',
+                    "reasoning_content": "private chain",
+                },
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+    response = client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "demo",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": False,
+            "response_format": {"type": "json_object"},
+            "enable_thinking": True,
+            "show_thinking": False,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["choices"][0]["message"]["content"] == '{"answer": 42}'
+    assert body["structured_output"] == {"answer": 42}
+    assert body["thinking"] == ""
+
+
+def test_stream_structured_output_accepts_backend_separated_reasoning_content():
+    chunks = [
+        {
+            "id": "chatcmpl-test",
+            "object": "chat.completion.chunk",
+            "model": "org/demo",
+            "choices": [
+                {"index": 0, "delta": {"reasoning_content": "private chain"}, "finish_reason": None}
+            ],
+        },
+        _event('{"answer": 42}'),
+        _event(None, finish_reason="stop"),
+    ]
+    client, _ = _client(chunks)
+
+    response = client.post(
+        "/v1/chat/completions",
+        json=_stream_payload(
+            response_format={"type": "json_object"},
+            enable_thinking=True,
+            show_thinking=False,
+        ),
+    )
+
+    assert response.status_code == 200
+    assert _aggregate_content(_parse_sse(response.text)) == '{"answer": 42}'

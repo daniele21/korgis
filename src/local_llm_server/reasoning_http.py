@@ -175,15 +175,18 @@ class ReasoningBoundaryMiddleware:
             if not isinstance(response_payload, dict):
                 raise ValueError("non-object JSON response")
             raw_content = _response_raw_content(response_payload)
+            pre_separated_reasoning = _response_reasoning_content(response_payload)
             normalized = normalize_application_output(
                 raw_content,
-                expect_reasoning=expect_reasoning,
+                expect_reasoning=(
+                    False if pre_separated_reasoning else expect_reasoning
+                ),
                 constraints=constraints,
             )
             _apply_normalized_response(
                 response_payload,
                 normalized.final_content,
-                normalized.reasoning,
+                normalized.reasoning or pre_separated_reasoning,
                 normalized.structured_output,
                 expose_reasoning=expose_reasoning,
             )
@@ -282,6 +285,8 @@ class SSEReasoningRedactor:
                 delta = normalized.get("delta")
                 if isinstance(delta, dict):
                     normalized_delta = dict(delta)
+                    if isinstance(normalized_delta.get("reasoning_content"), str) and normalized_delta["reasoning_content"]:
+                        self.parser.end_implicit_reasoning()
                     content = normalized_delta.get("content")
                     if isinstance(content, str) and content:
                         exposed = self.parser.feed(content)
@@ -447,6 +452,17 @@ def _response_raw_content(payload: Mapping[str, Any]) -> str:
         if isinstance(message, Mapping) and isinstance(message.get("content"), str):
             return str(message["content"])
     return str(payload.get("content") or "")
+
+
+def _response_reasoning_content(payload: Mapping[str, Any]) -> str:
+    choices = payload.get("choices")
+    if isinstance(choices, list) and choices and isinstance(choices[0], Mapping):
+        message = choices[0].get("message")
+        if isinstance(message, Mapping):
+            reasoning = message.get("reasoning_content")
+            if isinstance(reasoning, str) and reasoning:
+                return reasoning
+    return ""
 
 
 def _apply_normalized_response(

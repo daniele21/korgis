@@ -109,6 +109,11 @@ class ReasoningStreamParser:
             return ""
         return carry
 
+    def end_implicit_reasoning(self) -> None:
+        """Exit initial implicit-reasoning state when backend separates reasoning."""
+        if self._in_reasoning and not self._carry and not self._reasoning_parts:
+            self._in_reasoning = False
+
     def _consume_ordinary(self, text: str, output: list[str]) -> None:
         if not text:
             return
